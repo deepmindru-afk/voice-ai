@@ -20,6 +20,10 @@ env:
   VM_NAME: rapida-web-api
   RESOURCE_GROUP: rg-rapida-in-01
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   build:
     name: Build
@@ -45,9 +49,11 @@ jobs:
           GOOS=linux GOARCH=amd64 go build -o $BINARY cmd/web/web.go
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Upload artifact to Blob Storage
         run: |
