@@ -45,7 +45,7 @@ jobs:
           GOOS=linux GOARCH=amd64 go build -o $BINARY cmd/web/web.go
 
       - name: Azure Login
-        uses: azure/login@v2
+        uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
