@@ -2,7 +2,7 @@ name: Deploy Web API (Azure)
 
 on:
   push:
-    branches: [saas]
+    branches: [main]
     paths:
       - "api/web-api/**"
       - "cmd/web/**"
@@ -14,19 +14,11 @@ on:
 env:
   SERVICE: web-api
   BINARY: web-api.0.0.1
-  DEPLOY_DIR: /opt/app/backend-app/artifacts/web-api
-  STORAGE_ACCOUNT: rapidastore
-  CONTAINER: deploy-artifacts
-  VM_NAME: rapida-web-api
-  RESOURCE_GROUP: rg-rapida-in-01
-
-permissions:
-  id-token: write
-  contents: read
+  ACR_NAME: rapidaacr
 
 jobs:
-  build:
-    name: Build
+  build-and-push:
+    name: Build and Push
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,51 +40,21 @@ jobs:
           go mod download
           GOOS=linux GOARCH=amd64 go build -o $BINARY cmd/web/web.go
 
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Upload artifact to Blob Storage
+      - name: Login to ACR
         run: |
-          az storage blob upload \
-            --account-name $STORAGE_ACCOUNT \
-            --container-name $CONTAINER \
-            --name $SERVICE/$BINARY \
-            --file $BINARY \
-            --overwrite \
-            --auth-mode login
+          az login --service-principal \
+            -u "${{ secrets.AZURE_CLIENT_ID }}" \
+            -p "${{ secrets.AZURE_CLIENT_SECRET }}" \
+            --tenant "${{ secrets.AZURE_TENANT_ID }}" \
+            -o none
+          az acr login --name $ACR_NAME
 
-      - name: Deploy to VM via Custom Script Extension
+      - name: Install oras
         run: |
-          az vm run-command invoke \
-            --resource-group $RESOURCE_GROUP \
-            --name $VM_NAME \
-            --command-id RunShellScript \
-            --scripts "
-              set -e
-              echo 'Downloading artifact...'
-              az storage blob download \
-                --account-name $STORAGE_ACCOUNT \
-                --container-name $CONTAINER \
-                --name $SERVICE/$BINARY \
-                --file /tmp/$BINARY \
-                --auth-mode login 2>/dev/null || \
-              curl -sf 'https://${STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER}/${SERVICE}/${BINARY}' -o /tmp/$BINARY
+          curl -fsSL https://github.com/oras-project/oras/releases/download/v1.2.2/oras_1.2.2_linux_amd64.tar.gz | tar xz -C /usr/local/bin oras
 
-              echo 'Stopping service...'
-              systemctl stop $SERVICE || true
-
-              echo 'Deploying binary...'
-              cp /tmp/$BINARY $DEPLOY_DIR/
-              chown deploy-agent:deploy-agent $DEPLOY_DIR/$BINARY
-              chmod +x $DEPLOY_DIR/$BINARY
-
-              echo 'Starting service...'
-              systemctl start $SERVICE
-
-              echo 'Validating...'
-              sleep 10
-              curl -sf --max-time 10 http://localhost:9001/readiness/
-              echo 'web-api deployed successfully'
-            "
+      - name: Push artifact to ACR
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          oras push $ACR_NAME.azurecr.io/$SERVICE:latest,$SHA ./$BINARY
+          echo "Pushed $ACR_NAME.azurecr.io/$SERVICE:latest and :$SHA"
