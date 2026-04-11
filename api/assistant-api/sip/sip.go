@@ -572,14 +572,22 @@ func (m *SIPEngine) reconcileRegistrations(ctx context.Context) {
 		if did == "" {
 			continue
 		}
+		did = sip_infra.NormalizeDID(did)
 		credentialID, err := opts.GetUint64("rapida.credential_id")
 		if err != nil {
 			continue
 		}
 		sipStatus, _ := opts.GetString("rapida.sip_status")
 
-		// Skip failed/disabled deployments
-		if sipStatus == "failed" || sipStatus == "disabled" {
+		// Skip deployments with terminal registration statuses
+		switch sipStatus {
+		case "failed", "disabled", "rejected", "config_error", "unreachable":
+			continue
+		}
+
+		// Only register DIDs that opted into inbound calls
+		sipInbound, _ := opts.GetString("rapida.sip_inbound")
+		if sipInbound != "true" {
 			continue
 		}
 
@@ -645,6 +653,8 @@ func (m *SIPEngine) registerDID(ctx context.Context, did string, credentialID, a
 	if err := db.Where("id = ?", assistantID).First(&assistant).Error; err != nil {
 		m.logger.Warnw("Failed to load assistant for registration",
 			"assistant_id", assistantID, "error", err)
+		m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_status", "config_error")
+		m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_error", "assistant not found")
 		return
 	}
 	auth := &types.ProjectScope{
@@ -656,6 +666,8 @@ func (m *SIPEngine) registerDID(ctx context.Context, did string, credentialID, a
 	if err != nil {
 		m.logger.Warnw("Failed to fetch vault credential for registration",
 			"assistant_id", assistantID, "credential_id", credentialID, "error", err)
+		m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_status", "config_error")
+		m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_error", "vault credential not found")
 		return
 	}
 
@@ -663,6 +675,8 @@ func (m *SIPEngine) registerDID(ctx context.Context, did string, credentialID, a
 	if err != nil {
 		m.logger.Warnw("Failed to parse SIP config for registration",
 			"assistant_id", assistantID, "error", err)
+		m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_status", "config_error")
+		m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_error", "invalid SIP config: "+err.Error())
 		return
 	}
 
@@ -680,7 +694,15 @@ func (m *SIPEngine) registerDID(ctx context.Context, did string, credentialID, a
 		Config:      sipConfig,
 		AssistantID: assistantID,
 	}); err != nil {
-		// Auth failure → mark as failed so we don't retry
+		// Permanent SIP rejection (403, 404, 405, etc.) — will never succeed
+		if errors.Is(err, sip_infra.ErrPermanentFailure) {
+			m.logger.Errorw("SIP registration permanently rejected — will not retry",
+				"did", did, "assistant_id", assistantID, "error", err)
+			m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_status", "rejected")
+			m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_error", err.Error())
+			return
+		}
+		// Auth failure (401/407 after digest) — wrong credentials
 		if errors.Is(err, sip_infra.ErrAuthFailed) {
 			m.logger.Errorw("SIP registration auth failed — marking deployment as failed",
 				"did", did, "assistant_id", assistantID, "error", err)
@@ -688,15 +710,15 @@ func (m *SIPEngine) registerDID(ctx context.Context, did string, credentialID, a
 			m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_error", err.Error())
 			return
 		}
-		// Transient failure → will retry next poll
-		m.logger.Warnw("SIP registration failed (will retry)",
-			"did", did, "assistant_id", assistantID, "error", err)
+		// Transient failure (timeout, 5xx) — retry with counter
+		m.handleTransientFailure(ctx, did, assistantID, deploymentID, err)
 		return
 	}
 
-	// Success → mark as active
+	// Success → mark as active, clear error and retry counter
 	m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_status", "active")
 	m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_error", "")
+	m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_retry_count", "0")
 
 	m.logger.Infow("SIP DID registered",
 		"did", did,
@@ -723,6 +745,35 @@ func (m *SIPEngine) upsertDeploymentOption(ctx context.Context, deploymentID uin
 	}
 }
 
+const maxTransientRetries = 10 // ~50 minutes of retrying (10 × 5-min poll)
+
+// handleTransientFailure increments the retry counter for a transient SIP failure
+// (e.g., transport timeout, 5xx). After maxTransientRetries, marks the deployment
+// as "unreachable" so reconciliation stops retrying.
+func (m *SIPEngine) handleTransientFailure(ctx context.Context, did string, assistantID, deploymentID uint64, err error) {
+	db := m.postgres.DB(ctx)
+	var opt internal_assistant_entity.AssistantDeploymentTelephonyOption
+	retryCount := 0
+	if dbErr := db.Where("assistant_deployment_telephony_id = ? AND key = ?",
+		deploymentID, "rapida.sip_retry_count").First(&opt).Error; dbErr == nil {
+		retryCount, _ = strconv.Atoi(opt.Value)
+	}
+	retryCount++
+
+	if retryCount >= maxTransientRetries {
+		m.logger.Errorw("SIP registration unreachable after max retries — will not retry",
+			"did", did, "assistant_id", assistantID, "retries", retryCount, "error", err)
+		m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_status", "unreachable")
+		m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_error", err.Error())
+		m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_retry_count", strconv.Itoa(retryCount))
+		return
+	}
+
+	m.logger.Warnw("SIP registration failed (will retry)",
+		"did", did, "assistant_id", assistantID, "retry", retryCount, "error", err)
+	m.upsertDeploymentOption(ctx, deploymentID, "rapida.sip_retry_count", strconv.Itoa(retryCount))
+}
+
 // RegisterAssistant registers a specific assistant's DID with its SIP provider.
 // Called dynamically when a phone deployment is created or updated.
 func (m *SIPEngine) RegisterAssistant(ctx context.Context, auth types.SimplePrinciple, assistantID uint64) error {
@@ -742,9 +793,15 @@ func (m *SIPEngine) RegisterAssistant(ctx context.Context, auth types.SimplePrin
 		return nil // Not a SIP deployment
 	}
 
-	did, _ := assistant.AssistantPhoneDeployment.GetOptions().GetString("phone")
+	opts := assistant.AssistantPhoneDeployment.GetOptions()
+	did, _ := opts.GetString("phone")
 	if did == "" {
 		return fmt.Errorf("phone deployment has no DID configured")
+	}
+
+	sipInbound, _ := opts.GetString("rapida.sip_inbound")
+	if sipInbound != "true" {
+		return nil // Outbound-only — skip registration
 	}
 
 	sipConfig, _, err := m.fetchSIPConfigAndVaultCredential(auth, assistant)
@@ -753,7 +810,7 @@ func (m *SIPEngine) RegisterAssistant(ctx context.Context, auth types.SimplePrin
 	}
 
 	return m.registrationClient.Register(ctx, &sip_infra.Registration{
-		DID:         did,
+		DID:         sip_infra.NormalizeDID(did),
 		Config:      sipConfig,
 		AssistantID: assistantID,
 	})
@@ -868,6 +925,17 @@ func (m *SIPEngine) pipelineCallStart(ctx context.Context, session *sip_infra.Se
 
 	callCtx, cancel := context.WithCancel(session.Context())
 	defer cancel()
+
+	// For outbound calls, session.End() is deferred until this function returns,
+	// but BYE cancels the dialog context — not the session context. Bridge the gap
+	// by watching ByeReceived() and cancelling callCtx so talker.Talk() can exit.
+	go func() {
+		select {
+		case <-session.ByeReceived():
+			cancel()
+		case <-callCtx.Done():
+		}
+	}()
 
 	select {
 	case <-session.ByeReceived():
