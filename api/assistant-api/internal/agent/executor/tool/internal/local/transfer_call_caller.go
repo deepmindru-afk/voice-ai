@@ -18,27 +18,33 @@ import (
 
 type transferCallCaller struct {
 	toolCaller
+	transferTo string // preconfigured destination from tool options
 }
 
 func (tc *transferCallCaller) Call(ctx context.Context, contextID, toolId string, args map[string]interface{}, communication internal_type.Communication) internal_tool.ToolCallResult {
-	to, _ := args["to"].(string)
-	if to == "" {
-		return internal_tool.Result("Missing 'to' parameter — provide a phone number or SIP URI to transfer to.", false)
+	if tc.transferTo == "" {
+		return internal_tool.Result("Missing 'tool.transfer_to' configuration — configure the transfer destination in tool options.", false)
 	}
+	args["to"] = tc.transferTo
 	communication.OnPacket(ctx, internal_type.DirectivePacket{
 		Directive: protos.ConversationDirective_TRANSFER_CONVERSATION,
 		Arguments: args,
 		ContextID: contextID,
 	})
-	return internal_tool.Result(fmt.Sprintf("Call transferred to %s.", to), true)
+	return internal_tool.Result(fmt.Sprintf("Call transferred to %s.", tc.transferTo), true)
 }
 
 func NewTransferCallCaller(ctx context.Context, logger commons.Logger, toolOptions *internal_assistant_entity.AssistantTool, communication internal_type.Communication,
 ) (internal_tool.ToolCaller, error) {
+	var transferTo string
+	if opts := toolOptions.GetOptions(); opts != nil {
+		transferTo, _ = opts.GetString("tool.transfer_to")
+	}
 	return &transferCallCaller{
 		toolCaller: toolCaller{
 			logger:      logger,
 			toolOptions: toolOptions,
 		},
+		transferTo: transferTo,
 	}, nil
 }

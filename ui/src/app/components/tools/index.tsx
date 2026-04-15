@@ -28,12 +28,18 @@ import {
   GetMCPDefaultOptions,
   ValidateMCPDefaultOptions,
 } from '@/app/components/tools/mcp/constant';
+import { ConfigureTransferCall } from '@/app/components/tools/transfer-call';
+import {
+  GetTransferCallDefaultOptions,
+  ValidateTransferCallDefaultOptions,
+} from '@/app/components/tools/transfer-call/constant';
 import {
   APIRequestToolDefintion,
   BUILDIN_TOOLS,
   EndOfConverstaionToolDefintion,
   EndpointToolDefintion,
   KnowledgeRetrievalToolDefintion,
+  TransferCallToolDefintion,
 } from '@/llm-tools';
 import { ConfigureToolProps } from './common';
 
@@ -46,6 +52,7 @@ export type ToolCode =
   | 'api_request'
   | 'endpoint'
   | 'end_of_conversation'
+  | 'transfer_call'
   | 'mcp';
 
 export interface ToolDefinition {
@@ -101,6 +108,12 @@ const TOOL_REGISTRY: Record<ToolCode, ToolConfig> = {
     getDefaultOptions: GetEndOfConversationDefaultOptions,
     validateOptions: ValidateEndOfConversationDefaultOptions,
     Component: ConfigureEndOfConversation,
+  },
+  transfer_call: {
+    definition: TransferCallToolDefintion,
+    getDefaultOptions: GetTransferCallDefaultOptions,
+    validateOptions: ValidateTransferCallDefaultOptions,
+    Component: ConfigureTransferCall,
   },
   mcp: {
     // MCP tools don't have a static definition - resolved dynamically at runtime

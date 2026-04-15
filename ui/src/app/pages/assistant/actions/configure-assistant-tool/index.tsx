@@ -162,7 +162,6 @@ const ConfigureAssistantTool: FC<{ assistantId: string }> = ({
             <>
               <TableBatchAction
                 renderIcon={Edit}
-                kind="ghost"
                 onClick={() => {
                   navigation.goToEditAssistantTool(assistantId, selectedToolId);
                   setSelectedToolId(null);
@@ -172,7 +171,6 @@ const ConfigureAssistantTool: FC<{ assistantId: string }> = ({
               </TableBatchAction>
               <TableBatchAction
                 renderIcon={TrashCan}
-                kind="ghost"
                 onClick={() => {
                   showDialog(() => {
                     deleteAssistantTool(assistantId, selectedToolId);

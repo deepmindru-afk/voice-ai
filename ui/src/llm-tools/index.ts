@@ -26,6 +26,11 @@ export const BUILDIN_TOOLS = [
   },
   {
     icon: 'https://cdn-01.rapida.ai/partners/tools/api_call.png',
+    code: 'transfer_call',
+    name: 'Transfer call',
+  },
+  {
+    icon: 'https://cdn-01.rapida.ai/partners/tools/api_call.png',
     code: 'mcp',
     name: 'MCP Server',
   },
@@ -118,6 +123,32 @@ export const EndOfConverstaionToolDefintion = {
         },
       },
       required: ['reason'],
+      type: 'object',
+    },
+    null,
+    2,
+  ),
+};
+
+export const TransferCallToolDefintion = {
+  name: 'transfer_call',
+  description:
+    'Call this function to transfer the ongoing call to the configured destination.',
+  parameters: JSON.stringify(
+    {
+      properties: {
+        to: {
+          description:
+            'The phone number or SIP URI to transfer the call to.',
+          type: 'string',
+        },
+        reason: {
+          description:
+            "Brief reason for the transfer, such as 'customer requested human agent' or 'escalation needed'.",
+          type: 'string',
+        },
+      },
+      required: ['to'],
       type: 'object',
     },
     null,
