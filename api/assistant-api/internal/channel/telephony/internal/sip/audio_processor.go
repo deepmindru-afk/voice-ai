@@ -8,6 +8,7 @@ package internal_sip_telephony
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,9 +16,11 @@ import (
 	internal_audio "github.com/rapidaai/api/assistant-api/internal/audio"
 	internal_ambient "github.com/rapidaai/api/assistant-api/internal/audio/ambient"
 	internal_telephony_output "github.com/rapidaai/api/assistant-api/internal/channel/output"
+	"github.com/rapidaai/api/assistant-api/internal/observe"
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 	sip_infra "github.com/rapidaai/api/assistant-api/sip/infra"
 	"github.com/rapidaai/protos"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -66,6 +69,8 @@ type AudioProcessor struct {
 
 	outputSenderRunning atomic.Bool
 	outputHealth        *internal_telephony_output.HealthStats
+	droppedOutputFrames atomic.Uint64
+	transferActive      atomic.Bool
 }
 
 type AudioProcessorConfig struct {
@@ -162,7 +167,7 @@ func (p *AudioProcessor) ProcessInputAudio(audioData []byte) error {
 // ProcessOutputAudio resamples 16kHz LINEAR16 to 8kHz µ-law and buffers for pacing.
 // Discards audio when a bridge is active — the caller hears the operator, not the AI.
 func (p *AudioProcessor) ProcessOutputAudio(audioData []byte) error {
-	if p.bridge.Load() != nil {
+	if p.bridge.Load() != nil || p.transferActive.Load() {
 		return nil
 	}
 	outData, err := p.adapter.ConvertOutput(audioData)
@@ -248,6 +253,9 @@ func (p *AudioProcessor) applyAmbient(chunk []byte) []byte {
 }
 
 func (p *AudioProcessor) NextFrame() []byte {
+	if p.transferActive.Load() {
+		return nil
+	}
 	chunk := p.getNextChunk()
 	if len(chunk) == 0 {
 		return nil
@@ -256,13 +264,35 @@ func (p *AudioProcessor) NextFrame() []byte {
 }
 
 func (p *AudioProcessor) IdleFrame() []byte {
+	if p.transferActive.Load() {
+		return nil
+	}
 	return p.applyAmbient(nil)
+}
+
+func (p *AudioProcessor) SetTransferActive(active bool) {
+	p.transferActive.Store(active)
 }
 
 func (p *AudioProcessor) ConsumeFrame(frame []byte) error {
 	select {
 	case p.rtpHandler.AudioOut() <- frame:
 	default:
+		dropped := p.droppedOutputFrames.Add(1)
+		if dropped == 1 || dropped%100 == 0 {
+			if p.pushInput != nil {
+				p.pushInput(&protos.ConversationEvent{
+					Name: observe.ComponentTelephony,
+					Data: map[string]string{
+						"type":                 "output_send_error",
+						"provider":             "sip",
+						"reason":               "audio_out_full",
+						"dropped_frames_total": fmt.Sprintf("%d", dropped),
+					},
+					Time: timestamppb.Now(),
+				})
+			}
+		}
 	}
 	return nil
 }
@@ -365,13 +395,20 @@ func (p *AudioProcessor) PlayRingback(ctx context.Context) {
 		case <-ticker.C:
 			var frame []byte
 			if useFile {
-				end := fileOffset + mulawFrameSize
-				if end > len(ringtone) {
-					fileOffset = 0
-					end = mulawFrameSize
+				if len(ringtone) >= mulawFrameSize {
+					end := fileOffset + mulawFrameSize
+					if end > len(ringtone) {
+						fileOffset = 0
+						end = mulawFrameSize
+					}
+					if end <= len(ringtone) {
+						frame = ringtone[fileOffset:end]
+						fileOffset = end
+					}
 				}
-				frame = ringtone[fileOffset:end]
-				fileOffset = end
+				if len(frame) == 0 {
+					frame, offset = internal_audio.GenerateRingbackMulawFrame(offset)
+				}
 			} else {
 				frame, offset = internal_audio.GenerateRingbackMulawFrame(offset)
 			}

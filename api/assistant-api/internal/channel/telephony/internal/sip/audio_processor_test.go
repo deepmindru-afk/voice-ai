@@ -209,6 +209,19 @@ func TestProcessOutputAudio_BridgeActive_DiscardsAudio(t *testing.T) {
 	assert.Nil(t, chunk, "audio should be discarded when bridge is active")
 }
 
+func TestProcessOutputAudio_TransferActive_DiscardsAudio(t *testing.T) {
+	rec := &pushRecorder{}
+	proc := newTestAudioProcessor(t, &sip_infra.CodecPCMU, &mockResampler{}, rec)
+	proc.SetTransferActive(true)
+
+	data := make([]byte, 160)
+	err := proc.ProcessOutputAudio(data)
+	assert.NoError(t, err)
+
+	chunk := proc.getNextChunk()
+	assert.Nil(t, chunk, "audio should be discarded when transfer mode is active")
+}
+
 func TestProcessOutputAudio_PCMA_ConvertsToAlaw(t *testing.T) {
 	rec := &pushRecorder{}
 	rtp := testRTPHandler(t, &sip_infra.CodecPCMA)
@@ -240,6 +253,18 @@ func TestProcessOutputAudio_ResamplerError(t *testing.T) {
 	data := make([]byte, 160)
 	err := proc.ProcessOutputAudio(data)
 	assert.Error(t, err)
+}
+
+func TestNextFrame_AndIdleFrame_SilentDuringTransfer(t *testing.T) {
+	rec := &pushRecorder{}
+	proc := newTestAudioProcessor(t, &sip_infra.CodecPCMU, &mockResampler{}, rec)
+
+	// Buffer one frame and enable transfer mode.
+	require.NoError(t, proc.ProcessOutputAudio(make([]byte, 160)))
+	proc.SetTransferActive(true)
+
+	assert.Nil(t, proc.NextFrame(), "NextFrame should be silent during transfer mode")
+	assert.Nil(t, proc.IdleFrame(), "IdleFrame should be silent during transfer mode")
 }
 
 // ---------------------------------------------------------------------------

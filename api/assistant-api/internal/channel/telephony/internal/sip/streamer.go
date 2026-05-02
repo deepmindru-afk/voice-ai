@@ -19,10 +19,12 @@ import (
 	channel_base "github.com/rapidaai/api/assistant-api/internal/channel/base"
 	internal_telephony_base "github.com/rapidaai/api/assistant-api/internal/channel/telephony/internal/base"
 	internal_telephony_media "github.com/rapidaai/api/assistant-api/internal/channel/telephony/internal/media"
+	"github.com/rapidaai/api/assistant-api/internal/observe"
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 	sip_infra "github.com/rapidaai/api/assistant-api/sip/infra"
 	"github.com/rapidaai/pkg/commons"
 	"github.com/rapidaai/protos"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Streamer struct {
@@ -39,8 +41,6 @@ type Streamer struct {
 	transferring        atomic.Bool
 	ringbackCancel      context.CancelFunc
 	onTransferInitiated func(targets []string, postTransferAction string)
-
-	cancelParent context.CancelFunc
 }
 
 func NewStreamer(ctx context.Context,
@@ -52,7 +52,6 @@ func NewStreamer(ctx context.Context,
 	if sipSession == nil {
 		return nil, fmt.Errorf("SIP session is required — standalone server mode is not supported")
 	}
-	_, cancel := context.WithCancel(ctx)
 
 	s := &Streamer{
 		BaseTelephonyStreamer: internal_telephony_base.NewBaseTelephonyStreamer(
@@ -60,15 +59,19 @@ func NewStreamer(ctx context.Context,
 			internal_telephony_base.WithSourceAudioConfig(internal_audio.NewMulaw8khzMonoAudioConfig()),
 			internal_telephony_base.WithBaseOption(channel_base.WithInputAudioConfig(internal_audio.NewLinear16khzMonoAudioConfig())),
 		),
-		cancelParent: cancel,
 	}
 
 	go func() {
 		select {
 		case <-sipSession.ByeReceived():
 			s.Logger.Infow("SIP streamer: user BYE received")
+			s.emitChannelEvent("disconnected", map[string]string{"reason": "bye_received"})
 		case <-sipSession.Context().Done():
 			s.Logger.Infow("SIP streamer: session context cancelled")
+			s.emitChannelEvent("disconnected", map[string]string{"reason": "session_context_cancelled"})
+		case <-ctx.Done():
+			s.Logger.Infow("SIP streamer: caller context cancelled")
+			s.emitChannelEvent("disconnected", map[string]string{"reason": "caller_context_cancelled"})
 		case <-s.Ctx.Done():
 			return
 		}
@@ -80,7 +83,6 @@ func NewStreamer(ctx context.Context,
 
 	rtpHandler := sipSession.GetRTPHandler()
 	if rtpHandler == nil {
-		cancel()
 		return nil, sip_infra.NewSIPError("NewStreamer", sipSession.GetCallID(), "session has no RTP handler", sip_infra.ErrRTPNotInitialized)
 	}
 
@@ -107,6 +109,8 @@ func NewStreamer(ctx context.Context,
 	s.media.Start()
 	go s.audio.RunBridgeRecorder(s.Ctx)
 	s.Input(s.CreateConnectionRequest())
+	s.emitChannelEvent("connected", nil)
+	s.emitChannelEvent("media_started", nil)
 
 	localIP, localPort := rtpHandler.LocalAddr()
 	codecName := "PCMU"
@@ -199,6 +203,7 @@ func (s *Streamer) Send(response internal_type.Stream) error {
 		}
 	case *protos.ConversationDisconnection:
 		s.Logger.Infow("SIP streamer: Send(ConversationDisconnection)", "type", data.GetType().String())
+		s.emitChannelEvent("disconnected", map[string]string{"reason": data.GetType().String()})
 		if disc := s.Disconnect(data.GetType()); disc != nil {
 			s.Input(disc)
 		}
@@ -232,6 +237,8 @@ func (s *Streamer) Send(response internal_type.Stream) error {
 			s.EnterTransferMode(targets, postTransferAction, ringtone)
 			return nil
 		}
+	default:
+		s.Logger.Warnw("SIP Send: unknown message type, skipping", "type", fmt.Sprintf("%T", response))
 	}
 	return nil
 }
@@ -261,6 +268,8 @@ func (s *Streamer) EnterTransferMode(targets []string, postTransferAction, ringt
 	s.mu.Unlock()
 	go func() {
 		if audio != nil {
+			audio.SetTransferActive(true)
+			audio.ClearOutputBuffer()
 			audio.SetRingtone(ringtoneEnum)
 			audio.PlayRingback(ringbackCtx)
 		}
@@ -288,6 +297,7 @@ func (s *Streamer) ExitTransferMode() {
 		session.SetState(sip_infra.CallStateConnected)
 	}
 
+	s.audio.SetTransferActive(false)
 	s.audio.ClearBridgeTarget()
 	s.transferring.Store(false)
 	s.Logger.Infow("Transfer mode: exited, AI resuming")
@@ -355,8 +365,8 @@ func (s *Streamer) Close() error {
 	if !s.closed.CompareAndSwap(false, true) {
 		return nil
 	}
+	s.emitChannelEvent("media_stopped", nil)
 
-	s.cancelParent()
 	s.BaseStreamer.Cancel()
 	s.ResetInputBuffer()
 	if s.media != nil {
@@ -373,4 +383,19 @@ func (s *Streamer) Close() error {
 
 	s.Logger.Infow("SIP streamer closed")
 	return nil
+}
+
+func (s *Streamer) emitChannelEvent(eventType string, extra map[string]string) {
+	data := map[string]string{
+		"type":     eventType,
+		"provider": "sip",
+	}
+	for k, v := range extra {
+		data[k] = v
+	}
+	s.Input(&protos.ConversationEvent{
+		Name: observe.ComponentTelephony,
+		Data: data,
+		Time: timestamppb.Now(),
+	})
 }

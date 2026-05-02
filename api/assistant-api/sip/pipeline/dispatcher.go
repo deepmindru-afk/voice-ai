@@ -164,11 +164,7 @@ func (d *Dispatcher) OnPipeline(ctx context.Context, stages ...sip_infra.Pipelin
 			d.mediaCh <- e
 		case sip_infra.EventEmittedPipeline,
 			sip_infra.MetricEmittedPipeline,
-			sip_infra.DTMFReceivedPipeline,
-			sip_infra.RegisterRequestedPipeline,
-			sip_infra.RegisterActivePipeline,
-			sip_infra.RegisterFailedPipeline,
-			sip_infra.RegisterExpiringPipeline:
+			sip_infra.DTMFReceivedPipeline:
 			d.controlCh <- e
 		default:
 			d.logger.Warnw("OnPipeline: unrouted type", "type", fmt.Sprintf("%T", s))
@@ -224,14 +220,6 @@ func (d *Dispatcher) dispatch(ctx context.Context, p sip_infra.Pipeline) {
 		d.handleMetricEmitted(ctx, v)
 	case sip_infra.DTMFReceivedPipeline:
 		d.handleDTMFReceived(ctx, v)
-	case sip_infra.RegisterRequestedPipeline:
-		d.handleRegisterRequested(ctx, v)
-	case sip_infra.RegisterActivePipeline:
-		d.handleRegisterActive(ctx, v)
-	case sip_infra.RegisterFailedPipeline:
-		d.handleRegisterFailed(ctx, v)
-	case sip_infra.RegisterExpiringPipeline:
-		d.handleRegisterExpiring(ctx, v)
 	default:
 		d.logger.Warnw("dispatch: unknown pipeline type", "type", fmt.Sprintf("%T", p))
 	}

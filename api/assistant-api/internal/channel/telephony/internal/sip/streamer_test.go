@@ -1,7 +1,6 @@
 package internal_sip_telephony
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -18,12 +17,8 @@ func newTestSIPStreamer(t *testing.T) *Streamer {
 	logger, err := commons.NewApplicationLogger()
 	require.NoError(t, err)
 
-	_, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
 	return &Streamer{
 		BaseTelephonyStreamer: internal_telephony_base.NewBaseTelephonyStreamer(logger, &callcontext.CallContext{}, nil),
-		cancelParent:          cancel,
 	}
 }
 
