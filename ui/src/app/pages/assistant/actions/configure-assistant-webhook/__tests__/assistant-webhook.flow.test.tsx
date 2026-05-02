@@ -1,12 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import {
-  CreateAssistantWebhook,
-} from '@/app/pages/assistant/actions/configure-assistant-webhook/create-assistant-webhook';
-import {
-  UpdateAssistantWebhook,
-} from '@/app/pages/assistant/actions/configure-assistant-webhook/update-assistant-webhook';
+import { CreateAssistantWebhook } from '@/app/pages/assistant/actions/configure-assistant-webhook/create-assistant-webhook';
+import { UpdateAssistantWebhook } from '@/app/pages/assistant/actions/configure-assistant-webhook/update-assistant-webhook';
 import {
   CreateWebhook,
   GetAssistantWebhook,
@@ -98,7 +94,14 @@ jest.mock('@/app/components/carbon/form', () => {
         messageText ? React.createElement('div', null, messageText) : null,
         children,
       ),
-    TextInput: ({ id, labelText, value, onChange, placeholder, hideLabel }: any) =>
+    TextInput: ({
+      id,
+      labelText,
+      value,
+      onChange,
+      placeholder,
+      hideLabel,
+    }: any) =>
       React.createElement(
         'div',
         null,
@@ -117,7 +120,9 @@ jest.mock('@/app/components/carbon/form', () => {
       React.createElement(
         'div',
         null,
-        labelText ? React.createElement('label', { htmlFor: id }, labelText) : null,
+        labelText
+          ? React.createElement('label', { htmlFor: id }, labelText)
+          : null,
         React.createElement('textarea', {
           id,
           value: value ?? '',
@@ -158,7 +163,9 @@ jest.mock('@/app/components/carbon/dropdown', () => {
               const values = Array.from(e.target.selectedOptions).map(
                 (option: any) => option.value,
               );
-              const next = items.filter((item: any) => values.includes(item.id));
+              const next = items.filter((item: any) =>
+                values.includes(item.id),
+              );
               onChange?.({ selectedItems: next });
             },
           },
@@ -166,7 +173,9 @@ jest.mock('@/app/components/carbon/dropdown', () => {
             React.createElement(
               'option',
               { key: item.id, value: item.id },
-              itemToString ? itemToString(item) : item.label || item.name || item.id,
+              itemToString
+                ? itemToString(item)
+                : item.label || item.name || item.id,
             ),
           ),
         ),
@@ -204,19 +213,38 @@ jest.mock('@/app/components/form/slider', () => {
 jest.mock('@/app/components/carbon/button', () => {
   const React = require('react');
   return {
-    PrimaryButton: ({ children, isLoading: _, renderIcon: _r, hasIconOnly: _h, iconDescription: _d, ...props }: any) =>
-      React.createElement('button', props, children),
-    SecondaryButton: ({ children, isLoading: _, renderIcon: _r, hasIconOnly: _h, iconDescription: _d, ...props }: any) =>
-      React.createElement('button', props, children),
-    TertiaryButton: ({ children, isLoading: _, renderIcon: _r, hasIconOnly: _h, iconDescription: _d, ...props }: any) =>
-      React.createElement('button', props, children),
+    PrimaryButton: ({
+      children,
+      isLoading: _,
+      renderIcon: _r,
+      hasIconOnly: _h,
+      iconDescription: _d,
+      ...props
+    }: any) => React.createElement('button', props, children),
+    SecondaryButton: ({
+      children,
+      isLoading: _,
+      renderIcon: _r,
+      hasIconOnly: _h,
+      iconDescription: _d,
+      ...props
+    }: any) => React.createElement('button', props, children),
+    TertiaryButton: ({
+      children,
+      isLoading: _,
+      renderIcon: _r,
+      hasIconOnly: _h,
+      iconDescription: _d,
+      ...props
+    }: any) => React.createElement('button', props, children),
   };
 });
 
 jest.mock('@carbon/react', () => {
   const React = require('react');
   return {
-    ButtonSet: ({ children }: any) => React.createElement('div', null, children),
+    ButtonSet: ({ children }: any) =>
+      React.createElement('div', null, children),
     Tooltip: ({ children }: any) => React.createElement('span', null, children),
     Select: ({ id, labelText, value, onChange, children, hideLabel }: any) =>
       React.createElement(
@@ -225,14 +253,21 @@ jest.mock('@carbon/react', () => {
         !hideLabel && labelText
           ? React.createElement('label', { htmlFor: id }, labelText)
           : null,
-        React.createElement('select', { id, value, onChange, 'data-testid': id }, children),
+        React.createElement(
+          'select',
+          { id, value, onChange, 'data-testid': id },
+          children,
+        ),
       ),
-    SelectItem: ({ value, text }: any) => React.createElement('option', { value }, text),
+    SelectItem: ({ value, text }: any) =>
+      React.createElement('option', { value }, text),
     NumberInput: ({ id, value, onChange, label, hideLabel }: any) =>
       React.createElement(
         'div',
         null,
-        !hideLabel && label ? React.createElement('label', { htmlFor: id }, label) : null,
+        !hideLabel && label
+          ? React.createElement('label', { htmlFor: id }, label)
+          : null,
         React.createElement('input', {
           id,
           type: 'number',
@@ -253,7 +288,13 @@ jest.mock('@carbon/react', () => {
         }),
         labelText,
       ),
-    Button: ({ iconDescription, children, hasIconOnly: _, renderIcon: _r, ...props }: any) =>
+    Button: ({
+      iconDescription,
+      children,
+      hasIconOnly: _,
+      renderIcon: _r,
+      ...props
+    }: any) =>
       React.createElement(
         'button',
         { ...props, 'aria-label': iconDescription || children || 'button' },
@@ -273,8 +314,20 @@ describe('Assistant webhook flows', () => {
     mockParams = { assistantId: 'assistant-1', webhookId: 'webhook-1' };
 
     (CreateWebhook as jest.Mock).mockImplementation(
-      (_cfg, _assistantId, _method, _url, _headers, _params, _events, _retryStatus, _maxRetry, _timeout, _priority, cb) =>
-        cb(null, { getSuccess: () => true }),
+      (
+        _cfg,
+        _assistantId,
+        _method,
+        _url,
+        _headers,
+        _params,
+        _events,
+        _retryStatus,
+        _maxRetry,
+        _timeout,
+        _priority,
+        cb,
+      ) => cb(null, { getSuccess: () => true }),
     );
 
     (GetAssistantWebhook as jest.Mock).mockImplementation(
@@ -288,7 +341,8 @@ describe('Assistant webhook flows', () => {
             getRetrycount: () => 2,
             getTimeoutsecond: () => 200,
             getExecutionpriority: () => 1,
-            getHttpheadersMap: () => new Map([['Authorization', 'Bearer token']]),
+            getHttpheadersMap: () =>
+              new Map([['Authorization', 'Bearer token']]),
             getHttpbodyMap: () =>
               new Map([
                 ['event.type', 'event'],
@@ -300,8 +354,21 @@ describe('Assistant webhook flows', () => {
     );
 
     (UpdateWebhook as jest.Mock).mockImplementation(
-      (_cfg, _assistantId, _webhookId, _method, _url, _headers, _params, _events, _retryStatus, _maxRetry, _timeout, _priority, cb) =>
-        cb(null, { getSuccess: () => true }),
+      (
+        _cfg,
+        _assistantId,
+        _webhookId,
+        _method,
+        _url,
+        _headers,
+        _params,
+        _events,
+        _retryStatus,
+        _maxRetry,
+        _timeout,
+        _priority,
+        cb,
+      ) => cb(null, { getSuccess: () => true }),
     );
   });
 
@@ -320,13 +387,13 @@ describe('Assistant webhook flows', () => {
     expect(screen.getByText('Headers (0)')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Add parameter' }));
-    fireEvent.change(screen.getByTestId('param-type-2'), {
+    fireEvent.change(screen.getByTestId('param-type-4'), {
       target: { value: 'event' },
     });
-    fireEvent.change(screen.getAllByTestId('type-key-event')[2], {
+    fireEvent.change(screen.getByTestId('param-key-4'), {
       target: { value: 'type' },
     });
-    fireEvent.change(screen.getByTestId('param-val-2'), {
+    fireEvent.change(screen.getByTestId('param-val-4'), {
       target: { value: 'duplicate_key_payload' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -345,8 +412,11 @@ describe('Assistant webhook flows', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Add parameter' }));
-    fireEvent.change(screen.getByTestId('param-val-2'), {
-      target: { value: 'assistant_id' },
+    fireEvent.change(screen.getByTestId('param-key-4'), {
+      target: { value: 'name' },
+    });
+    fireEvent.change(screen.getByTestId('param-val-4'), {
+      target: { value: 'assistant_name' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
@@ -365,7 +435,7 @@ describe('Assistant webhook flows', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Add header' }));
-    fireEvent.change(screen.getByTestId('header-key-0'), {
+    fireEvent.change(screen.getByTestId('api-header-key-0'), {
       target: { value: 'Authorization' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -384,7 +454,9 @@ describe('Assistant webhook flows', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
-    const eventSelect = screen.getByTestId('webhook-events') as HTMLSelectElement;
+    const eventSelect = screen.getByTestId(
+      'webhook-events',
+    ) as HTMLSelectElement;
     eventSelect.options[0].selected = true;
     fireEvent.change(eventSelect);
     fireEvent.change(screen.getByTestId('webhook-max-retries'), {
@@ -446,7 +518,7 @@ describe('Assistant webhook flows', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    fireEvent.change(screen.getByTestId('header-val-0'), {
+    fireEvent.change(screen.getByTestId('api-header-val-0'), {
       target: { value: '' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -486,6 +558,46 @@ describe('Assistant webhook flows', () => {
       expect.any(Function),
       expect.any(Object),
       'existing webhook',
+    );
+  });
+
+  it('update webhook supports add and edit for payload mappings', async () => {
+    render(<UpdateAssistantWebhook assistantId="assistant-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('webhook-endpoint')).toHaveValue(
+        'https://hooks.example.com/incoming',
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.change(screen.getByTestId('param-key-0'), {
+      target: { value: 'data' },
+    });
+    fireEvent.change(screen.getByTestId('param-val-0'), {
+      target: { value: 'eventData' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add parameter' }));
+    fireEvent.change(screen.getByTestId('param-type-2'), {
+      target: { value: 'conversation' },
+    });
+    fireEvent.change(screen.getByTestId('param-key-2'), {
+      target: { value: 'id' },
+    });
+    fireEvent.change(screen.getByTestId('param-val-2'), {
+      target: { value: 'conversationId' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Update webhook' }));
+
+    await waitFor(() => expect(UpdateWebhook).toHaveBeenCalledTimes(1));
+    const payloadParams = (UpdateWebhook as jest.Mock).mock.calls[0][6];
+    expect(payloadParams).toEqual(
+      expect.arrayContaining([
+        { key: 'event.data', value: 'eventData' },
+        { key: 'conversation.id', value: 'conversationId' },
+      ]),
     );
   });
 });

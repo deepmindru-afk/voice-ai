@@ -433,6 +433,30 @@ func (r *genericRequestor) notifyConfiguration(
 	conversation *internal_conversation_entity.AssistantConversation,
 	assistant *internal_assistant_entity.Assistant,
 ) {
+	options := config.GetOptions()
+	mergedOptions := map[string]interface{}{}
+	if base, err := utils.AnyMapToInterfaceMap(config.GetOptions()); err == nil {
+		mergedOptions = base
+	}
+	// Expose only ambient playback knobs to transport streamers.
+	// Do not leak full deployment output-audio options (e.g. credentials).
+	if outputAudio, err := r.GetTextToSpeechTransformer(); err == nil && outputAudio != nil {
+		outputOpts := outputAudio.GetOptions()
+		if ambient, err := outputOpts.GetString("speaker.ambient"); err == nil && ambient != "" {
+			mergedOptions["speaker.ambient"] = ambient
+		}
+		if volume, err := outputOpts.GetString("speaker.ambient_volume"); err == nil && volume != "" {
+			mergedOptions["speaker.ambient_volume"] = volume
+		} else if volumeNum, err := outputOpts.GetUint64("speaker.ambient_volume"); err == nil {
+			mergedOptions["speaker.ambient_volume"] = volumeNum
+		}
+	}
+	if len(mergedOptions) > 0 {
+		if anyMap, err := utils.InterfaceMapToAnyMap(mergedOptions); err == nil {
+			options = anyMap
+		}
+	}
+
 	if err := r.Notify(ctx, &protos.ConversationInitialization{
 		AssistantConversationId: conversation.Id,
 		Assistant: &protos.AssistantDefinition{
@@ -441,7 +465,7 @@ func (r *genericRequestor) notifyConfiguration(
 		},
 		Args:         config.GetArgs(),
 		Metadata:     config.GetMetadata(),
-		Options:      config.GetOptions(),
+		Options:      options,
 		StreamMode:   config.GetStreamMode(),
 		UserIdentity: config.GetUserIdentity(),
 		Time:         timestamppb.Now(),

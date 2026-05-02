@@ -1,5 +1,11 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ConfigureAssistantApiDeploymentPage } from '@/app/pages/assistant/actions/create-deployment/api';
 import {
@@ -317,7 +323,9 @@ describe('API deployment voice input intent actions', () => {
         screen.getByText(/receive user input via audio and text/i),
       ).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByLabelText('Enable'));
+    fireEvent.click(
+      screen.getByLabelText(/Enable Voice Input \(Speech-to-Text\)/i),
+    );
     expect(
       screen.getByText(/receive user input via text only/i),
     ).toBeInTheDocument();
@@ -344,7 +352,9 @@ describe('API deployment voice input intent actions', () => {
         screen.getByText(/delivered via audio and text/i),
       ).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByLabelText('Enable'));
+    fireEvent.click(
+      screen.getByLabelText(/Enable Voice Output \(Text-to-Speech\)/i),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Deploy API' }));
 
     await waitFor(() =>

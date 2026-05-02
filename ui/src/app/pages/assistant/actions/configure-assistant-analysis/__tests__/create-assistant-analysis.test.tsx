@@ -89,22 +89,77 @@ jest.mock('@/app/components/form/tab-form', () => ({
 
 jest.mock('@/app/components/carbon/form', () => ({
   Stack: ({ children }: any) => <div>{children}</div>,
-  TextInput: ({ labelText: _l, helperText: _h, hideLabel: _hl, warn: _w, warnText: _wt, invalid: _inv, invalidText: _it, ...props }: any) => <input {...props} />,
-  TextArea: ({ labelText: _l, helperText: _h, hideLabel: _hl, warn: _w, warnText: _wt, invalid: _inv, invalidText: _it, ...props }: any) => <textarea {...props} />,
+  TextInput: ({
+    labelText: _l,
+    helperText: _h,
+    hideLabel: _hl,
+    warn: _w,
+    warnText: _wt,
+    invalid: _inv,
+    invalidText: _it,
+    ...props
+  }: any) => <input {...props} />,
+  TextArea: ({
+    labelText: _l,
+    helperText: _h,
+    hideLabel: _hl,
+    warn: _w,
+    warnText: _wt,
+    invalid: _inv,
+    invalidText: _it,
+    ...props
+  }: any) => <textarea {...props} />,
 }));
 
 jest.mock('@/app/components/carbon/button', () => ({
-  PrimaryButton: ({ children, isLoading: _, renderIcon: _r, hasIconOnly: _h, iconDescription: _d, ...props }: any) => <button {...props}>{children}</button>,
-  SecondaryButton: ({ children, isLoading: _, renderIcon: _r, hasIconOnly: _h, iconDescription: _d, ...props }: any) => <button {...props}>{children}</button>,
-  TertiaryButton: ({ children, isLoading: _, renderIcon: _r, hasIconOnly: _h, iconDescription: _d, ...props }: any) => <button {...props}>{children}</button>,
+  PrimaryButton: ({
+    children,
+    isLoading: _,
+    renderIcon: _r,
+    hasIconOnly: _h,
+    iconDescription: _d,
+    ...props
+  }: any) => <button {...props}>{children}</button>,
+  SecondaryButton: ({
+    children,
+    isLoading: _,
+    renderIcon: _r,
+    hasIconOnly: _h,
+    iconDescription: _d,
+    ...props
+  }: any) => <button {...props}>{children}</button>,
+  TertiaryButton: ({
+    children,
+    isLoading: _,
+    renderIcon: _r,
+    hasIconOnly: _h,
+    iconDescription: _d,
+    ...props
+  }: any) => <button {...props}>{children}</button>,
 }));
 
 jest.mock('@carbon/react', () => ({
   ButtonSet: ({ children }: any) => <div>{children}</div>,
-  Button: ({ children, hasIconOnly: _, renderIcon: _r, iconDescription: _d, ...props }: any) => <button {...props}>{children}</button>,
-  Select: ({ children, labelText: _, hideLabel: _h, ...props }: any) => <select {...props}>{children}</select>,
+  Button: ({
+    children,
+    hasIconOnly: _,
+    renderIcon: _r,
+    iconDescription: _d,
+    ...props
+  }: any) => <button {...props}>{children}</button>,
+  Select: ({ children, labelText: _, hideLabel: _h, ...props }: any) => (
+    <select {...props}>{children}</select>
+  ),
   SelectItem: ({ value, text }: any) => <option value={value}>{text}</option>,
-  NumberInput: ({ label, helperText: _ht, onChange, value, hideLabel: _hl, ...rest }: any) => (
+  Tooltip: ({ children }: any) => <span>{children}</span>,
+  NumberInput: ({
+    label,
+    helperText: _ht,
+    onChange,
+    value,
+    hideLabel: _hl,
+    ...rest
+  }: any) => (
     <input
       aria-label={label}
       value={value}
@@ -125,7 +180,9 @@ describe('CreateAssistantAnalysis', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     expect(
-      screen.getByText('Please select a valid endpoint to be executed for analysis.'),
+      screen.getByText(
+        'Please select a valid endpoint to be executed for analysis.',
+      ),
     ).toBeInTheDocument();
     expect(CreateAnalysis).not.toHaveBeenCalled();
   });
@@ -155,8 +212,12 @@ describe('CreateAssistantAnalysis', () => {
     await waitFor(() => {
       expect(CreateAnalysis).toHaveBeenCalled();
     });
-    expect(toast.success).toHaveBeenCalledWith('Analysis added to assistant successfully');
-    expect(mockGoToConfigureAssistantAnalysis).toHaveBeenCalledWith('assistant-1');
+    expect(toast.success).toHaveBeenCalledWith(
+      'Analysis added to assistant successfully',
+    );
+    expect(mockGoToConfigureAssistantAnalysis).toHaveBeenCalledWith(
+      'assistant-1',
+    );
   });
 
   it('shows human error message when create API returns unsuccessful response', async () => {
@@ -185,5 +246,96 @@ describe('CreateAssistantAnalysis', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Configure analysis' }));
 
     expect(await screen.findByText('Name already used')).toBeInTheDocument();
+  });
+
+  it('supports add and edit for parameter mapping before create', async () => {
+    (CreateAnalysis as jest.Mock).mockImplementation(
+      (
+        _cfg,
+        _assistantId,
+        _name,
+        _endpointId,
+        _version,
+        _priority,
+        _params,
+        callback,
+      ) => {
+        callback(null, { getSuccess: () => true });
+      },
+    );
+
+    render(<CreateAssistantAnalysis assistantId="assistant-1" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pick endpoint' }));
+    fireEvent.change(
+      document.getElementById('tool-condition-key') as HTMLElement,
+      {
+        target: { value: 'conversation_mode' },
+      },
+    );
+    fireEvent.change(
+      document.getElementById('tool-condition-source-value') as HTMLElement,
+      {
+        target: { value: 'voice' },
+      },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Add parameter' }));
+    fireEvent.change(document.getElementById('param-type-1') as HTMLElement, {
+      target: { value: 'assistant' },
+    });
+    fireEvent.change(
+      document.getElementById('param-key-1') as HTMLElement,
+      {
+        target: { value: 'name' },
+      },
+    );
+    fireEvent.change(document.getElementById('param-val-1') as HTMLElement, {
+      target: { value: 'assistantName' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Configure analysis' }));
+
+    await waitFor(() => expect(CreateAnalysis).toHaveBeenCalled());
+    const mappedParams = (CreateAnalysis as jest.Mock).mock.calls[0][6];
+    expect(mappedParams).toEqual(
+      expect.arrayContaining([
+        { key: 'conversation.messages', value: 'messages' },
+        { key: 'assistant.name', value: 'assistantName' },
+        {
+          key: 'metadata.condition',
+          value: JSON.stringify([
+            {
+              key: 'conversation_mode',
+              condition: '=',
+              value: 'voice',
+            },
+          ]),
+        },
+      ]),
+    );
+  });
+
+  it('blocks reserved metadata.condition mapping key', () => {
+    render(<CreateAssistantAnalysis assistantId="assistant-1" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pick endpoint' }));
+    fireEvent.change(document.getElementById('param-type-0') as HTMLElement, {
+      target: { value: 'metadata' },
+    });
+    fireEvent.change(document.getElementById('param-key-0') as HTMLElement, {
+      target: { value: 'condition' },
+    });
+    fireEvent.change(document.getElementById('param-val-0') as HTMLElement, {
+      target: { value: 'userProvidedCondition' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(
+      screen.getByText(
+        'metadata.condition is reserved and managed by the rule section.',
+      ),
+    ).toBeInTheDocument();
+    expect(CreateAnalysis).not.toHaveBeenCalled();
   });
 });

@@ -3,6 +3,15 @@ import { getOptionValue } from './utils';
 
 export const TOOL_CONDITION_JSON_KEY = 'tool.condition';
 export const TOOL_CONDITION_OPERATOR_SYMBOL = '=';
+export const TOOL_CONDITION_OPERATOR_OPTIONS = [
+  { label: 'equals', value: TOOL_CONDITION_OPERATOR_SYMBOL },
+] as const;
+export const TOOL_CONDITION_KEYS = [
+  'source',
+  'conversation_mode',
+  'direction',
+] as const;
+export type ToolConditionKey = (typeof TOOL_CONDITION_KEYS)[number];
 
 export const TOOL_CONDITION_SOURCES = [
   'all',
@@ -11,8 +20,21 @@ export const TOOL_CONDITION_SOURCES = [
   'debugger',
   'phone',
 ] as const;
+export const TOOL_CONDITION_CONVERSATION_MODES = [
+  'all',
+  'text',
+  'voice',
+] as const;
+export const TOOL_CONDITION_DIRECTIONS = [
+  'both',
+  'inbound',
+  'outbound',
+] as const;
 
 export type ToolConditionSource = (typeof TOOL_CONDITION_SOURCES)[number];
+export type ToolConditionConversationMode =
+  (typeof TOOL_CONDITION_CONVERSATION_MODES)[number];
+export type ToolConditionDirection = (typeof TOOL_CONDITION_DIRECTIONS)[number];
 export interface ToolConditionEntry {
   key: string;
   condition: string;
@@ -23,12 +45,158 @@ export const TOOL_CONDITION_SOURCE_OPTIONS: Array<{
   label: string;
   value: ToolConditionSource;
 }> = [
-    { label: 'All', value: 'all' },
-    { label: 'SDK', value: 'sdk' },
-    { label: 'Web Plugin', value: 'web_plugin' },
-    { label: 'Debugger', value: 'debugger' },
-    { label: 'Phone', value: 'phone' },
-  ];
+  { label: 'All', value: 'all' },
+  { label: 'SDK', value: 'sdk' },
+  { label: 'Web Plugin', value: 'web_plugin' },
+  { label: 'Debugger', value: 'debugger' },
+  { label: 'Phone', value: 'phone' },
+];
+
+export const TOOL_CONDITION_CONVERSATION_MODE_OPTIONS: Array<{
+  label: string;
+  value: ToolConditionConversationMode;
+}> = [
+  { label: 'All', value: 'all' },
+  { label: 'Text', value: 'text' },
+  { label: 'Voice', value: 'voice' },
+];
+export const TOOL_CONDITION_DIRECTION_OPTIONS: Array<{
+  label: string;
+  value: ToolConditionDirection;
+}> = [
+  { label: 'Both', value: 'both' },
+  { label: 'Inbound', value: 'inbound' },
+  { label: 'Outbound', value: 'outbound' },
+];
+
+export const TOOL_CONDITION_KEY_OPTIONS: Array<{
+  label: string;
+  value: ToolConditionKey;
+}> = [
+  { label: 'Source', value: 'source' },
+  { label: 'Conversation mode', value: 'conversation_mode' },
+  { label: 'Direction', value: 'direction' },
+];
+
+export const TOOL_CONDITION_VALUE_OPTIONS_BY_KEY: Record<
+  ToolConditionKey,
+  Array<{ label: string; value: string }>
+> = {
+  source: TOOL_CONDITION_SOURCE_OPTIONS,
+  conversation_mode: TOOL_CONDITION_CONVERSATION_MODE_OPTIONS,
+  direction: TOOL_CONDITION_DIRECTION_OPTIONS,
+};
+
+export const ASSISTANT_CONDITION_SOURCES = TOOL_CONDITION_SOURCES;
+export type AssistantConditionSource = ToolConditionSource;
+export const ASSISTANT_CONDITION_SOURCE_OPTIONS =
+  TOOL_CONDITION_SOURCE_OPTIONS.map(option => ({ ...option }));
+export const ASSISTANT_CONDITION_OPERATOR_OPTIONS =
+  TOOL_CONDITION_OPERATOR_OPTIONS.map(option => ({ ...option }));
+export const ASSISTANT_CONDITION_KEYS = [
+  'source',
+  'conversation_mode',
+  'direction',
+] as const;
+export type AssistantConditionKey = (typeof ASSISTANT_CONDITION_KEYS)[number];
+export const ASSISTANT_CONDITION_CONVERSATION_MODES =
+  TOOL_CONDITION_CONVERSATION_MODES;
+export type AssistantConditionConversationMode =
+  ToolConditionConversationMode;
+export const ASSISTANT_CONDITION_CONVERSATION_MODE_OPTIONS =
+  TOOL_CONDITION_CONVERSATION_MODE_OPTIONS.map(option => ({ ...option }));
+export const ASSISTANT_CONDITION_DIRECTIONS = [
+  ...TOOL_CONDITION_DIRECTIONS,
+] as const;
+export type AssistantConditionDirection =
+  (typeof ASSISTANT_CONDITION_DIRECTIONS)[number];
+export const ASSISTANT_CONDITION_DIRECTION_OPTIONS: Array<{
+  label: string;
+  value: AssistantConditionDirection;
+}> = TOOL_CONDITION_DIRECTION_OPTIONS.map(option => ({ ...option }));
+export const ASSISTANT_CONDITION_KEY_OPTIONS: Array<{
+  label: string;
+  value: AssistantConditionKey;
+}> = [
+  { label: 'Source', value: 'source' },
+  { label: 'Conversation mode', value: 'conversation_mode' },
+  { label: 'Direction', value: 'direction' },
+];
+export const ASSISTANT_CONDITION_VALUE_OPTIONS_BY_KEY: Record<
+  AssistantConditionKey,
+  Array<{ label: string; value: string }>
+> = {
+  source: ASSISTANT_CONDITION_SOURCE_OPTIONS,
+  conversation_mode: ASSISTANT_CONDITION_CONVERSATION_MODE_OPTIONS,
+  direction: ASSISTANT_CONDITION_DIRECTION_OPTIONS,
+};
+export interface AssistantConditionEntry {
+  key: AssistantConditionKey;
+  condition: '=';
+  value: string;
+}
+
+export const normalizeAssistantConditionDirection = (
+  value?: string,
+): AssistantConditionDirection => {
+  if (
+    value &&
+    ASSISTANT_CONDITION_DIRECTIONS.includes(value as AssistantConditionDirection)
+  ) {
+    return value as AssistantConditionDirection;
+  }
+  return 'both';
+};
+
+export const normalizeAssistantConditionEntry = (
+  raw?: Partial<ToolConditionEntry> | null,
+): AssistantConditionEntry => {
+  const key: AssistantConditionKey =
+    raw?.key === 'conversation_mode'
+      ? 'conversation_mode'
+      : raw?.key === 'direction'
+      ? 'direction'
+      : 'source';
+  if (key === 'conversation_mode') {
+    return {
+      key,
+      condition: '=',
+      value: normalizeToolConditionConversationMode(raw?.value),
+    };
+  }
+  if (key === 'direction') {
+    return {
+      key,
+      condition: '=',
+      value: normalizeAssistantConditionDirection(raw?.value),
+    };
+  }
+  return {
+    key,
+    condition: '=',
+    value: normalizeToolConditionSource(raw?.value),
+  };
+};
+
+export const normalizeAssistantConditionEntries = (
+  raw: unknown,
+): AssistantConditionEntry[] => {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return [{ key: 'source', condition: '=', value: 'all' }];
+  }
+
+  const normalized = raw
+    .filter(
+      item => typeof item === 'object' && item !== null && !Array.isArray(item),
+    )
+    .map(item =>
+      normalizeAssistantConditionEntry(item as Partial<ToolConditionEntry>),
+    );
+
+  return normalized.length > 0
+    ? normalized
+    : [{ key: 'source', condition: '=', value: 'all' }];
+};
 
 const upsertMetadata = (
   parameters: Metadata[],
@@ -57,15 +225,51 @@ export const normalizeToolConditionSource = (
   return 'all';
 };
 
+export const normalizeToolConditionConversationMode = (
+  value?: string,
+): ToolConditionConversationMode => {
+  if (
+    value &&
+    TOOL_CONDITION_CONVERSATION_MODES.includes(
+      value as ToolConditionConversationMode,
+    )
+  ) {
+    return value as ToolConditionConversationMode;
+  }
+  return 'all';
+};
+
+export const normalizeToolConditionDirection = (
+  value?: string,
+): ToolConditionDirection => {
+  if (
+    value &&
+    TOOL_CONDITION_DIRECTIONS.includes(value as ToolConditionDirection)
+  ) {
+    return value as ToolConditionDirection;
+  }
+  return 'both';
+};
+
 const normalizeConditionEntry = (
   raw?: Partial<ToolConditionEntry> | null,
 ): ToolConditionEntry => ({
-  key: raw?.key === 'source' ? 'source' : 'source',
+  key:
+    raw?.key === 'conversation_mode'
+      ? 'conversation_mode'
+      : raw?.key === 'direction'
+      ? 'direction'
+      : 'source',
   condition:
     raw?.condition === TOOL_CONDITION_OPERATOR_SYMBOL
       ? TOOL_CONDITION_OPERATOR_SYMBOL
       : TOOL_CONDITION_OPERATOR_SYMBOL,
-  value: normalizeToolConditionSource(raw?.value),
+  value:
+    raw?.key === 'conversation_mode'
+      ? normalizeToolConditionConversationMode(raw?.value)
+      : raw?.key === 'direction'
+      ? normalizeToolConditionDirection(raw?.value)
+      : normalizeToolConditionSource(raw?.value),
 });
 
 const defaultConditionEntries = (): ToolConditionEntry[] => [
@@ -158,16 +362,7 @@ export const withToolConditionEntries = (
     entries.length > 0
       ? entries.map(entry => normalizeConditionEntry(entry))
       : defaultConditionEntries();
-  const sourceEntry =
-    normalizedEntries.find(entry => entry.key === 'source') ||
-    defaultConditionEntries()[0];
-  const conditionJson = toToolConditionJson([
-    {
-      key: 'source',
-      condition: TOOL_CONDITION_OPERATOR_SYMBOL,
-      value: normalizeToolConditionSource(sourceEntry.value),
-    },
-  ]);
+  const conditionJson = toToolConditionJson(normalizedEntries);
 
   return upsertMetadata(parameters, TOOL_CONDITION_JSON_KEY, conditionJson);
 };
@@ -229,16 +424,38 @@ export const validateToolConditionMetadata = (
       return 'Each condition entry must have string key, condition, and value.';
     }
 
-    if (entry.key !== 'source') {
-      return 'Condition currently supports only the "source" key.';
+    if (!TOOL_CONDITION_KEYS.includes(entry.key as ToolConditionKey)) {
+      return `Condition key must be one of: ${TOOL_CONDITION_KEYS.join(', ')}.`;
     }
 
     if (entry.condition !== TOOL_CONDITION_OPERATOR_SYMBOL) {
       return 'Condition operator must be "=".';
     }
 
-    if (!TOOL_CONDITION_SOURCES.includes(entry.value as ToolConditionSource)) {
-      return `Condition source must be one of: ${TOOL_CONDITION_SOURCES.join(', ')}.`;
+    if (entry.key === 'source') {
+      if (
+        !TOOL_CONDITION_SOURCES.includes(entry.value as ToolConditionSource)
+      ) {
+        return `Condition source must be one of: ${TOOL_CONDITION_SOURCES.join(', ')}.`;
+      }
+    }
+
+    if (entry.key === 'conversation_mode') {
+      if (
+        !TOOL_CONDITION_CONVERSATION_MODES.includes(
+          entry.value as ToolConditionConversationMode,
+        )
+      ) {
+        return `Condition conversation_mode must be one of: ${TOOL_CONDITION_CONVERSATION_MODES.join(', ')}.`;
+      }
+    }
+
+    if (entry.key === 'direction') {
+      if (
+        !TOOL_CONDITION_DIRECTIONS.includes(entry.value as ToolConditionDirection)
+      ) {
+        return `Condition direction must be one of: ${TOOL_CONDITION_DIRECTIONS.join(', ')}.`;
+      }
     }
   }
 

@@ -15,6 +15,7 @@ import (
 	"time"
 	"unsafe"
 
+	internal_ambient "github.com/rapidaai/api/assistant-api/internal/audio/ambient"
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 	sip_infra "github.com/rapidaai/api/assistant-api/sip/infra"
 	"github.com/rapidaai/protos"
@@ -106,15 +107,18 @@ func newTestAudioProcessor(t *testing.T, codec *sip_infra.Codec, resampler inter
 func TestProcessInputAudio_PCMU_Passthrough(t *testing.T) {
 	rec := &pushRecorder{}
 	proc := newTestAudioProcessor(t, &sip_infra.CodecPCMU, &mockResampler{}, rec)
+	var got []byte
+	proc.SetInputAudioCallback(func(audio []byte) { got = append([]byte(nil), audio...) })
 
 	input := make([]byte, 160) // 20ms frame
 	for i := range input {
 		input[i] = byte(i % 256)
 	}
 
-	result := proc.ProcessInputAudio(input)
-	require.NotNil(t, result)
-	assert.Equal(t, input, result, "PCMU should pass through without A-law conversion")
+	err := proc.ProcessInputAudio(input)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, input, got, "PCMU should pass through without A-law conversion")
 }
 
 func TestProcessInputAudio_PCMA_ConvertsToUlaw(t *testing.T) {
@@ -127,6 +131,8 @@ func TestProcessInputAudio_PCMA_ConvertsToUlaw(t *testing.T) {
 		Resampler:  &mockResampler{},
 		PushInput:  rec.push,
 	})
+	var got []byte
+	proc.SetInputAudioCallback(func(audio []byte) { got = append([]byte(nil), audio...) })
 
 	// A-law encoded silence is 0xD5
 	input := make([]byte, 160)
@@ -134,20 +140,21 @@ func TestProcessInputAudio_PCMA_ConvertsToUlaw(t *testing.T) {
 		input[i] = 0xD5
 	}
 
-	result := proc.ProcessInputAudio(input)
-	require.NotNil(t, result)
+	err := proc.ProcessInputAudio(input)
+	require.NoError(t, err)
+	require.NotNil(t, got)
 	// After A-law to U-law conversion, the bytes should differ from the original A-law data
 	// (0xD5 is A-law silence, U-law silence is 0xFF)
-	assert.NotEqual(t, input, result, "PCMA input should be converted from A-law to U-law")
+	assert.NotEqual(t, input, got, "PCMA input should be converted from A-law to U-law")
 }
 
-func TestProcessInputAudio_ResamplerError_ReturnsNil(t *testing.T) {
+func TestProcessInputAudio_ResamplerError_IsIgnored(t *testing.T) {
 	rec := &pushRecorder{}
 	proc := newTestAudioProcessor(t, &sip_infra.CodecPCMU, &mockResampler{err: errors.New("resample failed")}, rec)
 
 	input := make([]byte, 160)
-	result := proc.ProcessInputAudio(input)
-	assert.Nil(t, result, "should return nil when resampler fails")
+	err := proc.ProcessInputAudio(input)
+	assert.NoError(t, err, "SIP input processing should drop failed resamples without failing the transport")
 }
 
 // ---------------------------------------------------------------------------
@@ -634,6 +641,43 @@ func TestRunOutputSender_FlushSignal_FlushesRTPHandler(t *testing.T) {
 	// If we got here without deadlock, the flush was processed.
 }
 
+func TestRunOutputSender_SecondStartReturnsImmediately(t *testing.T) {
+	rec := &pushRecorder{}
+	proc := newTestAudioProcessor(t, &sip_infra.CodecPCMU, &mockResampler{}, rec)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done1 := make(chan struct{})
+	go func() {
+		proc.RunOutputSender(ctx)
+		close(done1)
+	}()
+
+	// Ensure first sender is running before second start attempt.
+	time.Sleep(20 * time.Millisecond)
+
+	done2 := make(chan struct{})
+	go func() {
+		proc.RunOutputSender(ctx)
+		close(done2)
+	}()
+
+	select {
+	case <-done2:
+		// Expected: idempotent guard makes second start a no-op.
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("second RunOutputSender call should return immediately")
+	}
+
+	cancel()
+	select {
+	case <-done1:
+	case <-time.After(2 * time.Second):
+		t.Fatal("primary RunOutputSender did not exit after cancel")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Tests: PlayRingback
 // ---------------------------------------------------------------------------
@@ -801,6 +845,36 @@ func TestNewAudioProcessor_InitializesChannels(t *testing.T) {
 	assert.Equal(t, audioChSize, cap(proc.bridgeOperatorCh))
 	assert.Equal(t, 1, cap(proc.flushCh))
 	assert.False(t, proc.IsBridgeActive())
+}
+
+func TestApplyAmbient_NoPrimary_WithAmbientConfig_ProducesFrame(t *testing.T) {
+	rec := &pushRecorder{}
+	proc := NewAudioProcessor(AudioProcessorConfig{
+		RTPHandler: testRTPHandler(t, &sip_infra.CodecPCMU),
+		Resampler:  &mockResampler{},
+		PushInput:  rec.push,
+		Ambient: &internal_ambient.Config{
+			Profile: "office",
+			Volume:  20,
+			Enabled: true,
+		},
+	})
+
+	out := proc.applyAmbient(nil)
+	require.NotNil(t, out)
+	assert.Len(t, out, mulawFrameSize)
+}
+
+func TestApplyAmbient_NoPrimary_NoAmbient_ReturnsNil(t *testing.T) {
+	rec := &pushRecorder{}
+	proc := NewAudioProcessor(AudioProcessorConfig{
+		RTPHandler: testRTPHandler(t, &sip_infra.CodecPCMU),
+		Resampler:  &mockResampler{},
+		PushInput:  rec.push,
+	})
+
+	out := proc.applyAmbient(nil)
+	assert.Nil(t, out)
 }
 
 // ---------------------------------------------------------------------------

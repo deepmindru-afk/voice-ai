@@ -10,6 +10,7 @@ import {
   Debug,
   Phone,
   ChartLine,
+  DigitalIdentity,
 } from '@carbon/icons-react';
 import type { ComponentType } from 'react';
 
@@ -81,6 +82,12 @@ export const assistantNavSections: AssistantNavSection[] = [
         path: 'edit-assistant',
       },
       {
+        key: 'authentication',
+        label: 'Authentication',
+        icon: DigitalIdentity,
+        path: 'configure-authentication',
+      },
+      {
         key: 'deployment',
         label: 'Deployment',
         icon: Deploy,
@@ -112,12 +119,6 @@ export const assistantNavSections: AssistantNavSection[] = [
           { key: 'webhooks-list', label: 'View all', path: 'configure-webhook' },
           { key: 'webhooks-create', label: 'Add webhook', path: 'configure-webhook/create' },
         ],
-      },
-      {
-        key: 'authentication',
-        label: 'Authentication',
-        icon: Settings,
-        path: 'configure-authentication',
       },
       {
         key: 'telemetry',

@@ -8,7 +8,6 @@ package internal_asterisk_audiosocket
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"io"
 	"net"
@@ -20,6 +19,7 @@ import (
 	callcontext "github.com/rapidaai/api/assistant-api/internal/callcontext"
 	internal_asterisk "github.com/rapidaai/api/assistant-api/internal/channel/telephony/internal/asterisk/internal"
 	internal_telephony_base "github.com/rapidaai/api/assistant-api/internal/channel/telephony/internal/base"
+	internal_telephony_media "github.com/rapidaai/api/assistant-api/internal/channel/telephony/internal/media"
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 	"github.com/rapidaai/pkg/commons"
 	"github.com/rapidaai/protos"
@@ -36,11 +36,10 @@ type Streamer struct {
 	writeMu        sync.Mutex
 	closed         atomic.Bool
 	audioProcessor *internal_asterisk.AudioProcessor
+	mediaSession   *internal_telephony_media.MediaSession
 
-	ctx          context.Context
-	cancel       context.CancelFunc
-	outputCtx    context.Context
-	outputCancel context.CancelFunc
+	ctx    context.Context
+	cancel context.CancelFunc
 
 	initialUUID string
 }
@@ -75,8 +74,6 @@ func NewStreamer(
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	outputCtx, outputCancel := context.WithCancel(context.Background())
-
 	as := &Streamer{
 		BaseTelephonyStreamer: internal_telephony_base.NewBaseTelephonyStreamer(
 			logger, cc, vaultCred,
@@ -87,22 +84,22 @@ func NewStreamer(
 		audioProcessor: audioProcessor,
 		ctx:            ctx,
 		cancel:         cancel,
-		outputCtx:      outputCtx,
-		outputCancel:   outputCancel,
 		initialUUID:    cc.ContextID,
 	}
 
-	audioProcessor.SetInputAudioCallback(as.sendProcessedInputAudio)
 	audioProcessor.SetOutputChunkCallback(as.sendAudioChunk)
-	go audioProcessor.RunOutputSender(as.outputCtx)
+	as.mediaSession = internal_telephony_media.NewMediaSession(as.ctx, logger, audioProcessor, nil)
+	as.mediaSession.SetInputSink(func(audio []byte) {
+		as.Input(&protos.ConversationUserMessage{
+			Message: &protos.ConversationUserMessage_Audio{Audio: audio},
+		})
+	})
+	as.mediaSession.SetEventSink(func(event *protos.ConversationEvent) {
+		as.Input(event)
+	})
+	as.mediaSession.Start()
 	go as.runFrameReader()
 	return as, nil
-}
-
-func (as *Streamer) sendProcessedInputAudio(audio []byte) {
-	as.WithInputBuffer(func(buf *bytes.Buffer) {
-		buf.Write(audio)
-	})
 }
 
 func (as *Streamer) sendAudioChunk(chunk *internal_asterisk.AudioChunk) error {
@@ -110,8 +107,10 @@ func (as *Streamer) sendAudioChunk(chunk *internal_asterisk.AudioChunk) error {
 		return nil
 	}
 	if err := as.writeFrame(FrameTypeAudio, chunk.Data); err != nil {
-		// Connection dead — stop output sender
-		as.outputCancel()
+		// Connection dead — stop media session output sender.
+		if as.mediaSession != nil {
+			as.mediaSession.Shutdown()
+		}
 		return err
 	}
 	return nil
@@ -167,19 +166,12 @@ func (as *Streamer) runFrameReader() {
 				as.Input(as.CreateConnectionRequest())
 			}
 		case FrameTypeAudio:
-			if err := as.audioProcessor.ProcessInputAudio(frame.Payload); err != nil {
-				as.Logger.Debug("Failed to process input audio", "error", err.Error())
+			if as.mediaSession == nil {
 				continue
 			}
-			var audioRequest *protos.ConversationUserMessage
-			as.WithInputBuffer(func(buf *bytes.Buffer) {
-				if buf.Len() > 0 {
-					audioRequest = as.CreateVoiceRequest(buf.Bytes())
-					buf.Reset()
-				}
-			})
-			if audioRequest != nil {
-				as.Input(audioRequest)
+			if err := as.mediaSession.HandleProviderAudio(frame.Payload); err != nil {
+				as.Logger.Debug("Failed to process input audio", "error", err.Error())
+				continue
 			}
 		case FrameTypeSilence:
 			// no-op
@@ -199,16 +191,25 @@ func (as *Streamer) runFrameReader() {
 
 func (as *Streamer) Send(response internal_type.Stream) error {
 	switch data := response.(type) {
+	case *protos.ConversationInitialization:
+		if as.mediaSession != nil {
+			as.mediaSession.HandleInitialization(data)
+		}
 	case *protos.ConversationAssistantMessage:
 		switch content := data.GetMessage().(type) {
 		case *protos.ConversationAssistantMessage_Audio:
-			if err := as.audioProcessor.ProcessOutputAudio(content.Audio); err != nil {
+			if as.mediaSession == nil {
+				return nil
+			}
+			if err := as.mediaSession.HandleAssistantAudio(content.Audio, data.GetCompleted()); err != nil {
 				return err
 			}
 		}
 	case *protos.ConversationInterruption:
 		if data.GetType() == protos.ConversationInterruption_INTERRUPTION_TYPE_WORD {
-			as.audioProcessor.ClearOutputBuffer()
+			if as.mediaSession != nil {
+				as.mediaSession.HandleInterrupt()
+			}
 		}
 	case *protos.ConversationDisconnection:
 		_ = as.writeFrame(FrameTypeHangup, nil)
@@ -251,7 +252,9 @@ func (as *Streamer) Cancel() error {
 	if !as.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-	as.outputCancel()
+	if as.mediaSession != nil {
+		as.mediaSession.Shutdown()
+	}
 	as.cancel()
 	as.writeMu.Lock()
 	conn := as.conn

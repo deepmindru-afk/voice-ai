@@ -17,6 +17,7 @@ import (
 	callcontext "github.com/rapidaai/api/assistant-api/internal/callcontext"
 	internal_asterisk "github.com/rapidaai/api/assistant-api/internal/channel/telephony/internal/asterisk/internal"
 	internal_telephony_base "github.com/rapidaai/api/assistant-api/internal/channel/telephony/internal/base"
+	internal_telephony_media "github.com/rapidaai/api/assistant-api/internal/channel/telephony/internal/media"
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 	"github.com/rapidaai/pkg/commons"
 	"github.com/rapidaai/protos"
@@ -52,8 +53,6 @@ func newTestStreamer(t *testing.T) (*Streamer, net.Conn) {
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	outputCtx, outputCancel := context.WithCancel(context.Background())
-
 	as := &Streamer{
 		BaseTelephonyStreamer: internal_telephony_base.NewBaseTelephonyStreamer(
 			logger, cc, nil,
@@ -64,14 +63,12 @@ func newTestStreamer(t *testing.T) (*Streamer, net.Conn) {
 		audioProcessor: audioProcessor,
 		ctx:            ctx,
 		cancel:         cancel,
-		outputCtx:      outputCtx,
-		outputCancel:   outputCancel,
 		initialUUID:    "test-uuid",
 	}
+	as.mediaSession = internal_telephony_media.NewMediaSession(ctx, logger, audioProcessor, nil)
 
 	t.Cleanup(func() {
 		cancel()
-		outputCancel()
 		local.Close()
 		remote.Close()
 	})

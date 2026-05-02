@@ -146,7 +146,19 @@ jest.mock('@/app/components/carbon/form', () => ({
       />
     </div>
   ),
-  TextArea: ({ id, labelText, value, onChange, helperText: _h, hideLabel: _hl, warn: _w, warnText: _wt, invalid: _inv, invalidText: _it, ...rest }: any) => (
+  TextArea: ({
+    id,
+    labelText,
+    value,
+    onChange,
+    helperText: _h,
+    hideLabel: _hl,
+    warn: _w,
+    warnText: _wt,
+    invalid: _inv,
+    invalidText: _it,
+    ...rest
+  }: any) => (
     <div>
       {labelText ? <label htmlFor={id}>{labelText}</label> : null}
       <textarea id={id} value={value ?? ''} onChange={onChange} {...rest} />
@@ -165,7 +177,14 @@ jest.mock('@carbon/react', () => ({
     </div>
   ),
   SelectItem: ({ value, text }: any) => <option value={value}>{text}</option>,
-  Button: ({ children, iconDescription, hasIconOnly: _, renderIcon: _r, ...props }: any) => (
+  Tooltip: ({ children }: any) => <span>{children}</span>,
+  Button: ({
+    children,
+    iconDescription,
+    hasIconOnly: _,
+    renderIcon: _r,
+    ...props
+  }: any) => (
     <button aria-label={iconDescription} {...props}>
       {children}
     </button>
@@ -262,7 +281,8 @@ describe('UpdateAssistantAnalysis', () => {
       expect(GetAssistantAnalysis).toHaveBeenCalled();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    const removeButtons = screen.getAllByRole('button', { name: 'Remove' });
+    fireEvent.click(removeButtons[removeButtons.length - 1]);
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     expect(
@@ -339,5 +359,108 @@ describe('UpdateAssistantAnalysis', () => {
     expect(
       await screen.findByText('Invalid analysis name'),
     ).toBeInTheDocument();
+  });
+
+  it('supports add and edit for parameter mapping before update', async () => {
+    (UpdateAnalysis as jest.Mock).mockImplementation(
+      (
+        _cfg,
+        _assistantId,
+        _analysisId,
+        _name,
+        _endpointId,
+        _version,
+        _priority,
+        _params,
+        callback,
+      ) => {
+        callback(null, { getSuccess: () => true });
+      },
+    );
+
+    render(<UpdateAssistantAnalysis assistantId="assistant-1" />);
+
+    await waitFor(() => expect(GetAssistantAnalysis).toHaveBeenCalled());
+
+    fireEvent.change(
+      document.getElementById('tool-condition-key') as HTMLElement,
+      {
+        target: { value: 'conversation_mode' },
+      },
+    );
+    fireEvent.change(
+      document.getElementById('tool-condition-source-value') as HTMLElement,
+      {
+        target: { value: 'text' },
+      },
+    );
+    fireEvent.change(
+      document.getElementById('param-key-0') as HTMLElement,
+      {
+        target: { value: 'id' },
+      },
+    );
+    fireEvent.change(document.getElementById('param-val-0') as HTMLElement, {
+      target: { value: 'conversationId' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add parameter' }));
+    fireEvent.change(document.getElementById('param-type-1') as HTMLElement, {
+      target: { value: 'assistant' },
+    });
+    fireEvent.change(
+      document.getElementById('param-key-1') as HTMLElement,
+      {
+        target: { value: 'name' },
+      },
+    );
+    fireEvent.change(document.getElementById('param-val-1') as HTMLElement, {
+      target: { value: 'assistantName' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Update analysis' }));
+
+    await waitFor(() => expect(UpdateAnalysis).toHaveBeenCalled());
+    const mappedParams = (UpdateAnalysis as jest.Mock).mock.calls[0][7];
+    expect(mappedParams).toEqual(
+      expect.arrayContaining([
+        { key: 'conversation.id', value: 'conversationId' },
+        { key: 'assistant.name', value: 'assistantName' },
+        {
+          key: 'metadata.condition',
+          value: JSON.stringify([
+            {
+              key: 'conversation_mode',
+              condition: '=',
+              value: 'text',
+            },
+          ]),
+        },
+      ]),
+    );
+  });
+
+  it('blocks reserved metadata.condition mapping key', async () => {
+    render(<UpdateAssistantAnalysis assistantId="assistant-1" />);
+
+    await waitFor(() => expect(GetAssistantAnalysis).toHaveBeenCalled());
+
+    fireEvent.change(document.getElementById('param-type-0') as HTMLElement, {
+      target: { value: 'metadata' },
+    });
+    fireEvent.change(document.getElementById('param-key-0') as HTMLElement, {
+      target: { value: 'condition' },
+    });
+    fireEvent.change(document.getElementById('param-val-0') as HTMLElement, {
+      target: { value: 'userProvidedCondition' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(
+      screen.getByText(
+        'metadata.condition is reserved and managed by the rule section.',
+      ),
+    ).toBeInTheDocument();
+    expect(UpdateAnalysis).not.toHaveBeenCalled();
   });
 });

@@ -315,7 +315,9 @@ describe('Web plugin deployment voice input intent actions', () => {
         screen.getByText(/receive user input via audio and text/i),
       ).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByLabelText('Enable'));
+    fireEvent.click(
+      screen.getByLabelText(/Enable Voice Input \(Speech-to-Text\)/i),
+    );
     expect(screen.getByText(/receive user input via text only/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('button', { name: 'Deploy Web Widget' }));
@@ -338,7 +340,9 @@ describe('Web plugin deployment voice input intent actions', () => {
     await waitFor(() =>
       expect(screen.getByText(/delivered via audio and text/i)).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByLabelText('Enable'));
+    fireEvent.click(
+      screen.getByLabelText(/Enable Voice Output \(Text-to-Speech\)/i),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Deploy Web Widget' }));
 
     await waitFor(() =>

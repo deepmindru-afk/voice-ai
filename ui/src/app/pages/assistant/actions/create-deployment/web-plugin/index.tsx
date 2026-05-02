@@ -433,7 +433,7 @@ const ConfigureAssistantWebDeployment: FC<{ assistantId: string }> = ({
                 <div className="pt-6">
                   <div className="px-6">
                     <CheckboxGroup
-                      legendText="Voice input"
+                      legendText=""
                       warn
                       warnText={
                         voiceInputEnable
@@ -446,7 +446,7 @@ const ConfigureAssistantWebDeployment: FC<{ assistantId: string }> = ({
                         onChange={e => setVoiceInputEnable(e.target.checked)}
                         id="voice-input-toggle"
                       >
-                        Enable
+                        Enable Voice Input (Speech-to-Text)
                       </InputCheckbox>
                     </CheckboxGroup>
                   </div>
@@ -492,7 +492,7 @@ const ConfigureAssistantWebDeployment: FC<{ assistantId: string }> = ({
                 <div className="pt-6">
                   <div className="px-6">
                     <CheckboxGroup
-                      legendText="Voice output"
+                      legendText=""
                       warn
                       warnText={
                         voiceOutputEnable
@@ -505,7 +505,7 @@ const ConfigureAssistantWebDeployment: FC<{ assistantId: string }> = ({
                         onChange={e => setVoiceOutputEnable(e.target.checked)}
                         id="voice-output-toggle"
                       >
-                        Enable
+                        Enable Voice Output (Text-to-Speech)
                       </InputCheckbox>
                     </CheckboxGroup>
                   </div>

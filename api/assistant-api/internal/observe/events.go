@@ -157,7 +157,8 @@ const (
 	MetricRTPBytesReceived   = "rtp.bytes_received"
 
 	// --- WebRTC ---
-	MetricICELatencyMs = "webrtc.ice_latency_ms"
+	MetricICELatencyMs           = "webrtc.ice_latency_ms"
+	MetricWebRTCOutputQueueDrops = "webrtc.output_queue_dropped_frames"
 
 	// --- Telephony ---
 	MetricTelephonyStatus = "telephony.status"

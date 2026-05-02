@@ -331,7 +331,7 @@ const EditAssistantApiDeployment: FC<{ assistantId: string }> = ({
             <div>
               <div className="px-6 pt-6">
                 <CheckboxGroup
-                  legendText="Voice input"
+                  legendText=""
                   warn
                   warnText={
                     voiceInputEnable
@@ -344,7 +344,7 @@ const EditAssistantApiDeployment: FC<{ assistantId: string }> = ({
                     onChange={e => setVoiceInputEnable(e.target.checked)}
                     id="voice-input-toggle-edit"
                   >
-                    Enable
+                    Enable Voice Input (Speech-to-Text)
                   </InputCheckbox>
                 </CheckboxGroup>
               </div>
@@ -360,7 +360,7 @@ const EditAssistantApiDeployment: FC<{ assistantId: string }> = ({
             <div>
               <div className="px-6 pt-6">
                 <CheckboxGroup
-                  legendText="Voice output"
+                  legendText=""
                   warn
                   warnText={
                     voiceOutputEnable
@@ -373,7 +373,7 @@ const EditAssistantApiDeployment: FC<{ assistantId: string }> = ({
                     onChange={e => setVoiceOutputEnable(e.target.checked)}
                     id="voice-output-toggle-edit"
                   >
-                    Enable
+                    Enable Voice Output (Text-to-Speech)
                   </InputCheckbox>
                 </CheckboxGroup>
               </div>

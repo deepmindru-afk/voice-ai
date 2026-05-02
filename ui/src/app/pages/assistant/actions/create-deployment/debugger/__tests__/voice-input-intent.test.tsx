@@ -302,7 +302,9 @@ describe('Debugger deployment voice input intent actions', () => {
         screen.getByText(/receive user input via audio and text/i),
       ).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByLabelText('Enable'));
+    fireEvent.click(
+      screen.getByLabelText(/Enable Voice Input \(Speech-to-Text\)/i),
+    );
     expect(
       screen.getByText(/receive user input via text only/i),
     ).toBeInTheDocument();
@@ -330,7 +332,7 @@ describe('Debugger deployment voice input intent actions', () => {
       ).toBeInTheDocument(),
     );
     fireEvent.click(
-      screen.getByLabelText('Enable'),
+      screen.getByLabelText(/Enable Voice Output \(Text-to-Speech\)/i),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Deploy Debugger' }));
 
@@ -380,7 +382,9 @@ describe('Debugger deployment voice input intent actions', () => {
       ).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByLabelText('Enable'));
+    fireEvent.click(
+      screen.getByLabelText(/Enable Voice Input \(Speech-to-Text\)/i),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() =>
