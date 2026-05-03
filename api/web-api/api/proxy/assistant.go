@@ -642,3 +642,30 @@ func (assistantGRPCApi *webAssistantGRPCApi) UpdateAssistantTelemetryProvider(ct
 	}
 	return assistantGRPCApi.assistantClient.UpdateAssistantTelemetryProvider(ctx, iAuth, iRequest)
 }
+
+func (assistantGRPCApi *webAssistantGRPCApi) CreateAssistantAuthentication(ctx context.Context, iRequest *protos.CreateAssistantAuthenticationRequest) (*protos.GetAssistantAuthenticationResponse, error) {
+	iAuth, isAuthenticated := types.GetAuthPrincipleGPRC(ctx)
+	if !isAuthenticated {
+		assistantGRPCApi.logger.Errorf("unauthenticated request to CreateAssistantAuthentication")
+		return nil, errors.New("unauthenticated request")
+	}
+	return assistantGRPCApi.assistantClient.CreateAssistantAuthentication(ctx, iAuth, iRequest)
+}
+
+func (assistantGRPCApi *webAssistantGRPCApi) GetAssistantAuthentication(ctx context.Context, iRequest *protos.GetAssistantAuthenticationRequest) (*protos.GetAssistantAuthenticationResponse, error) {
+	iAuth, isAuthenticated := types.GetSimplePrincipleGRPC(ctx)
+	if !isAuthenticated {
+		assistantGRPCApi.logger.Errorf("unauthenticated request to GetAssistantAuthentication")
+		return nil, errors.New("unauthenticated request")
+	}
+	return assistantGRPCApi.assistantClient.GetAssistantAuthentication(ctx, iAuth, iRequest)
+}
+
+func (assistantGRPCApi *webAssistantGRPCApi) DisableAssistantAuthentication(ctx context.Context, iRequest *protos.DisableAssistantAuthenticationRequest) (*protos.GetAssistantAuthenticationResponse, error) {
+	iAuth, isAuthenticated := types.GetAuthPrincipleGPRC(ctx)
+	if !isAuthenticated {
+		assistantGRPCApi.logger.Errorf("unauthenticated request to DisableAssistantAuthentication")
+		return nil, errors.New("unauthenticated request")
+	}
+	return assistantGRPCApi.assistantClient.DisableAssistantAuthentication(ctx, iAuth, iRequest)
+}

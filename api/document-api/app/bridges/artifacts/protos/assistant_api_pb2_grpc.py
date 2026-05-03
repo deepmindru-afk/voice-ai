@@ -130,6 +130,21 @@ class AssistantServiceStub(object):
                 request_serializer=assistant__api__pb2.DeleteAssistantTelemetryProviderRequest.SerializeToString,
                 response_deserializer=assistant__api__pb2.GetAssistantTelemetryProviderResponse.FromString,
                 _registered_method=True)
+        self.CreateAssistantAuthentication = channel.unary_unary(
+                '/assistant_api.AssistantService/CreateAssistantAuthentication',
+                request_serializer=assistant__api__pb2.CreateAssistantAuthenticationRequest.SerializeToString,
+                response_deserializer=assistant__api__pb2.GetAssistantAuthenticationResponse.FromString,
+                _registered_method=True)
+        self.GetAssistantAuthentication = channel.unary_unary(
+                '/assistant_api.AssistantService/GetAssistantAuthentication',
+                request_serializer=assistant__api__pb2.GetAssistantAuthenticationRequest.SerializeToString,
+                response_deserializer=assistant__api__pb2.GetAssistantAuthenticationResponse.FromString,
+                _registered_method=True)
+        self.DisableAssistantAuthentication = channel.unary_unary(
+                '/assistant_api.AssistantService/DisableAssistantAuthentication',
+                request_serializer=assistant__api__pb2.DisableAssistantAuthenticationRequest.SerializeToString,
+                response_deserializer=assistant__api__pb2.GetAssistantAuthenticationResponse.FromString,
+                _registered_method=True)
         self.GetAllAssistantConversation = channel.unary_unary(
                 '/assistant_api.AssistantService/GetAllAssistantConversation',
                 request_serializer=common__pb2.GetAllAssistantConversationRequest.SerializeToString,
@@ -368,6 +383,24 @@ class AssistantServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def DeleteAssistantTelemetryProvider(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateAssistantAuthentication(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetAssistantAuthentication(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DisableAssistantAuthentication(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -626,6 +659,21 @@ def add_AssistantServiceServicer_to_server(servicer, server):
                     servicer.DeleteAssistantTelemetryProvider,
                     request_deserializer=assistant__api__pb2.DeleteAssistantTelemetryProviderRequest.FromString,
                     response_serializer=assistant__api__pb2.GetAssistantTelemetryProviderResponse.SerializeToString,
+            ),
+            'CreateAssistantAuthentication': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateAssistantAuthentication,
+                    request_deserializer=assistant__api__pb2.CreateAssistantAuthenticationRequest.FromString,
+                    response_serializer=assistant__api__pb2.GetAssistantAuthenticationResponse.SerializeToString,
+            ),
+            'GetAssistantAuthentication': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAssistantAuthentication,
+                    request_deserializer=assistant__api__pb2.GetAssistantAuthenticationRequest.FromString,
+                    response_serializer=assistant__api__pb2.GetAssistantAuthenticationResponse.SerializeToString,
+            ),
+            'DisableAssistantAuthentication': grpc.unary_unary_rpc_method_handler(
+                    servicer.DisableAssistantAuthentication,
+                    request_deserializer=assistant__api__pb2.DisableAssistantAuthenticationRequest.FromString,
+                    response_serializer=assistant__api__pb2.GetAssistantAuthenticationResponse.SerializeToString,
             ),
             'GetAllAssistantConversation': grpc.unary_unary_rpc_method_handler(
                     servicer.GetAllAssistantConversation,
@@ -1244,6 +1292,87 @@ class AssistantService(object):
             '/assistant_api.AssistantService/DeleteAssistantTelemetryProvider',
             assistant__api__pb2.DeleteAssistantTelemetryProviderRequest.SerializeToString,
             assistant__api__pb2.GetAssistantTelemetryProviderResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateAssistantAuthentication(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/assistant_api.AssistantService/CreateAssistantAuthentication',
+            assistant__api__pb2.CreateAssistantAuthenticationRequest.SerializeToString,
+            assistant__api__pb2.GetAssistantAuthenticationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetAssistantAuthentication(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/assistant_api.AssistantService/GetAssistantAuthentication',
+            assistant__api__pb2.GetAssistantAuthenticationRequest.SerializeToString,
+            assistant__api__pb2.GetAssistantAuthenticationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DisableAssistantAuthentication(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/assistant_api.AssistantService/DisableAssistantAuthentication',
+            assistant__api__pb2.DisableAssistantAuthenticationRequest.SerializeToString,
+            assistant__api__pb2.GetAssistantAuthenticationResponse.FromString,
             options,
             channel_credentials,
             insecure,

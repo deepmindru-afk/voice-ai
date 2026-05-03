@@ -5,9 +5,39 @@
 // See LICENSE.md or contact sales@rapida.ai for commercial usage.
 package internal_assistant_entity
 
+import (
+	gorm_model "github.com/rapidaai/pkg/models/gorm"
+	"github.com/rapidaai/pkg/utils"
+)
+
 type AssistantAuthentication struct {
-	AssistantId uint64 `json:"assistantId" gorm:"type:bigint;size:20"`
-	// for now we are only supporting single authentication per assistant, in future we can support multiple authentication with different providers
-	AuthenticationProvider   string `json:"authenticationProvider" gorm:"type:string;size:50;not null;default:OAUTH2"`
-	AuthenticationProviderId uint64 `json:"authenticationProviderId" gorm:"type:bigint;size:20"`
+	gorm_model.Audited
+	gorm_model.Mutable
+	AssistantId                   uint64                           `json:"assistantId" gorm:"type:bigint;size:20;not null"`
+	FailBehavior                  string                           `json:"failBehavior" gorm:"type:string;size:20;not null;default:block"`
+	TimeoutMs                     uint64                           `json:"timeoutMs" gorm:"type:bigint;not null;default:5000"`
+	AssistantAuthenticationOption []*AssistantAuthenticationOption `json:"options" gorm:"foreignKey:AssistantAuthenticationId"`
+}
+
+func (AssistantAuthentication) TableName() string {
+	return "assistant_authentications"
+}
+
+func (a *AssistantAuthentication) GetOptions() utils.Option {
+	opts := make(utils.Option, len(a.AssistantAuthenticationOption))
+	for _, v := range a.AssistantAuthenticationOption {
+		opts[v.Key] = v.Value
+	}
+	return opts
+}
+
+type AssistantAuthenticationOption struct {
+	gorm_model.Audited
+	gorm_model.Mutable
+	gorm_model.Metadata
+	AssistantAuthenticationId uint64 `json:"assistantAuthenticationId" gorm:"type:bigint;size:20;not null"`
+}
+
+func (AssistantAuthenticationOption) TableName() string {
+	return "assistant_authentication_options"
 }

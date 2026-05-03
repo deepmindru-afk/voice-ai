@@ -37,6 +37,9 @@ const (
 	AssistantService_CreateAssistantTelemetryProvider_FullMethodName = "/assistant_api.AssistantService/CreateAssistantTelemetryProvider"
 	AssistantService_UpdateAssistantTelemetryProvider_FullMethodName = "/assistant_api.AssistantService/UpdateAssistantTelemetryProvider"
 	AssistantService_DeleteAssistantTelemetryProvider_FullMethodName = "/assistant_api.AssistantService/DeleteAssistantTelemetryProvider"
+	AssistantService_CreateAssistantAuthentication_FullMethodName    = "/assistant_api.AssistantService/CreateAssistantAuthentication"
+	AssistantService_GetAssistantAuthentication_FullMethodName       = "/assistant_api.AssistantService/GetAssistantAuthentication"
+	AssistantService_DisableAssistantAuthentication_FullMethodName   = "/assistant_api.AssistantService/DisableAssistantAuthentication"
 	AssistantService_GetAllAssistantConversation_FullMethodName      = "/assistant_api.AssistantService/GetAllAssistantConversation"
 	AssistantService_GetAssistantConversation_FullMethodName         = "/assistant_api.AssistantService/GetAssistantConversation"
 	AssistantService_GetAssistantWebhookLog_FullMethodName           = "/assistant_api.AssistantService/GetAssistantWebhookLog"
@@ -87,6 +90,9 @@ type AssistantServiceClient interface {
 	CreateAssistantTelemetryProvider(ctx context.Context, in *CreateAssistantTelemetryProviderRequest, opts ...grpc.CallOption) (*GetAssistantTelemetryProviderResponse, error)
 	UpdateAssistantTelemetryProvider(ctx context.Context, in *UpdateAssistantTelemetryProviderRequest, opts ...grpc.CallOption) (*GetAssistantTelemetryProviderResponse, error)
 	DeleteAssistantTelemetryProvider(ctx context.Context, in *DeleteAssistantTelemetryProviderRequest, opts ...grpc.CallOption) (*GetAssistantTelemetryProviderResponse, error)
+	CreateAssistantAuthentication(ctx context.Context, in *CreateAssistantAuthenticationRequest, opts ...grpc.CallOption) (*GetAssistantAuthenticationResponse, error)
+	GetAssistantAuthentication(ctx context.Context, in *GetAssistantAuthenticationRequest, opts ...grpc.CallOption) (*GetAssistantAuthenticationResponse, error)
+	DisableAssistantAuthentication(ctx context.Context, in *DisableAssistantAuthenticationRequest, opts ...grpc.CallOption) (*GetAssistantAuthenticationResponse, error)
 	GetAllAssistantConversation(ctx context.Context, in *GetAllAssistantConversationRequest, opts ...grpc.CallOption) (*GetAllAssistantConversationResponse, error)
 	GetAssistantConversation(ctx context.Context, in *GetAssistantConversationRequest, opts ...grpc.CallOption) (*GetAssistantConversationResponse, error)
 	// webhook log
@@ -302,6 +308,36 @@ func (c *assistantServiceClient) DeleteAssistantTelemetryProvider(ctx context.Co
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetAssistantTelemetryProviderResponse)
 	err := c.cc.Invoke(ctx, AssistantService_DeleteAssistantTelemetryProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *assistantServiceClient) CreateAssistantAuthentication(ctx context.Context, in *CreateAssistantAuthenticationRequest, opts ...grpc.CallOption) (*GetAssistantAuthenticationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAssistantAuthenticationResponse)
+	err := c.cc.Invoke(ctx, AssistantService_CreateAssistantAuthentication_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *assistantServiceClient) GetAssistantAuthentication(ctx context.Context, in *GetAssistantAuthenticationRequest, opts ...grpc.CallOption) (*GetAssistantAuthenticationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAssistantAuthenticationResponse)
+	err := c.cc.Invoke(ctx, AssistantService_GetAssistantAuthentication_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *assistantServiceClient) DisableAssistantAuthentication(ctx context.Context, in *DisableAssistantAuthenticationRequest, opts ...grpc.CallOption) (*GetAssistantAuthenticationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAssistantAuthenticationResponse)
+	err := c.cc.Invoke(ctx, AssistantService_DisableAssistantAuthentication_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -590,6 +626,9 @@ type AssistantServiceServer interface {
 	CreateAssistantTelemetryProvider(context.Context, *CreateAssistantTelemetryProviderRequest) (*GetAssistantTelemetryProviderResponse, error)
 	UpdateAssistantTelemetryProvider(context.Context, *UpdateAssistantTelemetryProviderRequest) (*GetAssistantTelemetryProviderResponse, error)
 	DeleteAssistantTelemetryProvider(context.Context, *DeleteAssistantTelemetryProviderRequest) (*GetAssistantTelemetryProviderResponse, error)
+	CreateAssistantAuthentication(context.Context, *CreateAssistantAuthenticationRequest) (*GetAssistantAuthenticationResponse, error)
+	GetAssistantAuthentication(context.Context, *GetAssistantAuthenticationRequest) (*GetAssistantAuthenticationResponse, error)
+	DisableAssistantAuthentication(context.Context, *DisableAssistantAuthenticationRequest) (*GetAssistantAuthenticationResponse, error)
 	GetAllAssistantConversation(context.Context, *GetAllAssistantConversationRequest) (*GetAllAssistantConversationResponse, error)
 	GetAssistantConversation(context.Context, *GetAssistantConversationRequest) (*GetAssistantConversationResponse, error)
 	// webhook log
@@ -683,6 +722,15 @@ func (UnimplementedAssistantServiceServer) UpdateAssistantTelemetryProvider(cont
 }
 func (UnimplementedAssistantServiceServer) DeleteAssistantTelemetryProvider(context.Context, *DeleteAssistantTelemetryProviderRequest) (*GetAssistantTelemetryProviderResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAssistantTelemetryProvider not implemented")
+}
+func (UnimplementedAssistantServiceServer) CreateAssistantAuthentication(context.Context, *CreateAssistantAuthenticationRequest) (*GetAssistantAuthenticationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateAssistantAuthentication not implemented")
+}
+func (UnimplementedAssistantServiceServer) GetAssistantAuthentication(context.Context, *GetAssistantAuthenticationRequest) (*GetAssistantAuthenticationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAssistantAuthentication not implemented")
+}
+func (UnimplementedAssistantServiceServer) DisableAssistantAuthentication(context.Context, *DisableAssistantAuthenticationRequest) (*GetAssistantAuthenticationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DisableAssistantAuthentication not implemented")
 }
 func (UnimplementedAssistantServiceServer) GetAllAssistantConversation(context.Context, *GetAllAssistantConversationRequest) (*GetAllAssistantConversationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAllAssistantConversation not implemented")
@@ -1102,6 +1150,60 @@ func _AssistantService_DeleteAssistantTelemetryProvider_Handler(srv interface{},
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AssistantServiceServer).DeleteAssistantTelemetryProvider(ctx, req.(*DeleteAssistantTelemetryProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AssistantService_CreateAssistantAuthentication_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAssistantAuthenticationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AssistantServiceServer).CreateAssistantAuthentication(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AssistantService_CreateAssistantAuthentication_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AssistantServiceServer).CreateAssistantAuthentication(ctx, req.(*CreateAssistantAuthenticationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AssistantService_GetAssistantAuthentication_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAssistantAuthenticationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AssistantServiceServer).GetAssistantAuthentication(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AssistantService_GetAssistantAuthentication_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AssistantServiceServer).GetAssistantAuthentication(ctx, req.(*GetAssistantAuthenticationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AssistantService_DisableAssistantAuthentication_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DisableAssistantAuthenticationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AssistantServiceServer).DisableAssistantAuthentication(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AssistantService_DisableAssistantAuthentication_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AssistantServiceServer).DisableAssistantAuthentication(ctx, req.(*DisableAssistantAuthenticationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1652,6 +1754,18 @@ var AssistantService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteAssistantTelemetryProvider",
 			Handler:    _AssistantService_DeleteAssistantTelemetryProvider_Handler,
+		},
+		{
+			MethodName: "CreateAssistantAuthentication",
+			Handler:    _AssistantService_CreateAssistantAuthentication_Handler,
+		},
+		{
+			MethodName: "GetAssistantAuthentication",
+			Handler:    _AssistantService_GetAssistantAuthentication_Handler,
+		},
+		{
+			MethodName: "DisableAssistantAuthentication",
+			Handler:    _AssistantService_DisableAssistantAuthentication_Handler,
 		},
 		{
 			MethodName: "GetAllAssistantConversation",

@@ -8,6 +8,7 @@ package internal_assistant_service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/rapidaai/api/assistant-api/config"
 	internal_assistant_entity "github.com/rapidaai/api/assistant-api/internal/entity/assistants"
@@ -500,4 +501,272 @@ func (eService assistantDeploymentService) GetAssistantWhatsappDeployment(ctx co
 		return nil, tx.Error
 	}
 	return whatsappDeployment, nil
+}
+
+func (eService assistantDeploymentService) GetAllAssistantApiDeployment(ctx context.Context, auth types.SimplePrinciple, assistantId uint64, criterias []*protos.Criteria, paginate *protos.Paginate) (int64, []*internal_assistant_entity.AssistantApiDeployment, error) {
+	db := eService.postgres.DB(ctx)
+	var (
+		deployments []*internal_assistant_entity.AssistantApiDeployment
+		cnt         int64
+	)
+	qry := db.Model(&internal_assistant_entity.AssistantApiDeployment{}).
+		Where("assistant_id = ?", assistantId)
+	for _, ct := range criterias {
+		qry = qry.Where(fmt.Sprintf("%s %s ?", ct.GetKey(), ct.GetLogic()), ct.GetValue())
+	}
+	tx := qry.
+		Preload("InputAudio", "audio_type = ?", "input").
+		Preload("InputAudio.AudioOptions").
+		Preload("OutputAudio", "audio_type = ?", "output").
+		Preload("OutputAudio.AudioOptions").
+		Scopes(gorm_models.Paginate(gorm_models.NewPaginated(
+			int(paginate.GetPage()),
+			int(paginate.GetPageSize()),
+			&cnt,
+			qry,
+		))).
+		Order(clause.OrderByColumn{
+			Column: clause.Column{Name: "created_date"},
+			Desc:   true,
+		}).
+		Find(&deployments)
+	if tx.Error != nil {
+		eService.logger.Errorf("not able to list api deployments for assistant %d with error %v", assistantId, tx.Error)
+		return cnt, nil, tx.Error
+	}
+	return cnt, deployments, nil
+}
+
+func (eService assistantDeploymentService) GetAllAssistantDebuggerDeployment(ctx context.Context, auth types.SimplePrinciple, assistantId uint64, criterias []*protos.Criteria, paginate *protos.Paginate) (int64, []*internal_assistant_entity.AssistantDebuggerDeployment, error) {
+	db := eService.postgres.DB(ctx)
+	var (
+		deployments []*internal_assistant_entity.AssistantDebuggerDeployment
+		cnt         int64
+	)
+	qry := db.Model(&internal_assistant_entity.AssistantDebuggerDeployment{}).
+		Where("assistant_id = ?", assistantId)
+	for _, ct := range criterias {
+		qry = qry.Where(fmt.Sprintf("%s %s ?", ct.GetKey(), ct.GetLogic()), ct.GetValue())
+	}
+	tx := qry.
+		Preload("InputAudio", "audio_type = ?", "input").
+		Preload("InputAudio.AudioOptions").
+		Preload("OutputAudio", "audio_type = ?", "output").
+		Preload("OutputAudio.AudioOptions").
+		Scopes(gorm_models.Paginate(gorm_models.NewPaginated(
+			int(paginate.GetPage()),
+			int(paginate.GetPageSize()),
+			&cnt,
+			qry,
+		))).
+		Order(clause.OrderByColumn{
+			Column: clause.Column{Name: "created_date"},
+			Desc:   true,
+		}).
+		Find(&deployments)
+	if tx.Error != nil {
+		eService.logger.Errorf("not able to list debugger deployments for assistant %d with error %v", assistantId, tx.Error)
+		return cnt, nil, tx.Error
+	}
+	return cnt, deployments, nil
+}
+
+func (eService assistantDeploymentService) GetAllAssistantPhoneDeployment(ctx context.Context, auth types.SimplePrinciple, assistantId uint64, criterias []*protos.Criteria, paginate *protos.Paginate) (int64, []*internal_assistant_entity.AssistantPhoneDeployment, error) {
+	db := eService.postgres.DB(ctx)
+	var (
+		deployments []*internal_assistant_entity.AssistantPhoneDeployment
+		cnt         int64
+	)
+	qry := db.Model(&internal_assistant_entity.AssistantPhoneDeployment{}).
+		Where("assistant_id = ?", assistantId)
+	for _, ct := range criterias {
+		qry = qry.Where(fmt.Sprintf("%s %s ?", ct.GetKey(), ct.GetLogic()), ct.GetValue())
+	}
+	tx := qry.
+		Preload("TelephonyOption").
+		Preload("InputAudio", "audio_type = ?", "input").
+		Preload("InputAudio.AudioOptions").
+		Preload("OutputAudio", "audio_type = ?", "output").
+		Preload("OutputAudio.AudioOptions").
+		Scopes(gorm_models.Paginate(gorm_models.NewPaginated(
+			int(paginate.GetPage()),
+			int(paginate.GetPageSize()),
+			&cnt,
+			qry,
+		))).
+		Order(clause.OrderByColumn{
+			Column: clause.Column{Name: "created_date"},
+			Desc:   true,
+		}).
+		Find(&deployments)
+	if tx.Error != nil {
+		eService.logger.Errorf("not able to list phone deployments for assistant %d with error %v", assistantId, tx.Error)
+		return cnt, nil, tx.Error
+	}
+	return cnt, deployments, nil
+}
+
+func (eService assistantDeploymentService) GetAllAssistantWebpluginDeployment(ctx context.Context, auth types.SimplePrinciple, assistantId uint64, criterias []*protos.Criteria, paginate *protos.Paginate) (int64, []*internal_assistant_entity.AssistantWebPluginDeployment, error) {
+	db := eService.postgres.DB(ctx)
+	var (
+		deployments []*internal_assistant_entity.AssistantWebPluginDeployment
+		cnt         int64
+	)
+	qry := db.Model(&internal_assistant_entity.AssistantWebPluginDeployment{}).
+		Where("assistant_id = ?", assistantId)
+	for _, ct := range criterias {
+		qry = qry.Where(fmt.Sprintf("%s %s ?", ct.GetKey(), ct.GetLogic()), ct.GetValue())
+	}
+	tx := qry.
+		Preload("InputAudio", "audio_type = ?", "input").
+		Preload("InputAudio.AudioOptions").
+		Preload("OutputAudio", "audio_type = ?", "output").
+		Preload("OutputAudio.AudioOptions").
+		Scopes(gorm_models.Paginate(gorm_models.NewPaginated(
+			int(paginate.GetPage()),
+			int(paginate.GetPageSize()),
+			&cnt,
+			qry,
+		))).
+		Order(clause.OrderByColumn{
+			Column: clause.Column{Name: "created_date"},
+			Desc:   true,
+		}).
+		Find(&deployments)
+	if tx.Error != nil {
+		eService.logger.Errorf("not able to list webplugin deployments for assistant %d with error %v", assistantId, tx.Error)
+		return cnt, nil, tx.Error
+	}
+	return cnt, deployments, nil
+}
+
+func (eService assistantDeploymentService) GetAllAssistantWhatsappDeployment(ctx context.Context, auth types.SimplePrinciple, assistantId uint64, criterias []*protos.Criteria, paginate *protos.Paginate) (int64, []*internal_assistant_entity.AssistantWhatsappDeployment, error) {
+	db := eService.postgres.DB(ctx)
+	var (
+		deployments []*internal_assistant_entity.AssistantWhatsappDeployment
+		cnt         int64
+	)
+	qry := db.Model(&internal_assistant_entity.AssistantWhatsappDeployment{}).
+		Where("assistant_id = ?", assistantId)
+	for _, ct := range criterias {
+		qry = qry.Where(fmt.Sprintf("%s %s ?", ct.GetKey(), ct.GetLogic()), ct.GetValue())
+	}
+	tx := qry.
+		Preload("WhatsappOptions").
+		Scopes(gorm_models.Paginate(gorm_models.NewPaginated(
+			int(paginate.GetPage()),
+			int(paginate.GetPageSize()),
+			&cnt,
+			qry,
+		))).
+		Order(clause.OrderByColumn{
+			Column: clause.Column{Name: "created_date"},
+			Desc:   true,
+		}).
+		Find(&deployments)
+	if tx.Error != nil {
+		eService.logger.Errorf("not able to list whatsapp deployments for assistant %d with error %v", assistantId, tx.Error)
+		return cnt, nil, tx.Error
+	}
+	return cnt, deployments, nil
+}
+
+func (eService assistantDeploymentService) DisableAssistantApiDeployment(ctx context.Context, auth types.SimplePrinciple, assistantId uint64) (*internal_assistant_entity.AssistantApiDeployment, error) {
+	db := eService.postgres.DB(ctx)
+	if err := db.Model(&internal_assistant_entity.AssistantApiDeployment{}).
+		Where("assistant_id = ? AND status = ?", assistantId, type_enums.RECORD_ACTIVE).
+		Updates(map[string]interface{}{
+			"status":     type_enums.RECORD_INACTIVE,
+			"updated_by": *auth.GetUserId(),
+		}).Error; err != nil {
+		return nil, err
+	}
+	var deployment *internal_assistant_entity.AssistantApiDeployment
+	tx := db.Where("assistant_id = ? AND status = ?", assistantId, type_enums.RECORD_INACTIVE).
+		Order(clause.OrderByColumn{Column: clause.Column{Name: "updated_date"}, Desc: true}).
+		First(&deployment)
+	if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return deployment, tx.Error
+}
+
+func (eService assistantDeploymentService) DisableAssistantDebuggerDeployment(ctx context.Context, auth types.SimplePrinciple, assistantId uint64) (*internal_assistant_entity.AssistantDebuggerDeployment, error) {
+	db := eService.postgres.DB(ctx)
+	if err := db.Model(&internal_assistant_entity.AssistantDebuggerDeployment{}).
+		Where("assistant_id = ? AND status = ?", assistantId, type_enums.RECORD_ACTIVE).
+		Updates(map[string]interface{}{
+			"status":     type_enums.RECORD_INACTIVE,
+			"updated_by": *auth.GetUserId(),
+		}).Error; err != nil {
+		return nil, err
+	}
+	var deployment *internal_assistant_entity.AssistantDebuggerDeployment
+	tx := db.Where("assistant_id = ? AND status = ?", assistantId, type_enums.RECORD_INACTIVE).
+		Order(clause.OrderByColumn{Column: clause.Column{Name: "updated_date"}, Desc: true}).
+		First(&deployment)
+	if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return deployment, tx.Error
+}
+
+func (eService assistantDeploymentService) DisableAssistantPhoneDeployment(ctx context.Context, auth types.SimplePrinciple, assistantId uint64) (*internal_assistant_entity.AssistantPhoneDeployment, error) {
+	db := eService.postgres.DB(ctx)
+	if err := db.Model(&internal_assistant_entity.AssistantPhoneDeployment{}).
+		Where("assistant_id = ? AND status = ?", assistantId, type_enums.RECORD_ACTIVE).
+		Updates(map[string]interface{}{
+			"status":     type_enums.RECORD_INACTIVE,
+			"updated_by": *auth.GetUserId(),
+		}).Error; err != nil {
+		return nil, err
+	}
+	var deployment *internal_assistant_entity.AssistantPhoneDeployment
+	tx := db.Where("assistant_id = ? AND status = ?", assistantId, type_enums.RECORD_INACTIVE).
+		Order(clause.OrderByColumn{Column: clause.Column{Name: "updated_date"}, Desc: true}).
+		First(&deployment)
+	if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return deployment, tx.Error
+}
+
+func (eService assistantDeploymentService) DisableAssistantWebpluginDeployment(ctx context.Context, auth types.SimplePrinciple, assistantId uint64) (*internal_assistant_entity.AssistantWebPluginDeployment, error) {
+	db := eService.postgres.DB(ctx)
+	if err := db.Model(&internal_assistant_entity.AssistantWebPluginDeployment{}).
+		Where("assistant_id = ? AND status = ?", assistantId, type_enums.RECORD_ACTIVE).
+		Updates(map[string]interface{}{
+			"status":     type_enums.RECORD_INACTIVE,
+			"updated_by": *auth.GetUserId(),
+		}).Error; err != nil {
+		return nil, err
+	}
+	var deployment *internal_assistant_entity.AssistantWebPluginDeployment
+	tx := db.Where("assistant_id = ? AND status = ?", assistantId, type_enums.RECORD_INACTIVE).
+		Order(clause.OrderByColumn{Column: clause.Column{Name: "updated_date"}, Desc: true}).
+		First(&deployment)
+	if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return deployment, tx.Error
+}
+
+func (eService assistantDeploymentService) DisableAssistantWhatsappDeployment(ctx context.Context, auth types.SimplePrinciple, assistantId uint64) (*internal_assistant_entity.AssistantWhatsappDeployment, error) {
+	db := eService.postgres.DB(ctx)
+	if err := db.Model(&internal_assistant_entity.AssistantWhatsappDeployment{}).
+		Where("assistant_id = ? AND status = ?", assistantId, type_enums.RECORD_ACTIVE).
+		Updates(map[string]interface{}{
+			"status":     type_enums.RECORD_INACTIVE,
+			"updated_by": *auth.GetUserId(),
+		}).Error; err != nil {
+		return nil, err
+	}
+	var deployment *internal_assistant_entity.AssistantWhatsappDeployment
+	tx := db.Where("assistant_id = ? AND status = ?", assistantId, type_enums.RECORD_INACTIVE).
+		Order(clause.OrderByColumn{Column: clause.Column{Name: "updated_date"}, Desc: true}).
+		First(&deployment)
+	if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return deployment, tx.Error
 }

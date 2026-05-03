@@ -218,6 +218,29 @@ func (eService *assistantService) Get(ctx context.Context,
 			})
 	}
 
+	if opts.InjectAuthentication {
+		wg.Add(1)
+		utils.Go(ctx,
+			func() {
+				defer wg.Done()
+				var authentication *internal_assistant_entity.AssistantAuthentication
+				tx := db.Preload("AuthOptions", "status = ?", type_enums.RECORD_ACTIVE).
+					Where("assistant_id = ? AND status IN ?", assistantId, []type_enums.RecordState{
+						type_enums.RECORD_ACTIVE,
+						type_enums.RECORD_INACTIVE,
+					}).
+					Order(clause.OrderByColumn{
+						Column: clause.Column{Name: "created_date"},
+						Desc:   true,
+					}).
+					First(&authentication)
+				if tx.Error != nil {
+					return
+				}
+				assistant.AssistantAuthentication = authentication
+			})
+	}
+
 	if opts.InjectKnowledgeConfiguration {
 		wg.Add(1)
 		utils.Go(ctx,
