@@ -43,11 +43,11 @@ import {
 } from '@/llm-tools';
 import {
   ConfigureToolProps,
+  ASSISTANT_CONDITION_KEY_OPTIONS,
+  ASSISTANT_CONDITION_OPERATOR_OPTIONS,
+  ASSISTANT_CONDITION_SOURCE_OPTIONS,
+  ASSISTANT_CONDITION_VALUE_OPTIONS_BY_KEY,
   getToolConditionEntries,
-  TOOL_CONDITION_KEY_OPTIONS,
-  TOOL_CONDITION_OPERATOR_OPTIONS,
-  TOOL_CONDITION_SOURCE_OPTIONS,
-  TOOL_CONDITION_VALUE_OPTIONS_BY_KEY,
   validateToolConditionMetadata,
   withToolConditionEntries,
   withNormalizedToolCondition,
@@ -322,10 +322,10 @@ export const BuildinTool: FC<{
               ),
             })
           }
-          conditionOptions={TOOL_CONDITION_OPERATOR_OPTIONS}
-          sourceOptions={TOOL_CONDITION_SOURCE_OPTIONS}
-          keyOptions={TOOL_CONDITION_KEY_OPTIONS}
-          valueOptionsByKey={TOOL_CONDITION_VALUE_OPTIONS_BY_KEY}
+          conditionOptions={ASSISTANT_CONDITION_OPERATOR_OPTIONS}
+          sourceOptions={ASSISTANT_CONDITION_SOURCE_OPTIONS}
+          keyOptions={ASSISTANT_CONDITION_KEY_OPTIONS}
+          valueOptionsByKey={ASSISTANT_CONDITION_VALUE_OPTIONS_BY_KEY}
         />
       </InputGroup>
 

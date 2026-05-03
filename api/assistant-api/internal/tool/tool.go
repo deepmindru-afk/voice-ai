@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"sync"
 
+	internal_condition "github.com/rapidaai/api/assistant-api/internal/condition"
 	internal_assistant_entity "github.com/rapidaai/api/assistant-api/internal/entity/assistants"
 	internal_tool "github.com/rapidaai/api/assistant-api/internal/tool/internal"
 	internal_tool_local "github.com/rapidaai/api/assistant-api/internal/tool/internal/local"
@@ -29,7 +30,7 @@ type toolExecutor struct {
 	tools                  map[string]internal_tool.ToolCaller
 	availableToolFunctions []*protos.FunctionDefinition
 	mcpClients             []*internal_tool_mcp.Client
-	conditionMatcher       *toolConditionMatcher
+	conditionMatcher       *internal_condition.Matcher
 }
 
 type toolRegistration struct {
@@ -43,7 +44,7 @@ func NewToolExecutor(logger commons.Logger) ToolExecutor {
 		mcpClients:             make([]*internal_tool_mcp.Client, 0),
 		tools:                  make(map[string]internal_tool.ToolCaller),
 		availableToolFunctions: make([]*protos.FunctionDefinition, 0),
-		conditionMatcher:       newToolConditionMatcher(),
+		conditionMatcher:       internal_condition.NewMatcher(),
 	}
 }
 
@@ -89,9 +90,18 @@ func (executor *toolExecutor) filterToolsByCondition(
 	communication internal_type.Communication,
 ) []*internal_assistant_entity.AssistantTool {
 	if executor.conditionMatcher == nil {
-		executor.conditionMatcher = newToolConditionMatcher()
+		executor.conditionMatcher = internal_condition.NewMatcher()
 	}
 	filtered := make([]*internal_assistant_entity.AssistantTool, 0, len(tools))
+	var direction string
+	if conv := communication.Conversation(); conv != nil {
+		direction = conv.Direction.String()
+	}
+	conditionCtx := internal_condition.Context{
+		Source:    string(communication.GetSource()),
+		Mode:      communication.GetMode().String(),
+		Direction: direction,
+	}
 	for _, tool := range tools {
 		opts := tool.GetOptions()
 		rawCondition, err := opts.GetString("tool.condition")
@@ -100,7 +110,7 @@ func (executor *toolExecutor) filterToolsByCondition(
 			continue
 		}
 
-		allowed, evalErr := executor.conditionMatcher.Evaluate(rawCondition, string(communication.GetSource()))
+		allowed, evalErr := executor.conditionMatcher.Evaluate(rawCondition, conditionCtx)
 		if evalErr != nil {
 			executor.logger.Warnf("invalid tool.condition for tool %s, excluding tool: %v", tool.Name, evalErr)
 			continue
