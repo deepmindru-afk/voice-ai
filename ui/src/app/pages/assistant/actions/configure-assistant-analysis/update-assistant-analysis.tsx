@@ -10,6 +10,9 @@ import { EndpointDropdown } from '@/app/components/dropdown/endpoint-dropdown';
 import {
   Endpoint,
   GetAssistantAnalysis,
+  GetAssistantAnalysisRequest,
+  Metadata,
+  UpdateAssistantAnalysisRequest,
   UpdateAnalysis,
 } from '@rapidaai/react';
 import { useParams } from 'react-router-dom';
@@ -21,12 +24,12 @@ import {
   ASSISTANT_CONDITION_OPERATOR_OPTIONS,
   ASSISTANT_CONDITION_SOURCE_OPTIONS,
   ASSISTANT_CONDITION_VALUE_OPTIONS_BY_KEY,
+  AssistantConditionEntry,
   AssistantMappingTable,
   normalizeAssistantConditionEntries,
 } from '@/app/components/tools/common';
 import { SourceConditionRule } from '@/app/components/conditions/source-condition-rule';
-
-// ── Parameter types ──────────────────────────────────────────────────────────
+import { InputGroup } from '../../../../components/input-group/index';
 
 type ParamType =
   | 'client'
@@ -54,8 +57,54 @@ const PARAM_TYPE_OPTIONS = [
   { value: 'custom', name: 'Custom' },
   { value: 'analysis', name: 'Analysis' },
 ];
-const RESERVED_CONDITION_MAPPING_KEY = 'metadata.condition';
-// ── Main component ───────────────────────────────────────────────────────────
+
+const RESERVED_OPTION_KEYS = new Set([
+  'option.endpoint_id',
+  'option.endpoint_version',
+  'option.endpoint_parameters',
+  'option.conditions',
+]);
+
+const DEFAULT_CONDITIONS: AssistantConditionEntry[] = [
+  { key: 'source', condition: '=', value: 'all' },
+];
+
+const parseConditions = (
+  raw?: string,
+): AssistantConditionEntry[] | undefined => {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    const normalized = normalizeAssistantConditionEntries(parsed);
+    return normalized.length > 0 ? normalized : DEFAULT_CONDITIONS;
+  } catch {
+    return DEFAULT_CONDITIONS;
+  }
+};
+
+const parseEndpointParameters = (raw?: string): Parameter[] => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return [];
+    }
+    return Object.entries(parsed).flatMap(([key, value]) => {
+      if (typeof value !== 'string') return [];
+      const [type, ...parts] = key.split('.');
+      if (!type || parts.length === 0) return [];
+      return [
+        {
+          type: type as ParamType,
+          key: parts.join('.'),
+          value,
+        },
+      ];
+    });
+  } catch {
+    return [];
+  }
+};
 
 export const UpdateAssistantAnalysis: FC<{ assistantId: string }> = ({
   assistantId,
@@ -75,62 +124,60 @@ export const UpdateAssistantAnalysis: FC<{ assistantId: string }> = ({
   const [parameters, setParameters] = useState<Parameter[]>([
     { type: 'conversation', key: 'messages', value: 'messages' },
   ]);
-  const [sourceConditions, setSourceConditions] = useState([
-    { key: 'source', condition: '=', value: 'all' },
-  ]);
+  const [sourceConditions, setSourceConditions] =
+    useState<AssistantConditionEntry[]>(DEFAULT_CONDITIONS);
 
   useEffect(() => {
-    GetAssistantAnalysis(
-      connectionConfig,
-      assistantId,
-      analysisId!,
-      (err, res) => {
-        if (err) {
-          toast.error('Unable to load analysis, please try again later.');
-          return;
-        }
-        const wb = res?.getData();
-        if (wb) {
-          setName(wb.getName());
-          setDescription(wb.getDescription());
-          setPriority(wb.getExecutionpriority());
-          setEndpointId(wb.getEndpointid());
-          const parametersMap = wb.getEndpointparametersMap();
-          const mappedParameters: Parameter[] = [];
-          Array.from(parametersMap.entries()).forEach(([key, value]) => {
-            if (key === 'metadata.condition') {
-              try {
-                const parsed = JSON.parse(value);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                  setSourceConditions(normalizeAssistantConditionEntries(parsed));
-                }
-              } catch {
-                setSourceConditions([
-                  { key: 'source', condition: '=', value: 'all' },
-                ]);
-              }
-              return;
+    const load = async () => {
+      const request = new GetAssistantAnalysisRequest();
+      request.setAssistantid(assistantId);
+      request.setId(analysisId!);
+
+      try {
+        const res = await GetAssistantAnalysis(connectionConfig, request, {
+          'x-auth-id': authId,
+          authorization: token,
+          'x-project-id': projectId,
+        });
+        const analysis = res?.getData();
+        if (!analysis) return;
+
+        setName(analysis.getName());
+        setDescription(analysis.getDescription());
+        setPriority(analysis.getExecutionpriority());
+
+        const options = new Map<string, string>();
+        const optionsList = (analysis as any).getOptionsList?.();
+        if (Array.isArray(optionsList)) {
+          optionsList.forEach((item: any) => {
+            const key = item?.getKey?.();
+            const value = item?.getValue?.();
+            if (key && typeof value === 'string') {
+              options.set(key, value);
             }
-            const [type, paramKey] = key.split('.');
-            mappedParameters.push({
-              type: type as ParamType,
-              key: paramKey,
-              value,
-            });
           });
-          setParameters(
-            mappedParameters.length > 0
-              ? mappedParameters
-              : [{ type: 'conversation', key: 'messages', value: 'messages' }],
-          );
         }
-      },
-      {
-        'x-auth-id': authId,
-        authorization: token,
-        'x-project-id': projectId,
-      },
-    );
+
+        setEndpointId(options.get('endpoint_id') || '');
+
+        const parsedConditions =
+          parseConditions(options.get('conditions')) || DEFAULT_CONDITIONS;
+        setSourceConditions(parsedConditions);
+
+        const nextParameters = parseEndpointParameters(
+          options.get('endpoint_parameters'),
+        );
+        setParameters(
+          nextParameters.length > 0
+            ? nextParameters
+            : [{ type: 'conversation', key: 'messages', value: 'messages' }],
+        );
+      } catch {
+        toast.error('Unable to load analysis, please try again later.');
+      }
+    };
+
+    load();
   }, [assistantId, analysisId, authId, token, projectId]);
 
   const validateConfigure = (): boolean => {
@@ -146,10 +193,9 @@ export const UpdateAssistantAnalysis: FC<{ assistantId: string }> = ({
       return false;
     }
     const keys = parameters.map(p => `${p.type}.${p.key}`);
-    if (keys.includes(RESERVED_CONDITION_MAPPING_KEY)) {
-      setErrorMessage(
-        'metadata.condition is reserved and managed by the rule section.',
-      );
+    const reservedKey = keys.find(key => RESERVED_OPTION_KEYS.has(key));
+    if (reservedKey) {
+      setErrorMessage(`${reservedKey} is reserved and managed by analysis options.`);
       return false;
     }
     if (new Set(keys).size !== keys.length) {
@@ -168,59 +214,72 @@ export const UpdateAssistantAnalysis: FC<{ assistantId: string }> = ({
     return true;
   };
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     setErrorMessage('');
     if (!name) {
       setErrorMessage('Please provide a valid name for analysis.');
       return;
     }
+
     const keys = parameters.map(p => `${p.type}.${p.key}`);
-    if (keys.includes(RESERVED_CONDITION_MAPPING_KEY)) {
-      setErrorMessage(
-        'metadata.condition is reserved and managed by the rule section.',
-      );
+    const reservedKey = keys.find(key => RESERVED_OPTION_KEYS.has(key));
+    if (reservedKey) {
+      setErrorMessage(`${reservedKey} is reserved and managed by analysis options.`);
       return;
     }
 
-    UpdateAnalysis(
-      connectionConfig,
-      assistantId,
-      analysisId!,
-      name,
-      endpointId,
-      'latest',
-      priority,
-      [
-        ...parameters.map(p => ({ key: `${p.type}.${p.key}`, value: p.value })),
-        {
-          key: 'metadata.condition',
-          value: JSON.stringify(sourceConditions),
-        },
-      ],
-      (err, response) => {
-        if (err) {
-          setErrorMessage(
-            'Unable to update assistant analysis, please check and try again.',
-          );
-          return;
-        }
-        if (response?.getSuccess()) {
-          toast.success(`Assistant's analysis updated successfully`);
-          navigator.goToConfigureAssistantAnalysis(assistantId);
-        } else {
-          setErrorMessage(
-            response?.getError()?.getHumanmessage() ||
-              'Unable to update assistant analysis, please check and try again.',
-          );
-        }
+    const endpointParameters = Object.fromEntries(
+      parameters.map(p => [`${p.type}.${p.key}`, p.value]),
+    );
+
+    const request = new UpdateAssistantAnalysisRequest();
+    request.setAssistantid(assistantId);
+    request.setId(analysisId!);
+    request.setName(name);
+    request.setDescription(description);
+    request.setExecutionpriority(priority);
+
+    const options: Metadata[] = [];
+    [
+      { key: 'endpoint_id', value: endpointId },
+      { key: 'endpoint_version', value: 'latest' },
+      {
+        key: 'endpoint_parameters',
+        value: JSON.stringify(endpointParameters),
       },
       {
+        key: 'conditions',
+        value: JSON.stringify(sourceConditions),
+      },
+    ].forEach(({ key, value }) => {
+      const item = new Metadata();
+      item.setKey(key);
+      item.setValue(value);
+      options.push(item);
+    });
+    request.setOptionsList(options);
+
+    try {
+      const response = await UpdateAnalysis(connectionConfig, request, {
         'x-auth-id': authId,
         authorization: token,
         'x-project-id': projectId,
-      },
-      description,
-    );
+      });
+
+      if (response?.getSuccess()) {
+        toast.success(`Assistant's analysis updated successfully`);
+        navigator.goToConfigureAssistantAnalysis(assistantId);
+      } else {
+        setErrorMessage(
+          response?.getError()?.getHumanmessage() ||
+            'Unable to update assistant analysis, please check and try again.',
+        );
+      }
+    } catch {
+      setErrorMessage(
+        'Unable to update assistant analysis, please check and try again.',
+      );
+    }
   };
 
   return (
@@ -256,8 +315,8 @@ export const UpdateAssistantAnalysis: FC<{ assistantId: string }> = ({
               </ButtonSet>,
             ],
             body: (
-              <div className="px-8 pt-6 pb-8 max-w-4xl">
-                <Stack gap={7}>
+              <div>
+                <InputGroup title="Execution conditions (Optional)">
                   <SourceConditionRule
                     conditions={sourceConditions}
                     onChangeConditions={setSourceConditions}
@@ -267,6 +326,8 @@ export const UpdateAssistantAnalysis: FC<{ assistantId: string }> = ({
                     valueOptionsByKey={ASSISTANT_CONDITION_VALUE_OPTIONS_BY_KEY}
                     keyTooltipText="The variable to evaluate before running this analysis."
                   />
+                </InputGroup>
+                <Stack gap={7} className="px-8 pt-6 pb-8 max-w-4xl">
                   <EndpointDropdown
                     currentEndpoint={endpointId}
                     onChangeEndpoint={(e: Endpoint) => {

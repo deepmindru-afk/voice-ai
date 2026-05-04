@@ -7,7 +7,12 @@ import { ButtonSet, NumberInput } from '@carbon/react';
 import { useCurrentCredential } from '@/hooks/use-credential';
 import { randomMeaningfullName } from '@/utils';
 import { EndpointDropdown } from '@/app/components/dropdown/endpoint-dropdown';
-import { CreateAnalysis, Endpoint } from '@rapidaai/react';
+import {
+  CreateAnalysis,
+  CreateAssistantAnalysisRequest,
+  Endpoint,
+  Metadata,
+} from '@rapidaai/react';
 import toast from 'react-hot-toast/headless';
 import { connectionConfig } from '@/configs';
 import { TabForm } from '@/app/components/form/tab-form';
@@ -49,7 +54,12 @@ const PARAM_TYPE_OPTIONS = [
   { value: 'custom', name: 'Custom' },
   { value: 'analysis', name: 'Analysis' },
 ];
-const RESERVED_CONDITION_MAPPING_KEY = 'metadata.condition';
+const RESERVED_OPTION_KEYS = new Set([
+  'option.endpoint_id',
+  'option.endpoint_version',
+  'option.endpoint_parameters',
+  'option.conditions',
+]);
 // ── Main component ───────────────────────────────────────────────────────────
 
 export const CreateAssistantAnalysis: FC<{ assistantId: string }> = ({
@@ -85,9 +95,10 @@ export const CreateAssistantAnalysis: FC<{ assistantId: string }> = ({
       return false;
     }
     const keys = parameters.map(p => `${p.type}.${p.key}`);
-    if (keys.includes(RESERVED_CONDITION_MAPPING_KEY)) {
+    const reservedKey = keys.find(key => RESERVED_OPTION_KEYS.has(key));
+    if (reservedKey) {
       setErrorMessage(
-        'metadata.condition is reserved and managed by the rule section.',
+        `${reservedKey} is reserved and managed by analysis options.`,
       );
       return false;
     }
@@ -107,52 +118,70 @@ export const CreateAssistantAnalysis: FC<{ assistantId: string }> = ({
     return true;
   };
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     setErrorMessage('');
     if (!name) {
       setErrorMessage('Please provide a valid name.');
       return;
     }
     const keys = parameters.map(p => `${p.type}.${p.key}`);
-    if (keys.includes(RESERVED_CONDITION_MAPPING_KEY)) {
+    const reservedKey = keys.find(key => RESERVED_OPTION_KEYS.has(key));
+    if (reservedKey) {
       setErrorMessage(
-        'metadata.condition is reserved and managed by the rule section.',
+        `${reservedKey} is reserved and managed by analysis options.`,
       );
       return;
     }
 
-    CreateAnalysis(
-      connectionConfig,
-      assistantId,
-      name,
-      endpointId,
-      'latest',
-      priority,
-      [
-        ...parameters.map(p => ({ key: `${p.type}.${p.key}`, value: p.value })),
-        {
-          key: 'metadata.condition',
-          value: JSON.stringify(sourceConditions),
-        },
-      ],
-      (err, response) => {
-        if (err) {
-          setErrorMessage('Unable to create analysis. Please try again.');
-          return;
-        }
-        if (response?.getSuccess()) {
-          toast.success('Analysis added to assistant successfully');
-          navigator.goToConfigureAssistantAnalysis(assistantId);
-        } else {
-          setErrorMessage(
-            response?.getError()?.getHumanmessage() ||
-              'Unable to create analysis.',
-          );
-        }
-      },
-      { 'x-auth-id': authId, authorization: token, 'x-project-id': projectId },
-      description,
+    const endpointParameters = Object.fromEntries(
+      parameters.map(p => [`${p.type}.${p.key}`, p.value]),
     );
+
+    const request = new CreateAssistantAnalysisRequest();
+    request.setAssistantid(assistantId);
+    request.setName(name);
+    request.setDescription(description);
+    request.setExecutionpriority(priority);
+
+    const options: Metadata[] = [];
+    [
+      { key: 'endpoint_id', value: endpointId },
+      { key: 'endpoint_version', value: 'latest' },
+      {
+        key: 'endpoint_parameters',
+        value: JSON.stringify(endpointParameters),
+      },
+      {
+        key: 'conditions',
+        value: JSON.stringify(sourceConditions),
+      },
+    ].forEach(({ key, value }) => {
+      const item = new Metadata();
+      item.setKey(key);
+      item.setValue(value);
+      options.push(item);
+    });
+    request.setOptionsList(options);
+
+    try {
+      const response = await CreateAnalysis(connectionConfig, request, {
+        'x-auth-id': authId,
+        authorization: token,
+        'x-project-id': projectId,
+      });
+
+      if (response?.getSuccess()) {
+        toast.success('Analysis added to assistant successfully');
+        navigator.goToConfigureAssistantAnalysis(assistantId);
+      } else {
+        setErrorMessage(
+          response?.getError()?.getHumanmessage() ||
+            'Unable to create analysis.',
+        );
+      }
+    } catch {
+      setErrorMessage('Unable to create analysis. Please try again.');
+    }
   };
 
   return (

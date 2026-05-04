@@ -26,9 +26,7 @@ func (assistantApi *assistantGrpcApi) UpdateAssistantAnalysis(ctx context.Contex
 		cawr.GetAssistantId(),
 		cawr.GetId(),
 		cawr.GetName(),
-		cawr.GetEndpointId(),
-		cawr.GetEndpointVersion(),
-		cawr.GetEndpointParameters(),
+		cawr.GetOptions(),
 		cawr.GetExecutionPriority(),
 		&cawr.Description)
 	if err != nil {

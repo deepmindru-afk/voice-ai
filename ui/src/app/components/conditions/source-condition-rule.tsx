@@ -1,4 +1,3 @@
-import { FC } from 'react';
 import { Button, Select, SelectItem, Tooltip } from '@carbon/react';
 import { Add, TrashCan } from '@carbon/icons-react';
 import { Information } from '@carbon/icons-react';
@@ -24,15 +23,7 @@ interface SourceCondition {
   value: string;
 }
 
-export const SourceConditionRule: FC<{
-  conditions: SourceCondition[];
-  onChangeConditions: (next: SourceCondition[]) => void;
-  conditionOptions: ConditionOption[];
-  sourceOptions: SourceOption[];
-  keyOptions?: KeyOption[];
-  valueOptionsByKey?: Record<string, SourceOption[]>;
-  keyTooltipText?: string;
-}> = ({
+export const SourceConditionRule = <TCondition extends SourceCondition>({
   conditions,
   onChangeConditions,
   conditionOptions,
@@ -40,34 +31,37 @@ export const SourceConditionRule: FC<{
   keyOptions = [{ label: 'Source', value: 'source' }],
   valueOptionsByKey,
   keyTooltipText = "The variable to evaluate for this condition. 'source' refers to the channel the call is coming from.",
+}: {
+  conditions: ReadonlyArray<TCondition>;
+  onChangeConditions: (next: TCondition[]) => void;
+  conditionOptions: ReadonlyArray<ConditionOption>;
+  sourceOptions: ReadonlyArray<SourceOption>;
+  keyOptions?: ReadonlyArray<KeyOption>;
+  valueOptionsByKey?: Record<string, ReadonlyArray<SourceOption>>;
+  keyTooltipText?: string;
 }) => {
   const defaultKey = keyOptions[0]?.value || 'source';
   const getValueOptions = (key: string) =>
     valueOptionsByKey?.[key] || sourceOptions;
+  const createDefaultRow = (key: string): TCondition =>
+    ({
+      key,
+      condition: conditionOptions[0]?.value || '=',
+      value: getValueOptions(key)[0]?.value || '',
+    }) as TCondition;
   const rows =
     conditions.length > 0
-      ? conditions
-      : [
-          {
-            key: defaultKey,
-            condition: conditionOptions[0]?.value || '=',
-            value: getValueOptions(defaultKey)[0]?.value || '',
-          },
-        ];
-  const updateRow = (index: number, next: SourceCondition) => {
+      ? [...conditions]
+      : [createDefaultRow(defaultKey)];
+  const updateRow = (index: number, next: TCondition) => {
     const nextRows = [...rows];
     nextRows[index] = next;
     onChangeConditions(nextRows);
   };
   const addRow = () => {
-    const defaultValue = getValueOptions(defaultKey)[0]?.value || '';
     onChangeConditions([
       ...rows,
-      {
-        key: defaultKey,
-        condition: conditionOptions[0]?.value || '=',
-        value: defaultValue,
-      },
+      createDefaultRow(defaultKey),
     ]);
   };
   const removeRow = (index: number) => {
@@ -145,7 +139,7 @@ export const SourceConditionRule: FC<{
                       ...row,
                       key: nextKey,
                       value: nextValueOptions[0]?.value || '',
-                    });
+                    } as TCondition);
                   }}
                   size="md"
                 >
@@ -172,7 +166,7 @@ export const SourceConditionRule: FC<{
                     updateRow(index, {
                       ...row,
                       condition: e.target.value,
-                    })
+                    } as TCondition)
                   }
                   size="md"
                 >
@@ -199,7 +193,7 @@ export const SourceConditionRule: FC<{
                     updateRow(index, {
                       ...row,
                       value: e.target.value,
-                    })
+                    } as TCondition)
                   }
                   size="md"
                 >

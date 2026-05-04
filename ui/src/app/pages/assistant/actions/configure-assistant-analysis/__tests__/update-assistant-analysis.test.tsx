@@ -18,6 +18,61 @@ jest.mock('@rapidaai/react', () => ({
   ConnectionConfig: class ConnectionConfig {
     constructor(_: unknown) {}
   },
+  Metadata: class Metadata {
+    key = '';
+    value = '';
+    setKey(v: string) {
+      this.key = v;
+    }
+    setValue(v: string) {
+      this.value = v;
+    }
+    getKey() {
+      return this.key;
+    }
+    getValue() {
+      return this.value;
+    }
+  },
+  GetAssistantAnalysisRequest: class GetAssistantAnalysisRequest {
+    id = '';
+    assistantId = '';
+    setId(v: string) {
+      this.id = v;
+    }
+    setAssistantid(v: string) {
+      this.assistantId = v;
+    }
+  },
+  UpdateAssistantAnalysisRequest: class UpdateAssistantAnalysisRequest {
+    id = '';
+    assistantId = '';
+    name = '';
+    description = '';
+    executionPriority = 0;
+    optionsList: any[] = [];
+    setId(v: string) {
+      this.id = v;
+    }
+    setAssistantid(v: string) {
+      this.assistantId = v;
+    }
+    setName(v: string) {
+      this.name = v;
+    }
+    setDescription(v: string) {
+      this.description = v;
+    }
+    setExecutionpriority(v: number) {
+      this.executionPriority = v;
+    }
+    setOptionsList(v: any[]) {
+      this.optionsList = v;
+    }
+    getOptionsList() {
+      return this.optionsList;
+    }
+  },
   GetAssistantAnalysis: jest.fn(),
   UpdateAnalysis: jest.fn(),
 }));
@@ -249,18 +304,38 @@ describe('UpdateAssistantAnalysis', () => {
     jest.clearAllMocks();
     mockParams = { analysisId: 'analysis-1' };
     (GetAssistantAnalysis as jest.Mock).mockImplementation(
-      (_cfg, _assistantId, _analysisId, callback) => {
-        callback(null, {
+      () =>
+        Promise.resolve({
           getData: () => ({
             getName: () => 'loaded-analysis',
             getDescription: () => 'loaded-description',
             getExecutionpriority: () => 3,
-            getEndpointid: () => 'endpoint-1',
-            getEndpointparametersMap: () =>
-              new Map<string, string>([['conversation.messages', 'messages']]),
+            getOptionsList: () => [
+              {
+                getKey: () => 'endpoint_id',
+                getValue: () => 'endpoint-1',
+              },
+              {
+                getKey: () => 'endpoint_version',
+                getValue: () => 'latest',
+              },
+              {
+                getKey: () => 'endpoint_parameters',
+                getValue: () =>
+                  JSON.stringify({
+                    'conversation.messages': 'messages',
+                  }),
+              },
+              {
+                getKey: () => 'conditions',
+                getValue: () =>
+                  JSON.stringify([
+                    { key: 'source', condition: '=', value: 'all' },
+                  ]),
+              },
+            ],
           }),
-        });
-      },
+        }),
     );
   });
 
@@ -270,6 +345,7 @@ describe('UpdateAssistantAnalysis', () => {
     await waitFor(() => {
       expect(GetAssistantAnalysis).toHaveBeenCalled();
     });
+    fireEvent.click(screen.getByRole('button', { name: 'Pick endpoint' }));
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByDisplayValue('loaded-analysis')).toBeInTheDocument();
   });
@@ -291,21 +367,7 @@ describe('UpdateAssistantAnalysis', () => {
   });
 
   it('updates analysis successfully and navigates back to analysis listing', async () => {
-    (UpdateAnalysis as jest.Mock).mockImplementation(
-      (
-        _cfg,
-        _assistantId,
-        _analysisId,
-        _name,
-        _endpointId,
-        _version,
-        _priority,
-        _params,
-        callback,
-      ) => {
-        callback(null, { getSuccess: () => true });
-      },
-    );
+    (UpdateAnalysis as jest.Mock).mockResolvedValue({ getSuccess: () => true });
 
     render(<UpdateAssistantAnalysis assistantId="assistant-1" />);
 
@@ -313,39 +375,28 @@ describe('UpdateAssistantAnalysis', () => {
       expect(GetAssistantAnalysis).toHaveBeenCalled();
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Pick endpoint' }));
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Update analysis' }));
 
     await waitFor(() => {
       expect(UpdateAnalysis).toHaveBeenCalled();
     });
-    expect(toast.success).toHaveBeenCalledWith(
-      `Assistant's analysis updated successfully`,
-    );
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(
+        `Assistant's analysis updated successfully`,
+      );
+    });
     expect(mockGoToConfigureAssistantAnalysis).toHaveBeenCalledWith(
       'assistant-1',
     );
   });
 
   it('shows human error message when update response is unsuccessful', async () => {
-    (UpdateAnalysis as jest.Mock).mockImplementation(
-      (
-        _cfg,
-        _assistantId,
-        _analysisId,
-        _name,
-        _endpointId,
-        _version,
-        _priority,
-        _params,
-        callback,
-      ) => {
-        callback(null, {
-          getSuccess: () => false,
-          getError: () => ({ getHumanmessage: () => 'Invalid analysis name' }),
-        });
-      },
-    );
+    (UpdateAnalysis as jest.Mock).mockResolvedValue({
+      getSuccess: () => false,
+      getError: () => ({ getHumanmessage: () => 'Invalid analysis name' }),
+    });
 
     render(<UpdateAssistantAnalysis assistantId="assistant-1" />);
 
@@ -353,6 +404,7 @@ describe('UpdateAssistantAnalysis', () => {
       expect(GetAssistantAnalysis).toHaveBeenCalled();
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Pick endpoint' }));
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Update analysis' }));
 
@@ -362,21 +414,7 @@ describe('UpdateAssistantAnalysis', () => {
   });
 
   it('supports add and edit for parameter mapping before update', async () => {
-    (UpdateAnalysis as jest.Mock).mockImplementation(
-      (
-        _cfg,
-        _assistantId,
-        _analysisId,
-        _name,
-        _endpointId,
-        _version,
-        _priority,
-        _params,
-        callback,
-      ) => {
-        callback(null, { getSuccess: () => true });
-      },
-    );
+    (UpdateAnalysis as jest.Mock).mockResolvedValue({ getSuccess: () => true });
 
     render(<UpdateAssistantAnalysis assistantId="assistant-1" />);
 
@@ -417,17 +455,29 @@ describe('UpdateAssistantAnalysis', () => {
       target: { value: 'assistantName' },
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Pick endpoint' }));
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Update analysis' }));
 
     await waitFor(() => expect(UpdateAnalysis).toHaveBeenCalled());
-    const mappedParams = (UpdateAnalysis as jest.Mock).mock.calls[0][7];
+    const request = (UpdateAnalysis as jest.Mock).mock.calls[0][1];
+    const mappedParams = request.getOptionsList().map((option: any) => ({
+      key: option.getKey(),
+      value: option.getValue(),
+    }));
     expect(mappedParams).toEqual(
       expect.arrayContaining([
-        { key: 'conversation.id', value: 'conversationId' },
-        { key: 'assistant.name', value: 'assistantName' },
+        { key: 'endpoint_id', value: 'endpoint-2' },
+        { key: 'endpoint_version', value: 'latest' },
         {
-          key: 'metadata.condition',
+          key: 'endpoint_parameters',
+          value: JSON.stringify({
+            'conversation.id': 'conversationId',
+            'assistant.name': 'assistantName',
+          }),
+        },
+        {
+          key: 'conditions',
           value: JSON.stringify([
             {
               key: 'conversation_mode',
@@ -440,25 +490,25 @@ describe('UpdateAssistantAnalysis', () => {
     );
   });
 
-  it('blocks reserved metadata.condition mapping key', async () => {
+  it('blocks reserved analysis option mapping key', async () => {
     render(<UpdateAssistantAnalysis assistantId="assistant-1" />);
 
     await waitFor(() => expect(GetAssistantAnalysis).toHaveBeenCalled());
 
     fireEvent.change(document.getElementById('param-type-0') as HTMLElement, {
-      target: { value: 'metadata' },
+      target: { value: 'option' },
     });
     fireEvent.change(document.getElementById('param-key-0') as HTMLElement, {
-      target: { value: 'condition' },
+      target: { value: 'endpoint_parameters' },
     });
     fireEvent.change(document.getElementById('param-val-0') as HTMLElement, {
-      target: { value: 'userProvidedCondition' },
+      target: { value: 'shouldFail' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     expect(
       screen.getByText(
-        'metadata.condition is reserved and managed by the rule section.',
+        'option.endpoint_parameters is reserved and managed by analysis options.',
       ),
     ).toBeInTheDocument();
     expect(UpdateAnalysis).not.toHaveBeenCalled();

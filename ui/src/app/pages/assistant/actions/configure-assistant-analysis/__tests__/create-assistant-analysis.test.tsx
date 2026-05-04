@@ -15,6 +15,47 @@ jest.mock('@rapidaai/react', () => ({
   ConnectionConfig: class ConnectionConfig {
     constructor(_: unknown) {}
   },
+  Metadata: class Metadata {
+    key = '';
+    value = '';
+    setKey(v: string) {
+      this.key = v;
+    }
+    setValue(v: string) {
+      this.value = v;
+    }
+    getKey() {
+      return this.key;
+    }
+    getValue() {
+      return this.value;
+    }
+  },
+  CreateAssistantAnalysisRequest: class CreateAssistantAnalysisRequest {
+    assistantId = '';
+    name = '';
+    description = '';
+    executionPriority = 0;
+    optionsList: any[] = [];
+    setAssistantid(v: string) {
+      this.assistantId = v;
+    }
+    setName(v: string) {
+      this.name = v;
+    }
+    setDescription(v: string) {
+      this.description = v;
+    }
+    setExecutionpriority(v: number) {
+      this.executionPriority = v;
+    }
+    setOptionsList(v: any[]) {
+      this.optionsList = v;
+    }
+    getOptionsList() {
+      return this.optionsList;
+    }
+  },
   CreateAnalysis: jest.fn(),
 }));
 
@@ -41,6 +82,7 @@ jest.mock('@/hooks/use-credential', () => ({
 }));
 
 jest.mock('@/utils', () => ({
+  cn: (...inputs: any[]) => inputs.filter(Boolean).join(' '),
   randomMeaningfullName: () => 'analysis-default',
 }));
 
@@ -188,20 +230,7 @@ describe('CreateAssistantAnalysis', () => {
   });
 
   it('creates analysis successfully and navigates back to analysis listing', async () => {
-    (CreateAnalysis as jest.Mock).mockImplementation(
-      (
-        _cfg,
-        _assistantId,
-        _name,
-        _endpointId,
-        _version,
-        _priority,
-        _params,
-        callback,
-      ) => {
-        callback(null, { getSuccess: () => true });
-      },
-    );
+    (CreateAnalysis as jest.Mock).mockResolvedValue({ getSuccess: () => true });
 
     render(<CreateAssistantAnalysis assistantId="assistant-1" />);
 
@@ -212,32 +241,21 @@ describe('CreateAssistantAnalysis', () => {
     await waitFor(() => {
       expect(CreateAnalysis).toHaveBeenCalled();
     });
-    expect(toast.success).toHaveBeenCalledWith(
-      'Analysis added to assistant successfully',
-    );
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(
+        'Analysis added to assistant successfully',
+      );
+    });
     expect(mockGoToConfigureAssistantAnalysis).toHaveBeenCalledWith(
       'assistant-1',
     );
   });
 
   it('shows human error message when create API returns unsuccessful response', async () => {
-    (CreateAnalysis as jest.Mock).mockImplementation(
-      (
-        _cfg,
-        _assistantId,
-        _name,
-        _endpointId,
-        _version,
-        _priority,
-        _params,
-        callback,
-      ) => {
-        callback(null, {
-          getSuccess: () => false,
-          getError: () => ({ getHumanmessage: () => 'Name already used' }),
-        });
-      },
-    );
+    (CreateAnalysis as jest.Mock).mockResolvedValue({
+      getSuccess: () => false,
+      getError: () => ({ getHumanmessage: () => 'Name already used' }),
+    });
 
     render(<CreateAssistantAnalysis assistantId="assistant-1" />);
 
@@ -249,20 +267,7 @@ describe('CreateAssistantAnalysis', () => {
   });
 
   it('supports add and edit for parameter mapping before create', async () => {
-    (CreateAnalysis as jest.Mock).mockImplementation(
-      (
-        _cfg,
-        _assistantId,
-        _name,
-        _endpointId,
-        _version,
-        _priority,
-        _params,
-        callback,
-      ) => {
-        callback(null, { getSuccess: () => true });
-      },
-    );
+    (CreateAnalysis as jest.Mock).mockResolvedValue({ getSuccess: () => true });
 
     render(<CreateAssistantAnalysis assistantId="assistant-1" />);
 
@@ -297,13 +302,24 @@ describe('CreateAssistantAnalysis', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Configure analysis' }));
 
     await waitFor(() => expect(CreateAnalysis).toHaveBeenCalled());
-    const mappedParams = (CreateAnalysis as jest.Mock).mock.calls[0][6];
+    const request = (CreateAnalysis as jest.Mock).mock.calls[0][1];
+    const mappedParams = request.getOptionsList().map((option: any) => ({
+      key: option.getKey(),
+      value: option.getValue(),
+    }));
     expect(mappedParams).toEqual(
       expect.arrayContaining([
-        { key: 'conversation.messages', value: 'messages' },
-        { key: 'assistant.name', value: 'assistantName' },
+        { key: 'endpoint_id', value: 'endpoint-1' },
+        { key: 'endpoint_version', value: 'latest' },
         {
-          key: 'metadata.condition',
+          key: 'endpoint_parameters',
+          value: JSON.stringify({
+            'conversation.messages': 'messages',
+            'assistant.name': 'assistantName',
+          }),
+        },
+        {
+          key: 'conditions',
           value: JSON.stringify([
             {
               key: 'conversation_mode',
@@ -316,24 +332,24 @@ describe('CreateAssistantAnalysis', () => {
     );
   });
 
-  it('blocks reserved metadata.condition mapping key', () => {
+  it('blocks reserved analysis option mapping key', () => {
     render(<CreateAssistantAnalysis assistantId="assistant-1" />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Pick endpoint' }));
     fireEvent.change(document.getElementById('param-type-0') as HTMLElement, {
-      target: { value: 'metadata' },
+      target: { value: 'option' },
     });
     fireEvent.change(document.getElementById('param-key-0') as HTMLElement, {
-      target: { value: 'condition' },
+      target: { value: 'endpoint_parameters' },
     });
     fireEvent.change(document.getElementById('param-val-0') as HTMLElement, {
-      target: { value: 'userProvidedCondition' },
+      target: { value: 'shouldFail' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     expect(
       screen.getByText(
-        'metadata.condition is reserved and managed by the rule section.',
+        'option.endpoint_parameters is reserved and managed by analysis options.',
       ),
     ).toBeInTheDocument();
     expect(CreateAnalysis).not.toHaveBeenCalled();

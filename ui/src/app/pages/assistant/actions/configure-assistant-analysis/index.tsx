@@ -32,6 +32,25 @@ import {
 } from '@carbon/react';
 import { TableSection } from '@/app/components/sections/table-section';
 
+const getAnalysisOptionMap = (row: any): Map<string, string> => {
+  const map = new Map<string, string>();
+  const options = row?.getOptionsList?.() || [];
+  options.forEach((option: any) => {
+    const key = option?.getKey?.();
+    const value = option?.getValue?.();
+    if (key && typeof value === 'string') {
+      map.set(key, value);
+    }
+  });
+  return map;
+};
+
+const getAnalysisEndpointId = (row: any): string =>
+  getAnalysisOptionMap(row).get('endpoint_id') || '';
+
+const getAnalysisEndpointVersion = (row: any): string =>
+  getAnalysisOptionMap(row).get('endpoint_version') || 'latest';
+
 export function ConfigureAssistantAnalysisPage() {
   const { assistantId } = useParams();
   return (
@@ -110,8 +129,8 @@ const ConfigureAssistantAnalysis: FC<{ assistantId: string }> = ({
     ? axtion.analysises.filter(row =>
         [
           row.getName(),
-          row.getEndpointid(),
-          row.getEndpointversion(),
+          getAnalysisEndpointId(row),
+          getAnalysisEndpointVersion(row),
           row.getExecutionpriority(),
           row.getStatus(),
         ]
@@ -252,10 +271,10 @@ const ConfigureAssistantAnalysis: FC<{ assistantId: string }> = ({
                       <TableCell>{row.getName()}</TableCell>
                       <TableCell>
                         <span className="font-mono text-xs">
-                          {row.getEndpointid()}
+                          {getAnalysisEndpointId(row) || '—'}
                         </span>
                       </TableCell>
-                      <TableCell>{row.getEndpointversion()}</TableCell>
+                      <TableCell>{getAnalysisEndpointVersion(row)}</TableCell>
                       <TableCell>{row.getExecutionpriority()}</TableCell>
                       <TableCell>
                         {row.getCreateddate()

@@ -20,9 +20,7 @@ type AssistantAnalysisService interface {
 		auth types.SimplePrinciple,
 		assistantId uint64,
 		name string,
-		endpointId uint64,
-		endpointVersion string,
-		endpointParameters map[string]string,
+		options []*protos.Metadata,
 		executionPriority uint32,
 		description *string,
 	) (*internal_assistant_entity.AssistantAnalysis, error)
@@ -31,9 +29,7 @@ type AssistantAnalysisService interface {
 		assistantId uint64,
 		analysisId uint64,
 		name string,
-		endpointId uint64,
-		endpointVersion string,
-		endpointParameters map[string]string,
+		options []*protos.Metadata,
 		executionPriority uint32,
 		description *string,
 	) (*internal_assistant_entity.AssistantAnalysis, error)
