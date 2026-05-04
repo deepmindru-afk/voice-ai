@@ -37,7 +37,7 @@ const headers = [
   { key: 'description', header: 'Description' },
   { key: 'status', header: 'Status' },
   { key: 'createdBy', header: 'Created By' },
-  { key: 'createdDate', header: 'Created' },
+  { key: 'createdDate', header: 'Date' },
 ];
 
 function VersionId({ id }: { id: string }) {
@@ -300,16 +300,16 @@ export function Version(props: VersionProps) {
                     disabled={isCurrent}
                   />
                 </TableCell>
-                <TableCell>
+                <TableCell className="!text-xs">
                   <VersionId id={data.id} />
                 </TableCell>
-                <TableCell>
+                <TableCell className="!text-xs">
                   <Tag type={data.typeColor} size="sm">
                     {data.type}
                   </Tag>
                 </TableCell>
-                <TableCell>{data.description}</TableCell>
-                <TableCell>
+                <TableCell className="!text-xs">{data.description}</TableCell>
+                <TableCell className="!text-xs">
                   {isCurrent ? (
                     <IconIndicator kind="succeeded" label="In use" size={16} />
                   ) : isDeploying ? (
@@ -326,10 +326,11 @@ export function Version(props: VersionProps) {
                     />
                   )}
                 </TableCell>
-                <TableCell>{data.createdBy}</TableCell>
-                <TableCell>
-                  {data.createdDate &&
-                    toHumanReadableDateTime(data.createdDate)}
+                <TableCell className="!text-xs">{data.createdBy}</TableCell>
+                <TableCell className="!text-xs whitespace-nowrap">
+                  {data.createdDate
+                    ? toHumanReadableDateTime(data.createdDate)
+                    : '—'}
                 </TableCell>
               </TableRow>
             );

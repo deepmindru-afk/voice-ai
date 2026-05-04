@@ -236,7 +236,7 @@ const ConfigureAssistantAnalysis: FC<{ assistantId: string }> = ({
                   <TableHeader>Endpoint</TableHeader>
                   <TableHeader>Version</TableHeader>
                   <TableHeader>Priority</TableHeader>
-                  <TableHeader>Created</TableHeader>
+                  <TableHeader>Date</TableHeader>
                   <TableHeader>Action</TableHeader>
                 </TableRow>
               </TableHead>
@@ -267,20 +267,24 @@ const ConfigureAssistantAnalysis: FC<{ assistantId: string }> = ({
                           }
                         />
                       </TableCell>
-                      <TableCell>{row.getName()}</TableCell>
-                      <TableCell>
+                      <TableCell className="!text-xs">{row.getName()}</TableCell>
+                      <TableCell className="!text-xs">
                         <span className="font-mono text-xs">
                           {getAnalysisEndpointId(row) || '—'}
                         </span>
                       </TableCell>
-                      <TableCell>{getAnalysisEndpointVersion(row)}</TableCell>
-                      <TableCell>{row.getExecutionpriority()}</TableCell>
-                      <TableCell>
+                      <TableCell className="!text-xs">
+                        {getAnalysisEndpointVersion(row)}
+                      </TableCell>
+                      <TableCell className="!text-xs">
+                        {row.getExecutionpriority()}
+                      </TableCell>
+                      <TableCell className="!text-xs whitespace-nowrap">
                         {row.getCreateddate()
                           ? toHumanReadableDateTime(row.getCreateddate()!)
                           : '—'}
                       </TableCell>
-                      <TableCell onClick={e => e.stopPropagation()}>
+                      <TableCell className="!text-xs" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-0">
                           <Button
                             hasIconOnly

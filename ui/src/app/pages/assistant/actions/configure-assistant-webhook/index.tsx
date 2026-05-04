@@ -249,7 +249,7 @@ const ConfigureAssistantWebhook: FC<{ assistantId: string }> = ({
                   <TableHeader>Retries</TableHeader>
                   <TableHeader>Timeout (s)</TableHeader>
                   <TableHeader>Priority</TableHeader>
-                  <TableHeader>Created</TableHeader>
+                  <TableHeader>Date</TableHeader>
                   <TableHeader>Actions</TableHeader>
                 </TableRow>
               </TableHead>
@@ -280,13 +280,13 @@ const ConfigureAssistantWebhook: FC<{ assistantId: string }> = ({
                           }
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="!text-xs">
                         <span className="font-mono text-xs">
                           {getWebhookMethod(row)}
                         </span>{' '}
                         <span className="truncate">{getWebhookUrl(row)}</span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="!text-xs">
                         <div className="flex flex-wrap gap-1">
                           {getWebhookEvents(row).map((event, index) => (
                             <Tag key={index} type="blue" size="sm">
@@ -295,15 +295,21 @@ const ConfigureAssistantWebhook: FC<{ assistantId: string }> = ({
                           ))}
                         </div>
                       </TableCell>
-                      <TableCell>{getWebhookRetryCount(row)}</TableCell>
-                      <TableCell>{getWebhookTimeoutSecond(row)}</TableCell>
-                      <TableCell>{row.getExecutionpriority()}</TableCell>
-                      <TableCell>
+                      <TableCell className="!text-xs">
+                        {getWebhookRetryCount(row)}
+                      </TableCell>
+                      <TableCell className="!text-xs">
+                        {getWebhookTimeoutSecond(row)}
+                      </TableCell>
+                      <TableCell className="!text-xs">
+                        {row.getExecutionpriority()}
+                      </TableCell>
+                      <TableCell className="!text-xs whitespace-nowrap">
                         {row.getCreateddate()
                           ? toHumanReadableDateTime(row.getCreateddate()!)
                           : '—'}
                       </TableCell>
-                      <TableCell onClick={e => e.stopPropagation()}>
+                      <TableCell className="!text-xs" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-0">
                           <Button
                             hasIconOnly

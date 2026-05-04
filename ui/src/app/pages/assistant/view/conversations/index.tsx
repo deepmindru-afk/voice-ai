@@ -8,7 +8,7 @@ import {
 import { useCredential } from '@/hooks/use-credential';
 import { useRapidaStore } from '@/hooks/use-rapida-store';
 import toast from 'react-hot-toast/headless';
-import { toDate, toDateString } from '@/utils/date';
+import { toDate, toDateString, toHumanReadableDateTime } from '@/utils/date';
 import { useAssistantConversationListPageStore } from '@/hooks/use-assistant-conversation-list-page-store';
 import { CarbonStatusIndicator } from '@/app/components/carbon/status-indicator';
 import SourceIndicator from '@/app/components/indicators/source';
@@ -30,7 +30,6 @@ import {
   TableToolbarContent,
   TableToolbarSearch,
   Loading,
-  DefinitionTooltip,
 } from '@carbon/react';
 import { TableLink } from '@/app/components/carbon/table-link';
 import { Pagination } from '@/app/components/carbon/pagination';
@@ -284,7 +283,7 @@ export function Conversations({ currentAssistant }: ConversationProps) {
                 (row, idx) => (
                   <TableRow key={idx}>
                     {assistantConversationListAction.visibleColumn('id') && (
-                      <TableCell>
+                      <TableCell className="!text-xs">
                         <TableLink
                           href={`/deployment/assistant/${row.getAssistantid()}/sessions/${row.getId()}`}
                         >
@@ -311,7 +310,7 @@ export function Conversations({ currentAssistant }: ConversationProps) {
                     {assistantConversationListAction.visibleColumn(
                       'direction',
                     ) && (
-                      <TableCell>
+                      <TableCell className="!text-xs">
                         <ConversationDirectionIndicator
                           direction={row.getDirection() || 'inbound'}
                         />
@@ -320,14 +319,14 @@ export function Conversations({ currentAssistant }: ConversationProps) {
                     {assistantConversationListAction.visibleColumn(
                       'identifier',
                     ) && (
-                      <TableCell className="max-w-[160px] truncate">
+                      <TableCell className="max-w-[160px] truncate !text-xs">
                         {row.getIdentifier()}
                       </TableCell>
                     )}
                     {assistantConversationListAction.visibleColumn(
                       'source',
                     ) && (
-                      <TableCell>
+                      <TableCell className="!text-xs">
                         <SourceIndicator source={row.getSource()} />
                       </TableCell>
                     )}
@@ -343,7 +342,7 @@ export function Conversations({ currentAssistant }: ConversationProps) {
                     {assistantConversationListAction.visibleColumn(
                       'action',
                     ) && (
-                      <TableCell>
+                      <TableCell className="!text-xs">
                         <div className="flex items-center gap-0">
                           {row.getTelephonyeventsList().length > 0 && (
                             <IconOnlyButton
@@ -393,7 +392,7 @@ export function Conversations({ currentAssistant }: ConversationProps) {
                     {assistantConversationListAction.visibleColumn(
                       'status',
                     ) && (
-                      <TableCell>
+                      <TableCell className="!text-xs">
                         <CarbonStatusIndicator
                           state={getStatusMetric(row.getMetricsList())}
                         />
@@ -404,16 +403,9 @@ export function Conversations({ currentAssistant }: ConversationProps) {
                       'created_date',
                     ) && (
                       <TableCell className="!text-xs whitespace-nowrap">
-                        {row.getCreateddate() && (
-                          <DefinitionTooltip
-                            definition={toDate(
-                              row.getCreateddate()!,
-                            ).toUTCString()}
-                            openOnHover
-                          >
-                            {toDate(row.getCreateddate()!).toLocaleString()}
-                          </DefinitionTooltip>
-                        )}
+                        {row.getCreateddate()
+                          ? toHumanReadableDateTime(row.getCreateddate()!)
+                          : '—'}
                       </TableCell>
                     )}
                   </TableRow>

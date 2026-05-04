@@ -467,7 +467,7 @@ export const ConfigureAssistantDeploymentPage = () => {
                     <TableHeader>Status</TableHeader>
                     <TableHeader>STT Provider</TableHeader>
                     <TableHeader>TTS Provider</TableHeader>
-                    <TableHeader>Updated</TableHeader>
+                    <TableHeader>Date</TableHeader>
                     <TableHeader>Actions</TableHeader>
                   </TableRow>
                 </TableHead>
@@ -502,7 +502,7 @@ export const ConfigureAssistantDeploymentPage = () => {
                           }
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="!text-xs">
                         <SourceIndicator source={row.source} />
                       </TableCell>
                       <TableCell className="!font-mono !text-xs">
@@ -525,16 +525,16 @@ export const ConfigureAssistantDeploymentPage = () => {
                           row.version
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="!text-xs">
                         <CarbonStatusIndicator state={row.status} />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="!text-xs">
                         <AudioProviderTag
                           provider={row.sttProvider}
                           icon={<Microphone size={14} />}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="!text-xs">
                         <AudioProviderTag
                           provider={row.ttsProvider}
                           icon={<VolumeUp size={14} />}
@@ -543,7 +543,7 @@ export const ConfigureAssistantDeploymentPage = () => {
                       <TableCell className="!text-xs whitespace-nowrap">
                         {row.updated}
                       </TableCell>
-                      <TableCell onClick={e => e.stopPropagation()}>
+                      <TableCell className="!text-xs" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-0">
                           <IconOnlyButton
                             kind="ghost"
@@ -659,7 +659,7 @@ function AudioProviderTag({
       : 'Unavailable';
 
   return (
-    <Tag size="md" type="cool-gray">
+    <Tag size="sm" type="cool-gray">
       <span className="inline-flex items-center gap-1.5 leading-none">
         {icon}
         {label}
