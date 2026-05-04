@@ -108,11 +108,11 @@ func (r *genericRequestor) Disconnect(ctx context.Context) {
 	// Disconnect() runs, so these would otherwise be silently lost.
 	r.drainLowChannel()
 
-	// Phase 2: Trigger end-of-conversation hooks
-	r.OnEndConversation(ctx)
-
-	// Phase 3: Persist audio recording asynchronously
+	// Phase 2: Persist audio recording asynchronously
 	r.persistRecording(ctx)
+
+	// Phase 3: Trigger end-of-conversation hooks
+	r.onAnalysisEvent(ctx, r.GetID())
 
 	// Phase 4: Flush and shut down observe collectors.
 	// Collect the "disconnected" event directly rather than via OnPacket/lowCh

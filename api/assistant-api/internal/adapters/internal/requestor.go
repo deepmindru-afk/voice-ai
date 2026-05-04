@@ -8,7 +8,6 @@ package adapter_internal
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -449,22 +448,17 @@ func (r *genericRequestor) initializeCollectors(ctx context.Context) {
 
 	for _, p := range providers {
 		opts := p.GetOptions()
-		// Resolve vault credential and merge its fields into opts so that
-		// exporter config parsers (e.g. DatadogConfigFromOptions) can read
-		// api_key, headers, access_token etc. from the credential store.
-		if credIDStr, ok := opts["rapida.credential_id"]; ok {
-			credID, parseErr := utils.Option(opts).GetUint64("rapida.credential_id")
-			if parseErr != nil {
-				r.logger.Errorf("observe: invalid credential_id %q for provider %d (%s): %v", credIDStr, p.Id, p.ProviderType, parseErr)
-			} else {
-				credential, credErr := r.VaultCaller().GetCredential(ctx, r.Auth(), credID)
-				if credErr != nil {
-					r.logger.Errorf("observe: vault credential lookup failed for provider %d (%s): %v", p.Id, p.ProviderType, credErr)
-				} else if credential != nil && credential.GetValue() != nil {
-					for k, v := range credential.GetValue().AsMap() {
-						if s, ok := v.(string); ok {
-							opts[k] = s
-						}
+		credID, parseErr := opts.GetUint64("rapida.credential_id")
+		if parseErr != nil {
+			r.logger.Errorf("observe: invalid credential_id for provider %d (%s): %v", p.Id, p.ProviderType, parseErr)
+		} else {
+			credential, credErr := r.VaultCaller().GetCredential(ctx, r.Auth(), credID)
+			if credErr != nil {
+				r.logger.Errorf("observe: vault credential lookup failed for provider %d (%s): %v", p.Id, p.ProviderType, credErr)
+			} else if credential != nil && credential.GetValue() != nil {
+				for k, v := range credential.GetValue().AsMap() {
+					if s, ok := v.(string); ok {
+						opts[k] = s
 					}
 				}
 			}
@@ -476,8 +470,8 @@ func (r *genericRequestor) initializeCollectors(ctx context.Context) {
 			continue
 		}
 		if evtExp == nil || metExp == nil {
-			endpoint := strings.TrimSpace(fmt.Sprintf("%v", opts["endpoint"]))
-			if (p.ProviderType == string(observe.OTLP_HTTP) || p.ProviderType == string(observe.OTLP_GRPC)) && endpoint == "" {
+			_, err := opts.GetString("endpoint")
+			if (p.ProviderType == string(observe.OTLP_HTTP) || p.ProviderType == string(observe.OTLP_GRPC)) && err != nil {
 				r.logger.Warnf("observe: skipping provider %d (%s): missing endpoint", p.Id, p.ProviderType)
 				continue
 			}
@@ -516,23 +510,6 @@ func (r *genericRequestor) initializeCollectors(ctx context.Context) {
 	r.analysisExecutor.Init(ctx, r)
 	r.webhookExecutor = internal_webhook.NewExecutor(r.logger)
 	r.webhookExecutor.Init(ctx, r)
-}
-
-func (r *genericRequestor) packetHistories() []internal_type.MessageEntry {
-	histories := make([]internal_type.MessageEntry, 0, len(r.histories))
-	for _, m := range r.histories {
-		histories = append(histories, internal_type.MessageEntry{Role: m.Role(), Content: m.Content()})
-	}
-	return histories
-}
-
-func (r *genericRequestor) newRunAnalysisPacket(contextID string) internal_type.RunAnalysisPacket {
-	return internal_type.RunAnalysisPacket{
-		ContextID:      contextID,
-		Assistant:      r.assistant,
-		ConversationID: r.assistantConversation.Id,
-		Auth:           r.auth,
-	}
 }
 
 // shutdownCollectors waits for in-flight exports and shuts down all exporters.

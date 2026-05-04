@@ -469,8 +469,8 @@ func (eService *assistantService) Get(ctx context.Context,
 				tx := db.
 					Preload("AssistantAnalysisOption", "status = ?", type_enums.RECORD_ACTIVE).
 					Where("assistant_id = ? AND status = ?", assistantId, type_enums.RECORD_ACTIVE.String()).
-					Find(&analysis).
-					Order("execution_priority DESC")
+					Order("execution_priority DESC").
+					Find(&analysis)
 				if tx.Error != nil {
 					return
 				}

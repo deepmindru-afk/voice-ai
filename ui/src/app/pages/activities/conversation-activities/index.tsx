@@ -347,7 +347,7 @@ export const ListingPage: FC<{}> = () => {
                               : 'cool-gray'
                           }
                         >
-                          <span className="inline-flex items-center gap-1.5 leading-none">
+                          <span className="flex items-center gap-1.5 leading-none">
                             {row.getRole().toLowerCase() === 'assistant' ? (
                               <Bot size={16} />
                             ) : (

@@ -8,7 +8,6 @@ package adapter_internal
 import (
 	"context"
 	"slices"
-	"strings"
 
 	internal_condition "github.com/rapidaai/api/assistant-api/internal/condition"
 	internal_assistant_entity "github.com/rapidaai/api/assistant-api/internal/entity/assistants"
@@ -65,11 +64,8 @@ func (r *genericRequestor) isWebhookAllowed(
 	webhook *internal_assistant_entity.AssistantWebhook,
 	direction string,
 ) bool {
-	if webhook == nil {
-		return false
-	}
-	rawCondition := strings.TrimSpace(webhook.GetHeaders()["webhook.condition"])
-	if rawCondition == "" {
+	rawCondition, err := webhook.GetOptions().GetString("webhook.condition")
+	if err != nil {
 		return true
 	}
 	parsed, parseErr := internal_condition.Parse(rawCondition)

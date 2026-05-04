@@ -660,7 +660,7 @@ function AudioProviderTag({
 
   return (
     <Tag size="sm" type="cool-gray">
-      <span className="inline-flex items-center gap-1.5 leading-none">
+      <span className="flex items-center gap-1.5 leading-none">
         {icon}
         {label}
       </span>

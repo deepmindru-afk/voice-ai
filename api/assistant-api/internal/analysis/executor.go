@@ -16,6 +16,7 @@ import (
 	endpoint_client_builders "github.com/rapidaai/pkg/clients/endpoint/builders"
 	"github.com/rapidaai/pkg/commons"
 	rapida_types "github.com/rapidaai/pkg/types"
+	"github.com/rapidaai/pkg/utils"
 	"github.com/rapidaai/protos"
 )
 
@@ -83,10 +84,19 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.RunA
 		protoMetadata = append(protoMetadata, &protos.Metadata{Key: item.Key, Value: item.Value})
 	}
 
-	return e.onPacket(ctx, internal_type.ConversationMetadataPacket{
+	e.onPacket(ctx, internal_type.ConversationMetadataPacket{
 		ContextID: packet.ConversationID,
 		Metadata:  protoMetadata,
 	})
+	if packet.TriggerWebhook {
+		if err := e.onPacket(ctx, internal_type.RunWebhookPacket{
+			ContextID: packet.ContextID,
+			Event:     utils.ConversationCompleted,
+		}); err != nil {
+			e.logger.Warnw("failed to enqueue webhook packet", "analysisID", packet.Analysis.GetName(), "error", err)
+		}
+	}
+	return nil
 }
 
 // Close releases executor dependencies.

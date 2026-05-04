@@ -404,10 +404,6 @@ func (talking *genericRequestor) handleDenoise(ctx context.Context, vl internal_
 }
 
 func (talking *genericRequestor) handleDenoisedAudio(ctx context.Context, vl internal_type.DenoisedAudioPacket) {
-	// Re-emit as UserAudioReceivedPacket with NoiseReduced=true so it flows
-	// through handleUserAudio's normal fan-out (Record, VAD, STT, EOS).
-	// Always mark NoiseReduced=true to prevent re-entering the denoiser,
-	// even if the denoiser fell back to the original audio on error.
 	talking.OnPacket(ctx, internal_type.UserAudioReceivedPacket{
 		ContextID:    vl.ContextID,
 		Audio:        vl.Audio,
@@ -1214,4 +1210,14 @@ func (talking *genericRequestor) handleConversationEvent(ctx context.Context, vl
 			Time:           vl.Time,
 		})
 	}
+}
+
+func (r *genericRequestor) handleRunAnalysisPacket(ctx context.Context, packet internal_type.RunAnalysisPacket) {
+	if err := r.analysisExecutor.Execute(ctx, packet); err != nil {
+		r.logger.Warnw("analysis execution failed", "name", packet.Analysis.GetName(), "error", err)
+	}
+}
+
+func (md *genericRequestor) handleRunWebhookPacket(ctx context.Context, rwp internal_type.RunWebhookPacket) error {
+	return md.onWebhookEvent(ctx, md.GetID(), utils.ConversationCompleted)
 }
