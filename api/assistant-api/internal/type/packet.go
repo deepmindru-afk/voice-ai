@@ -260,28 +260,180 @@ func (f InjectMessagePacket) ContextId() string { return f.ContextID }
 func (f InjectMessagePacket) Content() string   { return f.Text }
 func (f InjectMessagePacket) Role() string      { return "rapida" }
 
-// RunAnalysisPacket triggers analysis execution for the current conversation context.
-type RunAnalysisPacket struct {
+// =============================================================================
+// Init chain: InitAssistant → InitConversation → InitService → InitAuthenticate
+//             → InitAudio → InitBehavior
+// Each handler enqueues the next phase to lowCh, forming an ordered chain.
+// =============================================================================
+
+// InitAssistantPacket loads the assistant config, starts dispatchers, inits auth executor.
+type InitAssistantPacket struct {
+	ContextID string
+	Config    *protos.ConversationInitialization
+}
+
+func (f InitAssistantPacket) ContextId() string { return f.ContextID }
+
+// InitConversationPacket creates or resumes the conversation.
+type InitConversationPacket struct {
+	ContextID string
+	Config    *protos.ConversationInitialization
+}
+
+func (f InitConversationPacket) ContextId() string { return f.ContextID }
+
+// InitServicePacket initializes collectors, recorder, normalizers, EOS, metrics.
+type InitServicePacket struct {
+	ContextID string
+	Config    *protos.ConversationInitialization
+}
+
+func (f InitServicePacket) ContextId() string { return f.ContextID }
+
+// InitAuthenticatePacket runs the authentication endpoint.
+type InitAuthenticatePacket struct {
+	ContextID string
+	Config    *protos.ConversationInitialization
+}
+
+func (f InitAuthenticatePacket) ContextId() string { return f.ContextID }
+
+// InitAudioPacket initializes STT, TTS, and LLM executor.
+type InitAudioPacket struct {
+	ContextID string
+	Config    *protos.ConversationInitialization
+}
+
+func (f InitAudioPacket) ContextId() string { return f.ContextID }
+
+// InitBehaviorPacket sets up greeting, idle timeout, max session.
+type InitBehaviorPacket struct {
+	ContextID string
+	Config    *protos.ConversationInitialization
+}
+
+func (f InitBehaviorPacket) ContextId() string { return f.ContextID }
+
+// InitializationErrorPacket signals that initialization failed.
+// The handler notifies the client and fires ConversationFailed webhooks.
+type InitializationErrorPacket struct {
+	ContextID string
+	Error     error
+}
+
+func (f InitializationErrorPacket) ContextId() string  { return f.ContextID }
+func (f InitializationErrorPacket) IsRecoverable() bool { return false }
+func (f InitializationErrorPacket) Err() error          { return f.Error }
+func (f InitializationErrorPacket) ErrMessage() string  { return fmt.Sprintf("init: %s", f.Error.Error()) }
+
+// ExecuteAuthenticationPacket triggers authentication against the configured endpoint.
+type ExecuteAuthenticationPacket struct {
 	ContextID      string
-	Assistant      *internal_assistant_entity.Assistant
+	Authentication *internal_assistant_entity.AssistantAuthentication
+	Arguments      map[string]interface{}
+}
+
+func (f ExecuteAuthenticationPacket) ContextId() string { return f.ContextID }
+
+// =============================================================================
+// Disconnect chain: DisconnectCloseIOPacket → DisconnectRecordingPacket
+//                   → AnalysisStart → ExecuteAnalysis* → WebhookStart
+//                   → ExecuteWebhook* → WebhookDone → DisconnectObservePacket
+//                   → DisconnectShutdownPacket
+// Each handler enqueues the next phase to lowCh, forming an ordered chain.
+// =============================================================================
+
+// DisconnectCloseIOPacket closes STT, TTS, normalizers concurrently.
+type DisconnectCloseIOPacket struct {
+	ContextID string
+}
+
+func (f DisconnectCloseIOPacket) ContextId() string { return f.ContextID }
+
+// DisconnectRecordingPacket persists the audio recording.
+type DisconnectRecordingPacket struct {
+	ContextID string
+}
+
+func (f DisconnectRecordingPacket) ContextId() string { return f.ContextID }
+
+// DisconnectObservePacket emits disconnect event and shuts down observers.
+type DisconnectObservePacket struct {
+	ContextID string
+}
+
+func (f DisconnectObservePacket) ContextId() string { return f.ContextID }
+
+// DisconnectShutdownPacket closes executor, stops timers, cancels worker context.
+type DisconnectShutdownPacket struct {
+	ContextID string
+}
+
+func (f DisconnectShutdownPacket) ContextId() string { return f.ContextID }
+
+// AnalysisStartPacket fans out ExecuteAnalysisPacket for each eligible analysis,
+// then enqueues WebhookStartPacket as a continuation.
+type AnalysisStartPacket struct {
+	ContextID string
+	Done      chan struct{}
+}
+
+func (f AnalysisStartPacket) ContextId() string { return f.ContextID }
+
+// ExecuteAnalysisPacket triggers a single analysis execution.
+type ExecuteAnalysisPacket struct {
+	ContextID      string
 	Analysis       *internal_assistant_entity.AssistantAnalysis
 	Arguments      map[string]interface{}
-	TriggerWebhook bool
 	ConversationID uint64
 	Auth           types.SimplePrinciple
 }
 
-func (f RunAnalysisPacket) ContextId() string { return f.ContextID }
+func (f ExecuteAnalysisPacket) ContextId() string { return f.ContextID }
 
-// RunWebhookPacket triggers webhook execution for the current conversation context.
-type RunWebhookPacket struct {
+// AnalysisDonePacket is a marker enqueued after all ExecuteAnalysisPackets.
+// By the time the low dispatcher reaches it, all analysis metadata packets
+// (pushed by executors during ExecuteAnalysis processing) are already in
+// the queue ahead of what this handler enqueues. This guarantees metadata
+// is applied before webhooks run.
+type AnalysisDonePacket struct {
+	ContextID string
+	Event     utils.AssistantWebhookEvent
+	Done      chan struct{}
+}
+
+func (f AnalysisDonePacket) ContextId() string { return f.ContextID }
+
+// WebhookStartPacket fans out ExecuteWebhookPacket for each eligible webhook,
+// then enqueues WebhookDonePacket.
+type WebhookStartPacket struct {
+	ContextID string
+	Event     utils.AssistantWebhookEvent
+	Done      chan struct{}
+}
+
+func (f WebhookStartPacket) ContextId() string { return f.ContextID }
+
+// ExecuteWebhookPacket triggers a single webhook execution.
+type ExecuteWebhookPacket struct {
 	ContextID string
 	Event     utils.AssistantWebhookEvent
 	Webhook   *internal_assistant_entity.AssistantWebhook
 	Arguments map[string]interface{}
 }
 
-func (f RunWebhookPacket) ContextId() string { return f.ContextID }
+func (f ExecuteWebhookPacket) ContextId() string { return f.ContextID }
+
+// WebhookDonePacket marks that all webhooks have been processed.
+// If Done is non-nil, the handler closes it to signal the waiting goroutine
+// (e.g. the disconnect chain continuation in handleDisconnectRecording).
+// If Done is nil, this is a terminal no-op (fire-and-forget begin/resume/failed webhooks).
+type WebhookDonePacket struct {
+	ContextID string
+	Done      chan struct{}
+}
+
+func (f WebhookDonePacket) ContextId() string { return f.ContextID }
 
 // StartIdleTimeoutPacket explicitly (re)starts the idle timeout timer.
 // Routed on outputCh so producers can order it relative to InjectMessagePacket

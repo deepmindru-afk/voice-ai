@@ -19,6 +19,7 @@ import (
 	internal_agent_tool "github.com/rapidaai/api/assistant-api/internal/tool"
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 	"github.com/rapidaai/api/assistant-api/internal/variable"
+	internal_namespace "github.com/rapidaai/api/assistant-api/internal/variable/namespace"
 	integration_client_builders "github.com/rapidaai/pkg/clients/integration/builders"
 	"github.com/rapidaai/pkg/commons"
 	"github.com/rapidaai/pkg/parsers"
@@ -441,7 +442,7 @@ func (e *modelAssistantExecutor) buildPromptArgs(communication internal_type.Com
 // resolver — see api/assistant-api/internal/variable. The message.* sub-tree
 // is per-message and stays here; buildPromptArgs overlays it on top.
 func (e *modelAssistantExecutor) buildBasePromptArgs(communication internal_type.Communication) map[string]interface{} {
-	registry := variable.NewDefaultRegistry()
+	registry := internal_namespace.NewDefaultRegistry()
 	src := variable.NewCommunicationSource(communication)
 	out := registry.Expand(src, variable.ResolveContext{})
 	out["message"] = map[string]interface{}{"language": "English"}

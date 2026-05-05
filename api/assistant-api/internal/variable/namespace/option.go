@@ -3,17 +3,21 @@
 //
 // Licensed under GPL-2.0 with Rapida Additional Terms.
 // See LICENSE.md or contact sales@rapida.ai for commercial usage.
-package variable
+package namespace
+
+import (
+	"github.com/rapidaai/api/assistant-api/internal/variable"
+)
 
 // OptionNamespace exposes the conversation options map.
 type OptionNamespace struct{}
 
-func (n *OptionNamespace) Get(suffix string, src Source, _ ResolveContext) (any, bool) {
+func (n *OptionNamespace) Get(suffix string, src variable.Source, _ variable.ResolveContext) (any, bool) {
 	v, ok := src.Options()[suffix]
 	return v, ok
 }
 
-func (n *OptionNamespace) Enumerate(src Source, _ ResolveContext) map[string]any {
+func (n *OptionNamespace) Enumerate(src variable.Source, _ variable.ResolveContext) map[string]any {
 	in := src.Options()
 	out := make(map[string]any, len(in))
 	for k, v := range in {

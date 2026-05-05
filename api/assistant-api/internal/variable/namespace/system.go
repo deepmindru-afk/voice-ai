@@ -3,23 +3,25 @@
 //
 // Licensed under GPL-2.0 with Rapida Additional Terms.
 // See LICENSE.md or contact sales@rapida.ai for commercial usage.
-package variable
+package namespace
 
 import (
 	"strconv"
 	"time"
+
+	"github.com/rapidaai/api/assistant-api/internal/variable"
 )
 
 // SystemNamespace exposes UTC clock keys: current_date, current_time,
 // current_datetime, day_of_week, date_rfc1123, date_unix, date_unix_ms.
 type SystemNamespace struct{}
 
-func (n *SystemNamespace) Get(suffix string, src Source, _ ResolveContext) (any, bool) {
+func (n *SystemNamespace) Get(suffix string, src variable.Source, _ variable.ResolveContext) (any, bool) {
 	v, ok := n.fields(src.Now())[suffix]
 	return v, ok
 }
 
-func (n *SystemNamespace) Enumerate(src Source, _ ResolveContext) map[string]any {
+func (n *SystemNamespace) Enumerate(src variable.Source, _ variable.ResolveContext) map[string]any {
 	return n.fields(src.Now())
 }
 

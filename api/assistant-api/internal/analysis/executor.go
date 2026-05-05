@@ -16,14 +16,13 @@ import (
 	endpoint_client_builders "github.com/rapidaai/pkg/clients/endpoint/builders"
 	"github.com/rapidaai/pkg/commons"
 	rapida_types "github.com/rapidaai/pkg/types"
-	"github.com/rapidaai/pkg/utils"
 	"github.com/rapidaai/protos"
 )
 
 // Executor defines analysis runtime behavior.
 type Executor interface {
 	Init(ctx context.Context, communication internal_type.Communication)
-	Execute(ctx context.Context, packet internal_type.RunAnalysisPacket) error
+	Execute(ctx context.Context, packet internal_type.ExecuteAnalysisPacket) error
 	Close(ctx context.Context)
 }
 
@@ -49,7 +48,7 @@ func (e *runtimeExecutor) Init(_ context.Context, communication internal_type.Co
 }
 
 // Execute runs one analysis and pushes metadata via callback packet.
-func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.RunAnalysisPacket) error {
+func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.ExecuteAnalysisPacket) error {
 	response, err := e.deployment.Invoke(
 		ctx,
 		packet.Auth,
@@ -88,14 +87,6 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.RunA
 		ContextID: packet.ConversationID,
 		Metadata:  protoMetadata,
 	})
-	if packet.TriggerWebhook {
-		if err := e.onPacket(ctx, internal_type.RunWebhookPacket{
-			ContextID: packet.ContextID,
-			Event:     utils.ConversationCompleted,
-		}); err != nil {
-			e.logger.Warnw("failed to enqueue webhook packet", "analysisID", packet.Analysis.GetName(), "error", err)
-		}
-	}
 	return nil
 }
 

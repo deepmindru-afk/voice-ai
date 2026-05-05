@@ -3,24 +3,28 @@
 //
 // Licensed under GPL-2.0 with Rapida Additional Terms.
 // See LICENSE.md or contact sales@rapida.ai for commercial usage.
-package variable
+package namespace
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/rapidaai/api/assistant-api/internal/variable"
+)
 
 // AssistantNamespace exposes the active assistant: id, version, name,
 // language, description.
 type AssistantNamespace struct{}
 
-func (n *AssistantNamespace) Get(suffix string, src Source, _ ResolveContext) (any, bool) {
+func (n *AssistantNamespace) Get(suffix string, src variable.Source, _ variable.ResolveContext) (any, bool) {
 	v, ok := n.fields(src.Assistant())[suffix]
 	return v, ok
 }
 
-func (n *AssistantNamespace) Enumerate(src Source, _ ResolveContext) map[string]any {
+func (n *AssistantNamespace) Enumerate(src variable.Source, _ variable.ResolveContext) map[string]any {
 	return n.fields(src.Assistant())
 }
 
-func (n *AssistantNamespace) fields(a *AssistantInfo) map[string]any {
+func (n *AssistantNamespace) fields(a *variable.AssistantInfo) map[string]any {
 	if a == nil {
 		return map[string]any{}
 	}

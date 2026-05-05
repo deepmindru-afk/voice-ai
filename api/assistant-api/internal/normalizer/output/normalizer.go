@@ -14,6 +14,7 @@ import (
 	internal_output_aggregator_normalizer "github.com/rapidaai/api/assistant-api/internal/normalizer/output/aggregator"
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 	"github.com/rapidaai/api/assistant-api/internal/variable"
+	internal_namespace "github.com/rapidaai/api/assistant-api/internal/variable/namespace"
 	"github.com/rapidaai/pkg/commons"
 	"github.com/rapidaai/pkg/parsers"
 	"github.com/rapidaai/protos"
@@ -62,7 +63,7 @@ func (n *outputNormalizer) Initialize(ctx context.Context, communication interna
 	if dictionaries, err := communication.GetOptions().GetString("speaker.pronunciation.dictionaries"); err == nil && dictionaries != "" {
 		n.normalizers = n.buildNormalizerPipeline(strings.Split(dictionaries, commons.SEPARATOR))
 	}
-	registry := variable.NewDefaultRegistry()
+	registry := internal_namespace.NewDefaultRegistry()
 	n.expandArgs = func() map[string]interface{} {
 		return registry.Expand(variable.NewCommunicationSource(communication), variable.ResolveContext{})
 	}

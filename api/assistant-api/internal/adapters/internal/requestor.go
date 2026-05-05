@@ -19,6 +19,7 @@ import (
 
 	internal_agent_embeddings "github.com/rapidaai/api/assistant-api/internal/agent/embedding"
 	internal_agent_rerankers "github.com/rapidaai/api/assistant-api/internal/agent/reranker"
+	internal_authentication "github.com/rapidaai/api/assistant-api/internal/authentication"
 	internal_analysis "github.com/rapidaai/api/assistant-api/internal/analysis"
 	internal_assistant_entity "github.com/rapidaai/api/assistant-api/internal/entity/assistants"
 	internal_conversation_entity "github.com/rapidaai/api/assistant-api/internal/entity/conversations"
@@ -107,8 +108,9 @@ type genericRequestor struct {
 	// observe — shared observability infrastructure (DB + exporters)
 	observer *observe.ConversationObserver
 
-	analysisExecutor internal_analysis.Executor
-	webhookExecutor  internal_webhook.Executor
+	analysisExecutor       internal_analysis.Executor
+	webhookExecutor        internal_webhook.Executor
+	authenticationExecutor internal_authentication.Executor
 
 	// integration client
 	integrationClient integration_client.IntegrationServiceClient
@@ -155,6 +157,12 @@ type genericRequestor struct {
 	idleTimeoutCount    uint64
 	maxSessionTimer     *time.Timer
 
+	// workerCtx outlives the stream context so the low dispatcher can
+	// process completion packets (analysis, webhooks) after disconnect.
+	workerCtx      context.Context
+	workerCancel   context.CancelFunc
+	disconnectDone chan struct{}
+
 	// packet dispatcher channels — four priority tiers, each with its own goroutine
 	criticalCh chan packetEnvelope // interrupts and directives                        (cap 16)
 	inputCh    chan packetEnvelope // inbound: user audio, denoise, VAD, STT, EOS      (cap 4096)
@@ -169,6 +177,7 @@ func NewGenericRequestor(
 	postgres connectors.PostgresConnector, opensearch connectors.OpenSearchConnector,
 	redis connectors.RedisConnector, storage storages.Storage, streamer internal_type.Streamer,
 ) *genericRequestor {
+	workerCtx, workerCancel := context.WithCancel(context.Background())
 	return &genericRequestor{
 		logger:   logger,
 		config:   config,
@@ -195,18 +204,22 @@ func NewGenericRequestor(
 
 		// observer and hook executors are initialized after session creation in initializeCollectors
 
-		contextID:         uuid.NewString(),
-		interactionState:  Unknown,
-		msgMode:           type_enums.TextMode,
-		assistantExecutor: internal_llm.NewAssistantExecutor(logger),
-		inputNormalizer:   internal_input_normalizer.NewInputNormalizer(logger),
-		outputNormalizer:  internal_output_normalizer.NewOutputNormalizer(logger),
+		contextID:              uuid.NewString(),
+		interactionState:       Unknown,
+		msgMode:                type_enums.TextMode,
+		assistantExecutor:      internal_llm.NewAssistantExecutor(logger),
+		authenticationExecutor: internal_authentication.NewExecutor(logger),
+		inputNormalizer:        internal_input_normalizer.NewInputNormalizer(logger),
+		outputNormalizer:       internal_output_normalizer.NewOutputNormalizer(logger),
 
 		//
 		histories: make([]internal_type.MessagePacket, 0),
 		metadata:  make(map[string]interface{}),
 		args:      make(map[string]interface{}),
 		options:   make(map[string]interface{}),
+
+		workerCtx:    workerCtx,
+		workerCancel: workerCancel,
 
 		// dispatcher channels
 		criticalCh: make(chan packetEnvelope, 256),

@@ -14,6 +14,19 @@ package variable
 
 import "time"
 
+// Source is the read-only interface that every namespace uses to pull
+// session / assistant / conversation state. VariableSource implements it.
+type Source interface {
+	Assistant() *AssistantInfo
+	Conversation() *ConversationInfo
+	Histories() []ConversationMessageInfo
+	Arguments() map[string]any
+	Metadata() map[string]any
+	Options() map[string]any
+	Mode() string
+	Now() time.Time
+}
+
 // AssistantInfo is the subset of assistant fields exposed to templates.
 type AssistantInfo struct {
 	ID          uint64
@@ -32,21 +45,24 @@ type ConversationInfo struct {
 	CreatedDate time.Time
 }
 
-// HistoryEntry is a simplified message for templated payloads.
-type HistoryEntry struct {
+// ConversationMessageInfo is a simplified message for templated payloads.
+type ConversationMessageInfo struct {
 	Role    string
 	Content string
 }
 
-// Source is the data provider behind every variable lookup.
-type Source interface {
-	Assistant() *AssistantInfo
-	Conversation() *ConversationInfo
-	Histories() []HistoryEntry
-	Arguments() map[string]any
-	Metadata() map[string]any
-	Options() map[string]any
-	Mode() string
-	SessionSource() string
-	Now() time.Time
+// ResolveContext carries per-call extras that some namespaces need.
+// Source carries durable state; ResolveContext carries call-time bindings
+// (tool name, raw tool args, observe event).
+type ResolveContext struct {
+	ToolName string
+	ToolArgs map[string]any
+	Event    string
+}
+
+// Namespace is one prefix's worth of data. Get is used by Apply (flat lookup);
+// Enumerate is used by Expand (build sub-tree).
+type Namespace interface {
+	Get(suffix string, src Source, ctx ResolveContext) (any, bool)
+	Enumerate(src Source, ctx ResolveContext) map[string]any
 }

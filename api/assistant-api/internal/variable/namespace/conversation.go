@@ -3,27 +3,29 @@
 //
 // Licensed under GPL-2.0 with Rapida Additional Terms.
 // See LICENSE.md or contact sales@rapida.ai for commercial usage.
-package variable
+package namespace
 
 import (
 	"fmt"
 	"time"
+
+	"github.com/rapidaai/api/assistant-api/internal/variable"
 )
 
 // ConversationNamespace exposes the active conversation: id, identifier,
 // source, direction, created_date, duration, messages.
 type ConversationNamespace struct{}
 
-func (n *ConversationNamespace) Get(suffix string, src Source, _ ResolveContext) (any, bool) {
+func (n *ConversationNamespace) Get(suffix string, src variable.Source, _ variable.ResolveContext) (any, bool) {
 	v, ok := n.fields(src.Conversation(), src.Histories())[suffix]
 	return v, ok
 }
 
-func (n *ConversationNamespace) Enumerate(src Source, _ ResolveContext) map[string]any {
+func (n *ConversationNamespace) Enumerate(src variable.Source, _ variable.ResolveContext) map[string]any {
 	return n.fields(src.Conversation(), src.Histories())
 }
 
-func (n *ConversationNamespace) fields(c *ConversationInfo, hist []HistoryEntry) map[string]any {
+func (n *ConversationNamespace) fields(c *variable.ConversationInfo, hist []variable.ConversationMessageInfo) map[string]any {
 	out := map[string]any{
 		"messages": n.simplifyHistory(hist),
 	}
@@ -41,7 +43,7 @@ func (n *ConversationNamespace) fields(c *ConversationInfo, hist []HistoryEntry)
 	return out
 }
 
-func (n *ConversationNamespace) simplifyHistory(msgs []HistoryEntry) []map[string]string {
+func (n *ConversationNamespace) simplifyHistory(msgs []variable.ConversationMessageInfo) []map[string]string {
 	out := make([]map[string]string, 0, len(msgs))
 	for _, m := range msgs {
 		out = append(out, map[string]string{"role": m.Role, "message": m.Content})

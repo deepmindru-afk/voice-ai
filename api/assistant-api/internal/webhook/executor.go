@@ -22,7 +22,7 @@ import (
 // Executor defines webhook runtime behavior.
 type Executor interface {
 	Init(ctx context.Context, communication internal_type.Communication)
-	Execute(ctx context.Context, packet internal_type.RunWebhookPacket) error
+	Execute(ctx context.Context, packet internal_type.ExecuteWebhookPacket) error
 	Close(ctx context.Context)
 }
 
@@ -42,7 +42,7 @@ func (e *runtimeExecutor) Init(_ context.Context, communication internal_type.Co
 }
 
 // Execute runs webhook dispatch for packet event.
-func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.RunWebhookPacket) error {
+func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.ExecuteWebhookPacket) error {
 	client := rest.NewRestClientWithConfig(packet.Webhook.GetUrl(), packet.Webhook.GetHeaders(), packet.Webhook.GetTimeoutSecond())
 	startTime := time.Now()
 	for retryCount := uint32(0); retryCount <= packet.Webhook.GetMaxRetryCount(); retryCount++ {
@@ -57,7 +57,7 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.RunW
 				continue
 			}
 			if !slices.Contains(packet.Webhook.GetRetryStatusCode(), strconv.Itoa(response.StatusCode)) {
-				break
+				return nil
 			}
 			if retryCount < packet.Webhook.GetMaxRetryCount() {
 				time.Sleep(2 * time.Second)
@@ -90,7 +90,7 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.RunW
 				continue
 			}
 			if !slices.Contains(packet.Webhook.GetRetryStatusCode(), strconv.Itoa(response.StatusCode)) {
-				break
+				return nil
 			}
 			if retryCount < packet.Webhook.GetMaxRetryCount() {
 				time.Sleep(2 * time.Second)
@@ -122,7 +122,7 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.RunW
 				continue
 			}
 			if !slices.Contains(packet.Webhook.GetRetryStatusCode(), strconv.Itoa(response.StatusCode)) {
-				break
+				return nil
 			}
 			if retryCount < packet.Webhook.GetMaxRetryCount() {
 				time.Sleep(2 * time.Second)
@@ -154,7 +154,7 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.RunW
 				continue
 			}
 			if !slices.Contains(packet.Webhook.GetRetryStatusCode(), strconv.Itoa(response.StatusCode)) {
-				break
+				return nil
 			}
 			if retryCount < packet.Webhook.GetMaxRetryCount() {
 				time.Sleep(2 * time.Second)

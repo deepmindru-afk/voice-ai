@@ -3,7 +3,11 @@
 //
 // Licensed under GPL-2.0 with Rapida Additional Terms.
 // See LICENSE.md or contact sales@rapida.ai for commercial usage.
-package variable
+package namespace
+
+import (
+	"github.com/rapidaai/api/assistant-api/internal/variable"
+)
 
 // EventNamespace exposes the observe webhook event. The observe consumer
 // registers this namespace and passes Event in ResolveContext.
@@ -15,7 +19,7 @@ package variable
 //	               messages, and analysis.* metadata
 type EventNamespace struct{}
 
-func (n *EventNamespace) Get(suffix string, src Source, ctx ResolveContext) (any, bool) {
+func (n *EventNamespace) Get(suffix string, src variable.Source, ctx variable.ResolveContext) (any, bool) {
 	switch suffix {
 	case "type":
 		return ctx.Event, true
@@ -25,17 +29,17 @@ func (n *EventNamespace) Get(suffix string, src Source, ctx ResolveContext) (any
 	return nil, false
 }
 
-func (n *EventNamespace) Enumerate(src Source, ctx ResolveContext) map[string]any {
+func (n *EventNamespace) Enumerate(src variable.Source, ctx variable.ResolveContext) map[string]any {
 	return map[string]any{
 		"type": ctx.Event,
 		"data": n.dataPayload(src),
 	}
 }
 
-func (n *EventNamespace) dataPayload(src Source) map[string]any {
-	conv := (&ConversationNamespace{}).Enumerate(src, ResolveContext{})
-	asst := (&AssistantNamespace{}).Enumerate(src, ResolveContext{})
-	analysis := (&MetadataPrefixNamespace{Prefix: "analysis."}).Enumerate(src, ResolveContext{})
+func (n *EventNamespace) dataPayload(src variable.Source) map[string]any {
+	conv := (&ConversationNamespace{}).Enumerate(src, variable.ResolveContext{})
+	asst := (&AssistantNamespace{}).Enumerate(src, variable.ResolveContext{})
+	analysis := (&MetadataPrefixNamespace{Prefix: "analysis."}).Enumerate(src, variable.ResolveContext{})
 	return map[string]any{
 		"assistant":    asst,
 		"conversation": conv,

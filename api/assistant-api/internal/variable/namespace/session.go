@@ -3,27 +3,31 @@
 //
 // Licensed under GPL-2.0 with Rapida Additional Terms.
 // See LICENSE.md or contact sales@rapida.ai for commercial usage.
-package variable
+package namespace
+
+import (
+	"github.com/rapidaai/api/assistant-api/internal/variable"
+)
 
 // SessionNamespace exposes session-level fields: mode, source.
 type SessionNamespace struct{}
 
-func (n *SessionNamespace) Get(suffix string, src Source, _ ResolveContext) (any, bool) {
+func (n *SessionNamespace) Get(suffix string, src variable.Source, _ variable.ResolveContext) (any, bool) {
 	v, ok := n.fields(src)[suffix]
 	return v, ok
 }
 
-func (n *SessionNamespace) Enumerate(src Source, _ ResolveContext) map[string]any {
+func (n *SessionNamespace) Enumerate(src variable.Source, _ variable.ResolveContext) map[string]any {
 	return n.fields(src)
 }
 
-func (n *SessionNamespace) fields(src Source) map[string]any {
+func (n *SessionNamespace) fields(src variable.Source) map[string]any {
 	out := map[string]any{}
 	if mode := src.Mode(); mode != "" {
 		out["mode"] = mode
 	}
-	if s := src.SessionSource(); s != "" {
-		out["source"] = s
+	if c := src.Conversation(); c != nil && c.Source != "" {
+		out["source"] = c.Source
 	}
 	return out
 }
