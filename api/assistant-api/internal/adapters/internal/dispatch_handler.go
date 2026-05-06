@@ -1,0 +1,1565 @@
+// Copyright (c) 2023-2025 RapidaAI
+// Author: Prashant Srivastav <prashant@rapida.ai>
+//
+// Licensed under GPL-2.0 with Rapida Additional Terms.
+// See LICENSE.md or contact sales@rapida.ai for commercial usage.
+package adapter_internal
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"slices"
+	"strconv"
+	"time"
+
+	internal_audio "github.com/rapidaai/api/assistant-api/internal/audio"
+	internal_audio_recorder "github.com/rapidaai/api/assistant-api/internal/audio/recorder"
+	internal_condition "github.com/rapidaai/api/assistant-api/internal/condition"
+	internal_conversation_entity "github.com/rapidaai/api/assistant-api/internal/entity/conversations"
+	observe "github.com/rapidaai/api/assistant-api/internal/observe"
+	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
+	"github.com/rapidaai/api/assistant-api/internal/variable"
+	internal_namespace "github.com/rapidaai/api/assistant-api/internal/variable/namespace"
+	pkg_types "github.com/rapidaai/pkg/types"
+	type_enums "github.com/rapidaai/pkg/types/enums"
+	"github.com/rapidaai/pkg/utils"
+	"github.com/rapidaai/protos"
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+type requestorDispatchHandler struct {
+	r *genericRequestor
+}
+
+func (h requestorDispatchHandler) HandleUserText(ctx context.Context, vl internal_type.UserTextReceivedPacket) {
+	h.HandleInterruptionDetected(ctx, internal_type.InterruptionDetectedPacket{
+		ContextID: h.r.GetID(),
+		Source:    internal_type.InterruptionSourceWord,
+	})
+
+	vl.ContextID = h.r.GetID()
+	if err := h.callEndOfSpeech(ctx, vl); err != nil {
+		h.r.OnPacket(ctx, internal_type.EndOfSpeechPacket{ContextID: vl.ContextID, Speech: vl.Text})
+	}
+}
+
+func (h requestorDispatchHandler) HandleUserAudio(ctx context.Context, vl internal_type.UserAudioReceivedPacket) {
+	if h.r.denoiser != nil && !vl.NoiseReduced {
+		h.r.OnPacket(ctx, internal_type.DenoiseAudioPacket{ContextID: vl.ContextID, Audio: vl.Audio})
+		return
+	}
+	h.r.OnPacket(ctx,
+		internal_type.RecordUserAudioPacket{ContextID: vl.ContextID, Audio: vl.Audio},
+		internal_type.VadAudioPacket{ContextID: vl.ContextID, Audio: vl.Audio},
+	)
+	if h.r.speechToTextTransformer != nil {
+		utils.Go(ctx, func() {
+			if err := h.r.speechToTextTransformer.Transform(ctx, vl); err != nil {
+				h.r.logger.Tracef(ctx, "error while transforming input %s and error %s", h.r.speechToTextTransformer.Name(), err.Error())
+			}
+		})
+	}
+	h.callEndOfSpeech(ctx, vl)
+}
+
+func (h requestorDispatchHandler) HandleDenoise(ctx context.Context, vl internal_type.DenoiseAudioPacket) {
+	if h.r.denoiser != nil {
+		if err := h.r.denoiser.Denoise(ctx, vl); err != nil {
+			h.r.logger.Warnf("denoiser returned unexpected error: %+v", err)
+		}
+	}
+}
+func (h requestorDispatchHandler) HandleDenoisedAudio(ctx context.Context, vl internal_type.DenoisedAudioPacket) {
+	h.r.OnPacket(ctx, internal_type.UserAudioReceivedPacket{
+		ContextID:    vl.ContextID,
+		Audio:        vl.Audio,
+		NoiseReduced: true,
+	})
+}
+
+func (h requestorDispatchHandler) HandleVadAudio(ctx context.Context, vl internal_type.VadAudioPacket) {
+	if h.r.vad != nil {
+		utils.Go(ctx, func() {
+			if err := h.r.vad.Process(ctx, internal_type.UserAudioReceivedPacket{ContextID: vl.ContextID, Audio: vl.Audio}); err != nil {
+				h.r.logger.Warnf("error while processing with vad %s", err.Error())
+			}
+		})
+	}
+}
+func (h requestorDispatchHandler) HandleVadSpeechActivity(ctx context.Context, vl internal_type.VadSpeechActivityPacket) {
+	if h.r.endOfSpeech != nil {
+		utils.Go(ctx, func() {
+			if err := h.r.endOfSpeech.Analyze(ctx, vl); err != nil {
+				h.r.logger.Errorf("end of speech analyze error: %v", err)
+			}
+		})
+	}
+}
+func (h requestorDispatchHandler) HandleSpeechToText(ctx context.Context, p internal_type.SpeechToTextPacket) {
+	p.ContextID = h.r.GetID()
+	if err := h.callEndOfSpeech(ctx, p); err != nil {
+		if !p.Interim {
+			h.r.OnPacket(ctx, internal_type.EndOfSpeechPacket{
+				ContextID: p.ContextID,
+				Speech:    p.Script,
+				Speechs:   []internal_type.SpeechToTextPacket{p},
+			})
+		}
+	}
+}
+func (h requestorDispatchHandler) HandleInterimEndOfSpeech(ctx context.Context, p internal_type.InterimEndOfSpeechPacket) {
+	h.r.Notify(ctx, &protos.ConversationUserMessage{
+		Id:        h.r.GetID(),
+		Message:   &protos.ConversationUserMessage_Text{Text: p.Speech},
+		Completed: false,
+		Time:      timestamppb.New(time.Now()),
+	})
+}
+func (h requestorDispatchHandler) HandleEndOfSpeech(ctx context.Context, p internal_type.EndOfSpeechPacket) {
+	if err := h.callInputNormalizer(ctx, p); err != nil {
+		h.r.OnPacket(ctx, internal_type.UserInputPacket{
+			ContextID: p.ContextID,
+			Text:      p.Speech,
+		})
+	}
+}
+func (h requestorDispatchHandler) HandleUserInput(ctx context.Context, p internal_type.UserInputPacket) {
+	h.r.OnPacket(ctx, internal_type.StopIdleTimeoutPacket{
+		ContextID: h.r.GetID(), ResetCount: true,
+	})
+
+	if err := h.r.Transition(LLMGenerating); err != nil {
+		h.r.logger.Errorf("messaging transition error: %v", err)
+	}
+
+	contextID := h.r.GetID()
+	p.ContextID = contextID
+
+	if err := h.r.Notify(ctx, &protos.ConversationUserMessage{
+		Id:        contextID,
+		Message:   &protos.ConversationUserMessage_Text{Text: p.Text},
+		Completed: true,
+		Time:      timestamppb.New(time.Now()),
+	}); err != nil {
+		h.r.logger.Tracef(ctx, "might be returning processing the duplicate message so cut it out.")
+		return
+	}
+	h.r.OnPacket(ctx,
+		internal_type.MessageCreatePacket{ContextID: contextID, MessageRole: "user", Text: p.Text},
+		internal_type.UserMessageMetadataPacket{ContextID: contextID, Metadata: []*protos.Metadata{
+			{
+				Key:   "language",
+				Value: p.Language.Name,
+			},
+			{
+				Key:   "language_code",
+				Value: p.Language.ISO639_1,
+			}}},
+		internal_type.UserMessageMetricPacket{ContextID: contextID, Metrics: []*protos.Metric{{Name: "user_turn", Value: type_enums.CONVERSATION_COMPLETE.String(), Description: "User turn started"}}})
+
+	if h.r.assistantExecutor != nil {
+		utils.Go(ctx, func() {
+			if err := h.r.assistantExecutor.Execute(ctx, h.r, p); err != nil {
+				h.r.OnPacket(ctx, internal_type.LLMErrorPacket{ContextID: contextID, Error: err})
+			}
+		})
+	}
+}
+func (h requestorDispatchHandler) HandleInterruptionDetected(ctx context.Context, p internal_type.InterruptionDetectedPacket) {
+	if p.ContextID == "" {
+		p.ContextID = h.r.GetID()
+	}
+
+	switch p.Source {
+	case internal_type.InterruptionSourceWord:
+		h.r.OnPacket(ctx, internal_type.StopIdleTimeoutPacket{ContextID: p.ContextID})
+		if err := h.callEndOfSpeech(ctx, p); err != nil {
+			h.r.logger.Errorf("end of speech error: %v", err)
+		}
+		if err := h.r.Transition(Interrupted); err != nil {
+			return
+		}
+		h.r.OnPacket(ctx,
+			internal_type.RecordAssistantAudioPacket{ContextID: p.ContextID, Truncate: true},
+			internal_type.TTSInterruptPacket{ContextID: p.ContextID, StartAt: p.StartAt, EndAt: p.EndAt},
+			internal_type.LLMInterruptPacket{ContextID: p.ContextID},
+		)
+		utils.Go(ctx, func() {
+			h.r.Notify(ctx, &protos.ConversationInterruption{
+				Type: protos.ConversationInterruption_INTERRUPTION_TYPE_WORD,
+				Time: timestamppb.Now(),
+			})
+		})
+
+	default:
+		if p.StartAt < 5 {
+			return
+		}
+
+		h.r.OnPacket(ctx, internal_type.STTInterruptPacket{ContextID: p.ContextID})
+
+		if err := h.callEndOfSpeech(ctx, p); err != nil {
+			h.r.logger.Errorf("end of speech error: %v", err)
+		}
+
+		if err := h.r.Transition(Interrupt); err != nil {
+			return
+		}
+		utils.Go(ctx, func() {
+			h.r.Notify(ctx, &protos.ConversationInterruption{
+				Type: protos.ConversationInterruption_INTERRUPTION_TYPE_VAD,
+				Time: timestamppb.Now(),
+			})
+		})
+	}
+}
+func (h requestorDispatchHandler) HandleTTSInterrupt(ctx context.Context, p internal_type.TTSInterruptPacket) {
+	if h.r.textToSpeechTransformer != nil {
+		if err := h.r.textToSpeechTransformer.Transform(ctx, p); err != nil {
+			h.r.logger.Errorf("tts interrupt: %v", err)
+		}
+	}
+}
+func (h requestorDispatchHandler) HandleLLMInterrupt(ctx context.Context, p internal_type.LLMInterruptPacket) {
+	if h.r.assistantExecutor != nil {
+		if err := h.r.assistantExecutor.Execute(ctx, h.r, p); err != nil {
+			h.r.logger.Errorf("llm interrupt: %v", err)
+		}
+	}
+}
+func (h requestorDispatchHandler) HandleSTTInterrupt(ctx context.Context, p internal_type.STTInterruptPacket) {
+	if h.r.speechToTextTransformer != nil {
+		if err := h.r.speechToTextTransformer.Transform(ctx, p); err != nil {
+			h.r.logger.Errorf("stt interrupt: %v", err)
+		}
+	}
+}
+func (h requestorDispatchHandler) HandleTurnChange(ctx context.Context, p internal_type.TurnChangePacket) {
+	if p.ContextID == "" {
+		p.ContextID = h.r.GetID()
+	}
+	if p.Time.IsZero() {
+		p.Time = time.Now()
+	}
+
+	if h.r.speechToTextTransformer != nil {
+		if err := h.r.speechToTextTransformer.Transform(ctx, p); err != nil {
+			h.r.logger.Errorf("stt context-change update failed: %v", err)
+		}
+	}
+	if h.r.textToSpeechTransformer != nil {
+		if err := h.r.textToSpeechTransformer.Transform(ctx, p); err != nil {
+			h.r.logger.Errorf("tts context-change update failed: %v", err)
+		}
+	}
+
+	h.r.OnPacket(ctx, internal_type.ConversationEventPacket{
+		ContextID: p.ContextID,
+		Name:      "turn",
+		Data: map[string]string{
+			"type":           "change",
+			"old_context_id": p.PreviousContextID,
+			"new_context_id": p.ContextID,
+			"reason":         p.Reason,
+			"source":         p.Source,
+		},
+		Time: p.Time,
+	})
+}
+func (h requestorDispatchHandler) HandleLLMResponseDelta(ctx context.Context, p internal_type.LLMResponseDeltaPacket) {
+	if p.ContextID != h.r.GetID() {
+		h.r.OnPacket(ctx, internal_type.ConversationEventPacket{
+			ContextID: p.ContextID,
+			Name:      "llm",
+			Data:      map[string]string{"type": "discarded", "reason": "stale_context", "current_context": h.r.GetID(), "text": p.Text},
+			Time:      time.Now(),
+		})
+		return
+	}
+	if err := h.r.Transition(LLMGenerating); err != nil {
+		h.r.logger.Errorf("messaging transition error: %v", err)
+	}
+	if h.r.outputNormalizer != nil {
+		h.r.outputNormalizer.Normalize(ctx, p)
+	} else {
+		h.r.OnPacket(ctx, internal_type.TTSTextPacket{ContextID: p.ContextID, Text: p.Text})
+	}
+}
+func (h requestorDispatchHandler) HandleLLMResponseDone(ctx context.Context, p internal_type.LLMResponseDonePacket) {
+	if p.ContextID != h.r.GetID() {
+		h.r.OnPacket(ctx, internal_type.ConversationEventPacket{
+			ContextID: p.ContextID,
+			Name:      "llm",
+			Data:      map[string]string{"type": "discarded", "reason": "stale_context", "packet": "done", "current_context": h.r.GetID(), "text": p.Text},
+			Time:      time.Now(),
+		})
+		return
+	}
+	h.r.OnPacket(ctx, internal_type.StartIdleTimeoutPacket{ContextID: p.ContextID})
+	if err := h.r.Transition(LLMGenerated); err != nil {
+		h.r.logger.Errorf("messaging transition error: %v", err)
+	}
+	h.r.OnPacket(ctx,
+		internal_type.MessageCreatePacket{ContextID: p.ContextID, MessageRole: "assistant", Text: p.Text},
+		internal_type.AssistantMessageMetricPacket{
+			ContextID: p.ContextID,
+			Metrics:   []*protos.Metric{{Name: "assistant_turn", Value: type_enums.CONVERSATION_COMPLETE.String(), Description: fmt.Sprintf("LLM response completed")}},
+		},
+	)
+	if h.r.outputNormalizer != nil {
+		h.r.outputNormalizer.Normalize(ctx, p)
+	} else {
+		h.r.OnPacket(ctx, internal_type.TTSDonePacket{ContextID: p.ContextID, Text: p.Text})
+	}
+}
+func (h requestorDispatchHandler) HandleError(ctx context.Context, p internal_type.ErrorPacket) {
+	switch errPkt := p.(type) {
+	case internal_type.InitializationFailedPacket:
+		h.r.OnPacket(ctx, internal_type.ConversationEventPacket{
+			ContextID: p.ContextId(),
+			Name:      "session",
+			Data:      map[string]string{"type": "error", "message": p.ErrMessage()},
+			Time:      time.Now(),
+		})
+	case internal_type.LLMErrorPacket:
+		h.r.OnPacket(ctx,
+			internal_type.UserMessageMetricPacket{
+				ContextID: p.ContextId(),
+				Metrics: []*protos.Metric{{
+					Name:        "llm_error",
+					Value:       p.ErrMessage(),
+					Description: "An error occurred during LLM processing"}},
+			},
+			internal_type.ConversationEventPacket{
+				ContextID: p.ContextId(),
+				Name:      "llm",
+				Data:      map[string]string{"type": "error", "message": p.ErrMessage()},
+				Time:      time.Now(),
+			})
+		h.r.Transition(LLMGenerated)
+	case internal_type.STTErrorPacket:
+		h.r.OnPacket(ctx,
+			internal_type.UserMessageMetricPacket{
+				ContextID: p.ContextId(),
+				Metrics: []*protos.Metric{{
+					Name:        "stt_error",
+					Value:       p.ErrMessage(),
+					Description: "An error occurred during STT processing"}},
+			},
+			internal_type.ConversationEventPacket{
+				ContextID: p.ContextId(),
+				Name:      "stt",
+				Data:      map[string]string{"type": "error", "message": p.ErrMessage()},
+				Time:      time.Now(),
+			})
+	case internal_type.TTSErrorPacket:
+		h.r.OnPacket(ctx,
+			internal_type.UserMessageMetricPacket{
+				ContextID: p.ContextId(),
+				Metrics: []*protos.Metric{{
+					Name:        "tts_error",
+					Value:       p.ErrMessage(),
+					Description: "An error occurred during TTS processing"}},
+			},
+			internal_type.ConversationEventPacket{
+				ContextID: p.ContextId(),
+				Name:      "tts",
+				Data:      map[string]string{"type": "error", "message": p.ErrMessage()},
+				Time:      time.Now(),
+			})
+	case internal_type.ModeSwitchErrorPacket:
+		h.r.OnPacket(ctx, internal_type.ConversationEventPacket{
+			ContextID: p.ContextId(),
+			Name:      observe.ComponentSession,
+			Data: map[string]string{
+				observe.DataType: "mode_switch_failed",
+				"error_type":     string(errPkt.Type),
+				"target_mode":    errPkt.StreamMode.String(),
+				"error":          p.ErrMessage(),
+			},
+			Time: time.Now(),
+		})
+	}
+	if !p.IsRecoverable() {
+		h.r.RunError(ctx, p.ContextId())
+		var conversationId uint64
+		if h.r.Conversation() != nil {
+			conversationId = h.r.Conversation().Id
+		}
+		h.r.Notify(ctx,
+			&protos.ConversationError{
+				AssistantConversationId: conversationId,
+				Message:                 p.ErrMessage(),
+			},
+			&protos.ConversationDisconnection{
+				Type: protos.ConversationDisconnection_DISCONNECTION_TYPE_UNSPECIFIED,
+			})
+		return
+	}
+	_ = h.r.Notify(ctx, &protos.ConversationError{
+		AssistantConversationId: h.r.Conversation().Id,
+		Message:                 p.ErrMessage(),
+	})
+}
+func (h requestorDispatchHandler) HandleInjectMessage(ctx context.Context, p internal_type.InjectMessagePacket) {
+	if err := h.r.Transition(LLMGenerating); err != nil {
+		h.r.logger.Errorf("messaging transition error: %v", err)
+	}
+
+	if h.r.assistantExecutor != nil {
+		utils.Go(ctx, func() {
+			if err := h.r.assistantExecutor.Execute(ctx, h.r, p); err != nil {
+				h.r.logger.Errorf("assistant executor error: %v", err)
+			}
+		})
+	}
+
+	contextID := h.r.GetID()
+
+	if h.r.outputNormalizer != nil {
+		h.r.OnPacket(ctx,
+			internal_type.MessageCreatePacket{ContextID: contextID, MessageRole: "assistant", Text: p.Text},
+			internal_type.AssistantMessageMetricPacket{
+				ContextID: contextID,
+				Metrics:   []*protos.Metric{{Name: "assistant_turn", Value: type_enums.CONVERSATION_COMPLETE.String(), Description: "Injected message completed"}},
+			},
+		)
+		h.r.outputNormalizer.Normalize(ctx, internal_type.InjectMessagePacket{ContextID: contextID, Text: p.Text})
+		if err := h.r.Transition(LLMGenerated); err != nil {
+			h.r.logger.Errorf("messaging transition error: %v", err)
+		}
+	} else {
+		h.r.OnPacket(ctx,
+			internal_type.LLMResponseDeltaPacket{ContextID: contextID, Text: p.Text},
+			internal_type.LLMResponseDonePacket{ContextID: contextID, Text: p.Text},
+		)
+	}
+}
+func (h requestorDispatchHandler) HandleStartIdleTimeout(ctx context.Context, p internal_type.StartIdleTimeoutPacket) {
+	if h.r.idleTimeoutTimer != nil {
+		h.r.idleTimeoutTimer.Stop()
+	}
+	behavior, err := h.r.GetBehavior()
+	if err != nil {
+		return
+	}
+	if behavior.IdleTimeout == nil || *behavior.IdleTimeout == 0 {
+		return
+	}
+
+	timeoutDuration := time.Duration(*behavior.IdleTimeout) * time.Second
+	h.r.idleTimeoutDeadline = time.Now().Add(timeoutDuration)
+	h.r.idleTimeoutTimer = time.AfterFunc(timeoutDuration, func() {
+		if err := h.r.onIdleTimeout(ctx); err != nil {
+			h.r.logger.Errorf("error while handling idle timeout: %v", err)
+		}
+	})
+}
+func (h requestorDispatchHandler) HandleStopIdleTimeout(ctx context.Context, p internal_type.StopIdleTimeoutPacket) {
+	if h.r.idleTimeoutTimer != nil {
+		h.r.idleTimeoutTimer.Stop()
+		h.r.idleTimeoutTimer = nil
+	}
+	h.r.idleTimeoutDeadline = time.Time{}
+
+	if p.ResetCount {
+		h.r.idleTimeoutCount = 0
+	}
+}
+func (h requestorDispatchHandler) HandleTTSText(ctx context.Context, p internal_type.TTSTextPacket) {
+	if p.ContextID != h.r.GetID() {
+		return
+	}
+	if h.r.textToSpeechTransformer != nil && h.r.GetMode().Audio() {
+		if err := h.r.textToSpeechTransformer.Transform(ctx, p); err != nil {
+			h.r.logger.Errorf("tts text: failed to send chunk: %v", err)
+		}
+	}
+	h.r.Notify(ctx, &protos.ConversationAssistantMessage{
+		Time: timestamppb.Now(), Id: p.ContextID, Completed: false,
+		Message: &protos.ConversationAssistantMessage_Text{Text: p.Text},
+	})
+}
+func (h requestorDispatchHandler) HandleTTSDone(ctx context.Context, p internal_type.TTSDonePacket) {
+	if p.ContextID != h.r.GetID() {
+		return
+	}
+
+	if h.r.textToSpeechTransformer != nil && h.r.GetMode().Audio() {
+		if err := h.r.textToSpeechTransformer.Transform(ctx, p); err != nil {
+			h.r.logger.Errorf("tts done: failed to send final: %v", err)
+		}
+	}
+	h.r.Notify(ctx, &protos.ConversationAssistantMessage{
+		Time: timestamppb.Now(), Id: p.ContextID, Completed: true,
+		Message: &protos.ConversationAssistantMessage_Text{Text: p.Text},
+	})
+}
+func (h requestorDispatchHandler) HandleTextToSpeechAudio(ctx context.Context, p internal_type.TextToSpeechAudioPacket) {
+	if h.r.GetMode().Audio() {
+		audioInfo := internal_audio.GetAudioInfo(p.AudioChunk, internal_audio.RAPIDA_INTERNAL_AUDIO_CONFIG)
+		h.r.extendIdleTimeoutTimer(time.Duration(audioInfo.DurationMs) * time.Millisecond)
+	}
+	if p.ContextID != h.r.GetID() {
+		h.r.OnPacket(ctx,
+			internal_type.ConversationEventPacket{
+				ContextID: p.ContextID,
+				Name:      "tts",
+				Data:      map[string]string{"type": "discarded", "reason": "stale_context", "packet": "tts_audio", "current_context": h.r.GetID()},
+				Time:      time.Now(),
+			},
+			internal_type.AssistantMessageMetricPacket{
+				ContextID: p.ContextID,
+				Metrics:   []*protos.Metric{{Name: "discarded_tts_chunk", Value: "true", Description: fmt.Sprintf("tts end packet discarded due to stale contextID %s", h.r.GetID())}},
+			})
+		return
+	}
+	if err := h.r.Notify(ctx, &protos.ConversationAssistantMessage{
+		Time:      timestamppb.Now(),
+		Id:        p.ContextID,
+		Message:   &protos.ConversationAssistantMessage_Audio{Audio: p.AudioChunk},
+		Completed: false,
+	}); err != nil {
+		h.r.logger.Tracef(ctx, "error while outputting chunk to the user: %w", err)
+	}
+	h.r.OnPacket(ctx, internal_type.RecordAssistantAudioPacket{ContextID: p.ContextID, Audio: p.AudioChunk})
+}
+func (h requestorDispatchHandler) HandleTextToSpeechEnd(ctx context.Context, p internal_type.TextToSpeechEndPacket) {
+	if p.ContextID != h.r.GetID() {
+		h.r.OnPacket(ctx,
+			internal_type.ConversationEventPacket{
+				ContextID: p.ContextID,
+				Name:      "tts",
+				Data:      map[string]string{"type": "discarded", "reason": "stale_context", "packet": "tts_end", "current_context": h.r.GetID()},
+				Time:      time.Now(),
+			},
+			internal_type.AssistantMessageMetricPacket{
+				ContextID: p.ContextID,
+				Metrics:   []*protos.Metric{{Name: "discarded_tts", Value: "true", Description: fmt.Sprintf("tts end packet discarded due to stale contextID %s", h.r.GetID())}},
+			})
+		return
+	}
+	if err := h.r.Notify(ctx, &protos.ConversationAssistantMessage{
+		Time:      timestamppb.Now(),
+		Id:        p.ContextID,
+		Completed: true,
+	}); err != nil {
+		h.r.logger.Tracef(ctx, "error while outputting chunk to the user: %w", err)
+	}
+}
+func (h requestorDispatchHandler) HandleLLMToolCall(ctx context.Context, p internal_type.LLMToolCallPacket) {
+	req, _ := json.Marshal(p)
+	h.r.OnPacket(ctx, internal_type.ConversationEventPacket{
+		ContextID: p.ContextID,
+		Name:      observe.ComponentTool,
+		Data:      map[string]string{observe.DataType: observe.EventToolCallStarted, "name": p.Name, "id": p.ToolID, "action": p.Action.String()},
+		Time:      time.Now(),
+	}, internal_type.ToolLogCreatePacket{
+		ContextID: p.ContextID, ToolID: p.ToolID, Name: p.Name, Request: req,
+	},
+	)
+
+	if msg, ok := p.Arguments["message"]; ok && msg != "" {
+		h.r.OnPacket(ctx,
+			internal_type.TTSInterruptPacket{ContextID: p.ContextID},
+			internal_type.InjectMessagePacket{ContextID: p.ContextID, Text: msg})
+	}
+
+	if delayStr, ok := p.Arguments["delay"]; ok && delayStr != "" {
+		if delayMs, err := strconv.Atoi(delayStr); err == nil && delayMs > 0 {
+			time.AfterFunc(time.Duration(delayMs)*time.Millisecond, func() {
+				h.r.Notify(ctx, &protos.ConversationToolCall{
+					Id: p.ContextID, ToolId: p.ToolID, Name: p.Name,
+					Action: p.Action, Args: p.Arguments, Time: timestamppb.Now(),
+				})
+			})
+		}
+	} else {
+		h.r.Notify(ctx, &protos.ConversationToolCall{
+			Id: p.ContextID, ToolId: p.ToolID, Name: p.Name,
+			Action: p.Action, Args: p.Arguments, Time: timestamppb.Now(),
+		})
+	}
+
+	if p.Action != protos.ToolCallAction_TOOL_CALL_ACTION_UNSPECIFIED {
+		h.r.OnPacket(ctx, internal_type.StopIdleTimeoutPacket{
+			ContextID: h.r.GetID(), ResetCount: true,
+		})
+		if h.r.maxSessionTimer != nil {
+			h.r.maxSessionTimer.Stop()
+		}
+	}
+
+	if h.r.assistantExecutor != nil {
+		utils.Go(ctx, func() {
+			if err := h.r.assistantExecutor.Execute(ctx, h.r, p); err != nil {
+				h.r.logger.Errorf("assistant executor error: %v", err)
+			}
+		})
+	}
+}
+func (h requestorDispatchHandler) HandleLLMToolResult(ctx context.Context, p internal_type.LLMToolResultPacket) {
+	res, _ := json.Marshal(p)
+
+	h.r.OnPacket(ctx,
+		internal_type.ToolLogUpdatePacket{
+			ContextID: p.ContextID, ToolID: p.ToolID, Response: res,
+		})
+
+	switch p.Action {
+	case protos.ToolCallAction_TOOL_CALL_ACTION_END_CONVERSATION:
+		h.r.Notify(ctx, &protos.ConversationDisconnection{
+			Type: protos.ConversationDisconnection_DISCONNECTION_TYPE_TOOL,
+		})
+		return
+	case protos.ToolCallAction_TOOL_CALL_ACTION_TRANSFER_CONVERSATION:
+		if p.Result["next_action"] == "end_call" {
+			h.r.Notify(ctx, &protos.ConversationDisconnection{
+				Type: protos.ConversationDisconnection_DISCONNECTION_TYPE_TOOL,
+			})
+			return
+		}
+	}
+
+	h.r.OnPacket(
+		ctx,
+		internal_type.TTSInterruptPacket{ContextID: p.ContextID},
+		internal_type.StartIdleTimeoutPacket{ContextID: p.ContextID},
+		internal_type.ConversationEventPacket{
+			ContextID: p.ContextID,
+			Name:      observe.ComponentTool,
+			Data:      map[string]string{observe.DataType: observe.EventToolCallCompleted, "name": p.Name, "id": p.ToolID},
+			Time:      time.Now(),
+		},
+	)
+	if h.r.assistantExecutor != nil {
+		utils.Go(ctx, func() {
+			if err := h.r.assistantExecutor.Execute(ctx, h.r, p); err != nil {
+				h.r.logger.Errorf("tool result processing failed: %v", err)
+			}
+		})
+	}
+}
+func (h requestorDispatchHandler) HandleRecordUserAudio(ctx context.Context, p internal_type.RecordUserAudioPacket) {
+	if h.r.recorder != nil {
+		if err := h.r.recorder.Record(ctx, p); err != nil {
+			h.r.logger.Errorf("recorder error: %v", err)
+		}
+	}
+}
+func (h requestorDispatchHandler) HandleRecordAssistantAudio(ctx context.Context, p internal_type.RecordAssistantAudioPacket) {
+	if h.r.recorder != nil {
+		if err := h.r.recorder.Record(ctx, p); err != nil {
+			h.r.logger.Errorf("recorder error: %v", err)
+		}
+	}
+}
+func (h requestorDispatchHandler) HandleMessageCreate(ctx context.Context, p internal_type.MessageCreatePacket) {
+	if err := h.r.onAddMessage(ctx, p); err != nil {
+		h.r.logger.Errorf("Error in onAddMessage: %v", err)
+	}
+}
+func (h requestorDispatchHandler) HandleConversationMetric(ctx context.Context, p internal_type.ConversationMetricPacket) {
+	if len(p.Metrics) > 0 {
+		_ = h.r.Notify(ctx, &protos.ConversationMetric{
+			AssistantConversationId: h.r.Conversation().Id,
+			Metrics:                 p.Metrics,
+		})
+		if h.r.observer != nil {
+			h.r.observer.EmitMetric(ctx, p.Metrics)
+		}
+	}
+}
+func (h requestorDispatchHandler) HandleConversationMetadata(ctx context.Context, p internal_type.ConversationMetadataPacket) {
+	if len(p.Metadata) > 0 {
+		for _, item := range p.Metadata {
+			if item == nil {
+				continue
+			}
+			h.r.metadata[item.Key] = item.Value
+		}
+		if err := h.r.onAddMetadata(ctx, p.Metadata...); err != nil {
+			h.r.logger.Errorf("Error in onAddMetadata: %v", err)
+		}
+	}
+}
+func (h requestorDispatchHandler) HandleUserMessageMetric(ctx context.Context, p internal_type.UserMessageMetricPacket) {
+	if len(p.Metrics) > 0 {
+		_ = h.r.Notify(ctx, &protos.ConversationMetric{
+			AssistantConversationId: h.r.Conversation().Id,
+			Metrics:                 p.Metrics,
+		})
+		if p.ContextID == "" {
+			p.ContextID = h.r.GetID()
+		}
+		if err := h.r.onAddMessageMetric(ctx, "user", p.ContextID, p.Metrics); err != nil {
+			h.r.logger.Errorf("Error in onMessageMetric: %v", err)
+		}
+		if h.r.observer != nil {
+			h.r.observer.MetricCollectors().Collect(ctx, observe.MessageMetricRecord{
+				MessageID:      p.ContextID,
+				ConversationID: fmt.Sprintf("%d", h.r.Conversation().Id),
+				Metrics:        p.Metrics,
+				Time:           time.Now(),
+			})
+		}
+	}
+}
+func (h requestorDispatchHandler) HandleAssistantMessageMetric(ctx context.Context, p internal_type.AssistantMessageMetricPacket) {
+	if len(p.Metrics) > 0 {
+		_ = h.r.Notify(ctx, &protos.ConversationMetric{
+			AssistantConversationId: h.r.Conversation().Id,
+			Metrics:                 p.Metrics,
+		})
+		if err := h.r.onAddMessageMetric(ctx, "assistant", p.ContextID, p.Metrics); err != nil {
+			h.r.logger.Errorf("Error in onMessageMetric: %v", err)
+		}
+		if h.r.observer != nil {
+			h.r.observer.MetricCollectors().Collect(ctx, observe.MessageMetricRecord{
+				MessageID:      p.ContextID,
+				ConversationID: fmt.Sprintf("%d", h.r.Conversation().Id),
+				Metrics:        p.Metrics,
+				Time:           time.Now(),
+			})
+		}
+	}
+}
+func (h requestorDispatchHandler) HandleUserMessageMetadata(ctx context.Context, p internal_type.UserMessageMetadataPacket) {
+	if len(p.Metadata) > 0 {
+		_ = h.r.Notify(ctx, &protos.ConversationMetadata{
+			AssistantConversationId: h.r.Conversation().Id,
+			Metadata:                p.Metadata,
+		})
+		if p.ContextID == "" {
+			p.ContextID = h.r.GetID()
+		}
+		if err := h.r.onAddMessageMetadata(ctx, "user", p.ContextID, p.Metadata); err != nil {
+			h.r.logger.Errorf("Error in onAddMessageMetadata: %v", err)
+		}
+	}
+}
+func (h requestorDispatchHandler) HandleAssistantMessageMetadata(ctx context.Context, p internal_type.AssistantMessageMetadataPacket) {
+	if len(p.Metadata) > 0 {
+		_ = h.r.Notify(ctx, &protos.ConversationMetadata{
+			AssistantConversationId: h.r.Conversation().Id,
+			Metadata:                p.Metadata,
+		})
+		if p.ContextID == "" {
+			p.ContextID = h.r.GetID()
+		}
+		if err := h.r.onAddMessageMetadata(ctx, "assistant", p.ContextID, p.Metadata); err != nil {
+			h.r.logger.Errorf("Error in onAddMessageMetadata: %v", err)
+		}
+	}
+}
+func (h requestorDispatchHandler) HandleToolLogCreate(ctx context.Context, p internal_type.ToolLogCreatePacket) {
+	if err := h.r.CreateToolLog(ctx, p.ContextID, p.ToolID, p.Name, type_enums.RECORD_IN_PROGRESS, p.Request); err != nil {
+		h.r.logger.Errorf("error logging tool call start: %v", err)
+	}
+}
+func (h requestorDispatchHandler) HandleToolLogUpdate(ctx context.Context, p internal_type.ToolLogUpdatePacket) {
+	if err := h.r.UpdateToolLog(ctx, p.ToolID, type_enums.RECORD_COMPLETE, p.Response); err != nil {
+		h.r.logger.Errorf("error logging tool call result: %v", err)
+	}
+}
+func (h requestorDispatchHandler) HandleWebhookLogCreate(ctx context.Context, p internal_type.WebhookLogCreatePacket) {
+	if err := h.r.CreateWebhookLog(
+		ctx,
+		p.WebhookID,
+		p.HTTPURL,
+		p.HTTPMethod,
+		p.Event,
+		p.ResponseStatus,
+		p.TimeTaken,
+		p.RetryCount,
+		p.Status,
+		p.RequestPayload,
+		p.ResponsePayload,
+	); err != nil {
+		h.r.logger.Errorf("error logging webhook execution: %v", err)
+	}
+}
+func (h requestorDispatchHandler) HandleConversationEvent(ctx context.Context, p internal_type.ConversationEventPacket) {
+	contextID := p.ContextID
+	if contextID == "" {
+		contextID = h.r.GetID()
+	}
+	if p.Time.IsZero() {
+		p.Time = time.Now()
+	}
+	_ = h.r.Notify(ctx, &protos.ConversationEvent{
+		Id:   contextID,
+		Name: p.Name,
+		Data: p.Data,
+		Time: timestamppb.New(p.Time),
+	})
+	if h.r.observer != nil {
+		h.r.observer.EventCollectors().Collect(ctx, observe.EventRecord{
+			ConversationID: h.r.observer.Meta().AssistantConversationID,
+			MessageID:      contextID,
+			Name:           p.Name,
+			Data:           p.Data,
+			Time:           p.Time,
+		})
+	}
+}
+func (h requestorDispatchHandler) HandleInitializeAssistant(ctx context.Context, p internal_type.InitializeAssistantPacket) {
+	assistant, err := h.r.GetAssistant(ctx, h.r.Auth(), p.Config.Assistant.AssistantId, p.Config.Assistant.Version)
+	if err != nil {
+		h.r.logger.Errorf("failed to retrieve assistant configuration: %+v", err)
+		h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
+			ContextID: p.ContextID,
+			Stage:     internal_type.InitializationStageAssistant,
+			Error:     err,
+		})
+		return
+	}
+	h.r.assistant = assistant
+	h.r.authenticationExecutor.Init(ctx, h.r)
+	h.r.OnPacket(ctx, internal_type.InitializeConversationPacket{ContextID: p.ContextID, Config: p.Config})
+}
+func (h requestorDispatchHandler) HandleInitializeConversation(ctx context.Context, vl internal_type.InitializeConversationPacket) {
+	if conversationID := vl.Config.GetAssistantConversationId(); conversationID > 0 {
+		conversation, err := h.r.ResumeConversation(ctx, h.r.assistant, vl.Config)
+		if err != nil {
+			h.r.logger.Errorf("failed to resume conversation: %+v", err)
+			h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
+				ContextID: vl.ContextID,
+				Stage:     internal_type.InitializationStageConversation,
+				Error:     err,
+			})
+			return
+		}
+		h.r.OnPacket(ctx, internal_type.ConversationEventPacket{
+			Name: "session",
+			Data: map[string]string{
+				"type":          "resumed",
+				"source":        fmt.Sprintf("%v", h.r.source),
+				"identifier":    h.r.identifier(vl.Config),
+				"message_count": fmt.Sprintf("%d", len(h.r.GetHistories())),
+			},
+			Time: time.Now(),
+		})
+		h.r.notifyConfiguration(ctx, vl.Config, conversation)
+	} else {
+		conversation, err := h.r.BeginConversation(ctx, h.r.assistant, type_enums.DIRECTION_INBOUND, vl.Config)
+		if err != nil {
+			h.r.logger.Errorf("failed to begin conversation: %+v", err)
+			h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
+				ContextID: vl.ContextID,
+				Stage:     internal_type.InitializationStageConversation,
+				Error:     err,
+			})
+			return
+		}
+		h.r.OnPacket(ctx, internal_type.ConversationEventPacket{
+			Name: observe.ComponentSession,
+			Data: map[string]string{
+				observe.DataType: observe.EventConnected,
+				"source":         fmt.Sprintf("%v", h.r.source),
+				"is_new":         "true",
+				"identifier":     h.r.identifier(vl.Config),
+			},
+			Time: time.Now(),
+		})
+		h.r.notifyConfiguration(ctx, vl.Config, conversation)
+	}
+	h.r.OnPacket(ctx, internal_type.InitializeSessionRuntimePacket{ContextID: vl.ContextID, Config: vl.Config})
+}
+func (h requestorDispatchHandler) HandleInitializeSessionRuntime(ctx context.Context, p internal_type.InitializeSessionRuntimePacket) {
+	config := p.Config
+
+	utils.Go(ctx, func() { h.r.initializeCollectors(ctx) })
+
+	utils.Go(ctx, func() {
+		rc, err := internal_audio_recorder.GetRecorder(h.r.logger)
+		if err != nil {
+			h.r.logger.Tracef(ctx, "failed to initialize audio recorder: %+v", err)
+			return
+		}
+		h.r.recorder = rc
+		h.r.recorder.Start()
+		h.r.OnPacket(ctx, internal_type.ConversationEventPacket{
+			Name: observe.ComponentRecording,
+			Data: map[string]string{observe.DataType: observe.EventRecordingStarted},
+			Time: time.Now(),
+		})
+	})
+
+	if err := h.r.initializeInputNormalizer(ctx, config); err != nil {
+		h.r.logger.Tracef(ctx, "failed to initialize input normalizer: %+v", err)
+	}
+	if err := h.r.initializeOutputNormalizer(ctx, config); err != nil {
+		h.r.logger.Errorf("failed to initialize output normalizer: %v", err)
+	}
+
+	utils.Go(ctx, func() {
+		metrics := []*protos.Metric{{
+			Name:        type_enums.CONVERSATION_STATUS.String(),
+			Value:       type_enums.CONVERSATION_IN_PROGRESS.String(),
+			Description: "Conversation is currently in progress",
+		}}
+		h.r.onAddMetrics(ctx, metrics...)
+		h.r.OnPacket(ctx, internal_type.ConversationMetricPacket{
+			ContextID: h.r.Conversation().Id,
+			Metrics:   metrics,
+		})
+	})
+
+	utils.Go(ctx, func() { h.r.storeClientInformation(ctx) })
+
+	h.r.OnPacket(ctx, internal_type.InitializeAuthenticationPacket{ContextID: p.ContextID, Config: config})
+}
+func (h requestorDispatchHandler) HandleInitializeAuthentication(ctx context.Context, p internal_type.InitializeAuthenticationPacket) {
+	if h.r.assistant.AssistantAuthentication == nil {
+		h.r.OnPacket(ctx, internal_type.SessionAuthenticationSucceededPacket{
+			ContextID:      p.ContextID,
+			Authenticated:  false,
+			Initialization: p.Config,
+		})
+		return
+	}
+
+	h.r.OnPacket(ctx, internal_type.ExecuteSessionAuthenticationPacket{
+		ContextID:      p.ContextID,
+		Authentication: h.r.assistant.AssistantAuthentication,
+		Arguments:      h.r.buildAuthBody(),
+		Initialization: p.Config,
+	})
+}
+func (h requestorDispatchHandler) HandleExecuteSessionAuthentication(ctx context.Context, p internal_type.ExecuteSessionAuthenticationPacket) {
+	h.r.authenticationExecutor.Execute(ctx, p)
+}
+func (h requestorDispatchHandler) HandleSessionAuthenticationSucceeded(ctx context.Context, p internal_type.SessionAuthenticationSucceededPacket) {
+	if p.Authenticated {
+		if p.Arguments != nil {
+			h.r.args = utils.MergeMaps(h.r.args, p.Arguments)
+		}
+		if p.Metadata != nil {
+			h.r.metadata = utils.MergeMaps(h.r.metadata, p.Metadata)
+		}
+		if p.Options != nil {
+			h.r.options = utils.MergeMaps(h.r.options, p.Options)
+		}
+	}
+	h.r.OnPacket(ctx, internal_type.InitializeSpeechToTextPacket{
+		ContextID: p.ContextID,
+		Config:    p.Initialization,
+	})
+}
+func (h requestorDispatchHandler) HandleSessionAuthenticationFailed(ctx context.Context, p internal_type.SessionAuthenticationFailedPacket) {
+	h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
+		ContextID: p.ContextID,
+		Stage:     internal_type.InitializationStageAuthentication,
+		Error:     p.Error,
+	})
+}
+func (h requestorDispatchHandler) HandleInitializeSpeechToText(ctx context.Context, p internal_type.InitializeSpeechToTextPacket) {
+	config := p.Config
+	if err := h.r.assistantExecutor.Initialize(ctx, h.r, config); err != nil {
+		h.r.logger.Tracef(ctx, "failed to initialize executor: %+v", err)
+		h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
+			ContextID: p.ContextID,
+			Stage:     internal_type.InitializationStageService,
+			Error:     err,
+		})
+		return
+	}
+
+	switch config.StreamMode {
+	case protos.StreamMode_STREAM_MODE_TEXT:
+		h.r.SwitchMode(type_enums.TextMode)
+	case protos.StreamMode_STREAM_MODE_AUDIO:
+		if err := h.r.initializeSpeechToText(ctx); err != nil {
+			h.r.logger.Errorf("failed to initialize speech-to-text: %v", err)
+			h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
+				ContextID: p.ContextID,
+				Stage:     internal_type.InitializationStageSpeechToText,
+				Error:     err,
+			})
+			return
+		}
+	}
+
+	h.r.OnPacket(ctx, internal_type.InitializeTextToSpeechPacket{ContextID: p.ContextID, Config: config})
+}
+func (h requestorDispatchHandler) HandleInitializeTextToSpeech(ctx context.Context, p internal_type.InitializeTextToSpeechPacket) {
+	config := p.Config
+	if config.StreamMode == protos.StreamMode_STREAM_MODE_AUDIO {
+		if err := h.r.initializeTextToSpeech(ctx); err != nil {
+			h.r.logger.Errorf("failed to initialize text-to-speech: %v", err)
+			h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
+				ContextID: p.ContextID,
+				Stage:     internal_type.InitializationStageTextToSpeech,
+				Error:     err,
+			})
+			return
+		}
+		h.r.SwitchMode(type_enums.AudioMode)
+	}
+	h.r.OnPacket(ctx, internal_type.InitializeVoiceActivityDetectionPacket{ContextID: p.ContextID, Config: config})
+}
+func (h requestorDispatchHandler) HandleInitializeVoiceActivityDetection(ctx context.Context, p internal_type.InitializeVoiceActivityDetectionPacket) {
+	config := p.Config
+	if config.StreamMode == protos.StreamMode_STREAM_MODE_AUDIO {
+		options := utils.Option{"microphone.eos.timeout": 500}
+		transformerConfig, _ := h.r.GetSpeechToTextTransformer()
+		if transformerConfig != nil {
+			options = utils.MergeMaps(options, transformerConfig.GetOptions())
+		}
+		if err := h.r.initializeVAD(ctx, options); err != nil {
+			h.r.logger.Errorf("failed to initialize voice activity detection: %v", err)
+			h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
+				ContextID: p.ContextID,
+				Stage:     internal_type.InitializationStageVoiceActivity,
+				Error:     err,
+			})
+			return
+		}
+	}
+	h.r.OnPacket(ctx, internal_type.InitializeEndOfSpeechPacket{ContextID: p.ContextID, Config: config})
+}
+func (h requestorDispatchHandler) HandleInitializeEndOfSpeech(ctx context.Context, p internal_type.InitializeEndOfSpeechPacket) {
+	config := p.Config
+	if config.StreamMode == protos.StreamMode_STREAM_MODE_AUDIO {
+		if err := h.r.initializeEndOfSpeech(ctx); err != nil {
+			h.r.logger.Errorf("failed to initialize end of speech: %v", err)
+			h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
+				ContextID: p.ContextID,
+				Stage:     internal_type.InitializationStageEndOfSpeech,
+				Error:     err,
+			})
+			return
+		}
+	}
+	h.r.OnPacket(ctx, internal_type.InitializeBehaviorPacket{ContextID: p.ContextID, Config: config})
+}
+func (h requestorDispatchHandler) HandleInitializeBehavior(ctx context.Context, p internal_type.InitializeBehaviorPacket) {
+	h.r.initializeBehavior(ctx)
+
+	event := utils.ConversationResume
+	if p.Config.GetAssistantConversationId() == 0 {
+		event = utils.ConversationBegin
+	}
+	h.r.OnPacket(ctx, internal_type.InitializationCompletedPacket{
+		ContextID: p.ContextID,
+		Event:     event,
+	})
+}
+
+func (h requestorDispatchHandler) HandleModeSwitchRequested(ctx context.Context, p internal_type.ModeSwitchRequestedPacket) {
+	switch p.StreamMode {
+	case protos.StreamMode_STREAM_MODE_AUDIO:
+		if h.r.GetMode().Audio() {
+			h.r.OnPacket(ctx, internal_type.ModeSwitchCompletedPacket{ContextID: p.ContextID, StreamMode: p.StreamMode})
+			return
+		}
+		h.r.OnPacket(ctx, internal_type.ModeSwitchInitializeSpeechToTextPacket{
+			ContextID:  p.ContextID,
+			StreamMode: p.StreamMode,
+		})
+	case protos.StreamMode_STREAM_MODE_TEXT:
+		if h.r.GetMode().Text() {
+			h.r.OnPacket(ctx, internal_type.ModeSwitchCompletedPacket{ContextID: p.ContextID, StreamMode: p.StreamMode})
+			return
+		}
+		h.r.OnPacket(ctx, internal_type.ModeSwitchFinalizeEndOfSpeechPacket{
+			ContextID:  p.ContextID,
+			StreamMode: p.StreamMode,
+		})
+	default:
+		err := fmt.Errorf("unsupported mode switch request: %s", p.StreamMode.String())
+		h.r.logger.Warnf(err.Error())
+		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
+			ContextID:  p.ContextID,
+			StreamMode: p.StreamMode,
+			Type:       internal_type.ModeSwitchErrorTypeUnsupportedMode,
+			Error:      err,
+		})
+	}
+}
+
+func (h requestorDispatchHandler) HandleModeSwitchInitializeSpeechToText(ctx context.Context, p internal_type.ModeSwitchInitializeSpeechToTextPacket) {
+	if err := h.r.initializeSpeechToText(ctx); err != nil {
+		h.r.logger.Errorf("failed to initialize speech-to-text: %v", err)
+		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
+			ContextID:  p.ContextID,
+			StreamMode: p.StreamMode,
+			Type:       internal_type.ModeSwitchErrorTypeInitializeSpeechToText,
+			Error:      err,
+		})
+		return
+	}
+	h.r.OnPacket(ctx, internal_type.ModeSwitchInitializeTextToSpeechPacket{
+		ContextID:  p.ContextID,
+		StreamMode: p.StreamMode,
+	})
+}
+
+func (h requestorDispatchHandler) HandleModeSwitchInitializeTextToSpeech(ctx context.Context, p internal_type.ModeSwitchInitializeTextToSpeechPacket) {
+	if err := h.r.initializeTextToSpeech(ctx); err != nil {
+		h.r.logger.Errorf("failed to initialize text-to-speech: %v", err)
+		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
+			ContextID:  p.ContextID,
+			StreamMode: p.StreamMode,
+			Type:       internal_type.ModeSwitchErrorTypeInitializeTextToSpeech,
+			Error:      err,
+		})
+		return
+	}
+	h.r.OnPacket(ctx, internal_type.ModeSwitchInitializeVoiceActivityDetectionPacket{
+		ContextID:  p.ContextID,
+		StreamMode: p.StreamMode,
+	})
+}
+
+func (h requestorDispatchHandler) HandleModeSwitchInitializeVoiceActivityDetection(ctx context.Context, p internal_type.ModeSwitchInitializeVoiceActivityDetectionPacket) {
+	options := utils.Option{"microphone.eos.timeout": 500}
+	transformerConfig, _ := h.r.GetSpeechToTextTransformer()
+	if transformerConfig != nil {
+		options = utils.MergeMaps(options, transformerConfig.GetOptions())
+	}
+	if err := h.r.initializeVAD(ctx, options); err != nil {
+		h.r.logger.Errorf("failed to initialize voice activity detection: %v", err)
+		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
+			ContextID:  p.ContextID,
+			StreamMode: p.StreamMode,
+			Type:       internal_type.ModeSwitchErrorTypeInitializeVoiceActivityDetection,
+			Error:      err,
+		})
+		return
+	}
+	h.r.OnPacket(ctx, internal_type.ModeSwitchInitializeEndOfSpeechPacket{
+		ContextID:  p.ContextID,
+		StreamMode: p.StreamMode,
+	})
+}
+
+func (h requestorDispatchHandler) HandleModeSwitchInitializeEndOfSpeech(ctx context.Context, p internal_type.ModeSwitchInitializeEndOfSpeechPacket) {
+	if err := h.r.initializeEndOfSpeech(ctx); err != nil {
+		h.r.logger.Errorf("failed to initialize end of speech: %v", err)
+		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
+			ContextID:  p.ContextID,
+			StreamMode: p.StreamMode,
+			Type:       internal_type.ModeSwitchErrorTypeInitializeEndOfSpeech,
+			Error:      err,
+		})
+		return
+	}
+	h.r.OnPacket(ctx, internal_type.ModeSwitchCompletedPacket{
+		ContextID:  p.ContextID,
+		StreamMode: p.StreamMode,
+	})
+}
+
+func (h requestorDispatchHandler) HandleModeSwitchFinalizeEndOfSpeech(ctx context.Context, p internal_type.ModeSwitchFinalizeEndOfSpeechPacket) {
+	if err := h.r.disconnectEndOfSpeech(ctx); err != nil {
+		h.r.logger.Warnf("failed to close end of speech: %+v", err)
+		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
+			ContextID:  p.ContextID,
+			StreamMode: p.StreamMode,
+			Type:       internal_type.ModeSwitchErrorTypeFinalizeEndOfSpeech,
+			Error:      err,
+		})
+		return
+	}
+	h.r.OnPacket(ctx, internal_type.ModeSwitchFinalizeVoiceActivityDetectionPacket{
+		ContextID:  p.ContextID,
+		StreamMode: p.StreamMode,
+	})
+}
+
+func (h requestorDispatchHandler) HandleModeSwitchFinalizeVoiceActivityDetection(ctx context.Context, p internal_type.ModeSwitchFinalizeVoiceActivityDetectionPacket) {
+	if h.r.vad != nil {
+		if err := h.r.vad.Close(); err != nil {
+			h.r.logger.Warnf("failed to close voice activity detection: %+v", err)
+			h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
+				ContextID:  p.ContextID,
+				StreamMode: p.StreamMode,
+				Type:       internal_type.ModeSwitchErrorTypeFinalizeVoiceActivityDetection,
+				Error:      err,
+			})
+			return
+		}
+		h.r.vad = nil
+	}
+	h.r.OnPacket(ctx, internal_type.ModeSwitchFinalizeTextToSpeechPacket{
+		ContextID:  p.ContextID,
+		StreamMode: p.StreamMode,
+	})
+}
+
+func (h requestorDispatchHandler) HandleModeSwitchFinalizeTextToSpeech(ctx context.Context, p internal_type.ModeSwitchFinalizeTextToSpeechPacket) {
+	if err := h.r.disconnectTextToSpeech(ctx); err != nil {
+		h.r.logger.Warnf("failed to close output transformer: %+v", err)
+		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
+			ContextID:  p.ContextID,
+			StreamMode: p.StreamMode,
+			Type:       internal_type.ModeSwitchErrorTypeFinalizeTextToSpeech,
+			Error:      err,
+		})
+		return
+	}
+	h.r.OnPacket(ctx, internal_type.ModeSwitchFinalizeSpeechToTextPacket{
+		ContextID:  p.ContextID,
+		StreamMode: p.StreamMode,
+	})
+}
+
+func (h requestorDispatchHandler) HandleModeSwitchFinalizeSpeechToText(ctx context.Context, p internal_type.ModeSwitchFinalizeSpeechToTextPacket) {
+	if err := h.r.disconnectSpeechToText(ctx); err != nil {
+		h.r.logger.Warnf("failed to close input transformer: %+v", err)
+		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
+			ContextID:  p.ContextID,
+			StreamMode: p.StreamMode,
+			Type:       internal_type.ModeSwitchErrorTypeFinalizeSpeechToText,
+			Error:      err,
+		})
+		return
+	}
+	h.r.OnPacket(ctx, internal_type.ModeSwitchCompletedPacket{
+		ContextID:  p.ContextID,
+		StreamMode: p.StreamMode,
+	})
+}
+
+func (h requestorDispatchHandler) HandleModeSwitchCompleted(ctx context.Context, p internal_type.ModeSwitchCompletedPacket) {
+	currentMode := h.r.GetMode()
+	switch p.StreamMode {
+	case protos.StreamMode_STREAM_MODE_AUDIO:
+		if !currentMode.Audio() {
+			h.r.SwitchMode(type_enums.AudioMode)
+		}
+	case protos.StreamMode_STREAM_MODE_TEXT:
+		if !currentMode.Text() {
+			h.r.SwitchMode(type_enums.TextMode)
+		}
+	default:
+		err := fmt.Errorf("mode switch completed with unsupported mode: %s", p.StreamMode.String())
+		h.r.logger.Warnf(err.Error())
+		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
+			ContextID:  p.ContextID,
+			StreamMode: p.StreamMode,
+			Type:       internal_type.ModeSwitchErrorTypeUnsupportedMode,
+			Error:      err,
+		})
+		return
+	}
+
+	_ = h.r.Notify(ctx, &protos.ConversationConfiguration{
+		StreamMode: p.StreamMode,
+	})
+}
+
+func (h requestorDispatchHandler) HandleInitializationCompleted(ctx context.Context, p internal_type.InitializationCompletedPacket) {
+	h.r.OnPacket(ctx, internal_type.ConversationEventPacket{
+		ContextID: p.ContextID,
+		Name:      observe.ComponentSession,
+		Data: map[string]string{
+			observe.DataType: observe.EventInitialized,
+			"event":          p.Event.Get(),
+			observe.DataMode: h.r.GetMode().String(),
+		},
+		Time: time.Now(),
+	})
+
+	// Start runtime dispatchers only after bootstrap init is fully complete.
+	h.r.startPostInitializationDispatchers(ctx)
+	h.r.OnPacket(ctx, internal_type.WebhookStartPacket{
+		ContextID: p.ContextID,
+		Event:     p.Event,
+	})
+}
+func (h requestorDispatchHandler) HandleFinalizeBehavior(ctx context.Context, p internal_type.FinalizeBehaviorPacket) {
+	if h.r.idleTimeoutTimer != nil {
+		h.r.idleTimeoutTimer.Stop()
+	}
+	if h.r.maxSessionTimer != nil {
+		h.r.maxSessionTimer.Stop()
+	}
+	h.r.OnPacket(ctx, internal_type.FinalizeEndOfSpeechPacket{ContextID: p.ContextID})
+}
+func (h requestorDispatchHandler) HandleFinalizeEndOfSpeech(ctx context.Context, p internal_type.FinalizeEndOfSpeechPacket) {
+	if err := h.r.disconnectEndOfSpeech(ctx); err != nil {
+		h.r.logger.Tracef(ctx, "failed to close end of speech: %+v", err)
+	}
+	h.r.OnPacket(ctx, internal_type.FinalizeVoiceActivityDetectionPacket{ContextID: p.ContextID})
+}
+func (h requestorDispatchHandler) HandleFinalizeVoiceActivityDetection(ctx context.Context, p internal_type.FinalizeVoiceActivityDetectionPacket) {
+	if h.r.vad != nil {
+		if err := h.r.vad.Close(); err != nil {
+			h.r.logger.Tracef(ctx, "failed to close voice activity detection: %+v", err)
+		}
+		h.r.vad = nil
+	}
+	h.r.OnPacket(ctx, internal_type.FinalizeTextToSpeechPacket{ContextID: p.ContextID})
+}
+func (h requestorDispatchHandler) HandleFinalizeTextToSpeech(ctx context.Context, p internal_type.FinalizeTextToSpeechPacket) {
+	if err := h.r.disconnectTextToSpeech(ctx); err != nil {
+		h.r.logger.Tracef(ctx, "failed to close output transformer: %+v", err)
+	}
+	h.r.OnPacket(ctx, internal_type.FinalizeSpeechToTextPacket{ContextID: p.ContextID})
+}
+func (h requestorDispatchHandler) HandleFinalizeSpeechToText(ctx context.Context, p internal_type.FinalizeSpeechToTextPacket) {
+	if err := h.r.disconnectSpeechToText(ctx); err != nil {
+		h.r.logger.Tracef(ctx, "failed to close input transformer: %+v", err)
+	}
+	h.r.OnPacket(ctx, internal_type.FinalizeAuthenticationPacket{ContextID: p.ContextID})
+}
+func (h requestorDispatchHandler) HandleFinalizeAuthentication(ctx context.Context, p internal_type.FinalizeAuthenticationPacket) {
+	h.r.OnPacket(ctx, internal_type.FinalizeSessionRuntimePacket{ContextID: p.ContextID})
+}
+func (h requestorDispatchHandler) HandleFinalizeSessionRuntime(ctx context.Context, p internal_type.FinalizeSessionRuntimePacket) {
+	h.r.disconnectOutputNormalizer(ctx)
+	h.r.disconnectInputNormalizer(ctx)
+
+	if h.r.recorder != nil {
+		utils.Go(ctx, func() {
+			userAudio, systemAudio, err := h.r.recorder.Persist()
+			if err != nil {
+				h.r.logger.Tracef(ctx, "failed to persist audio recording: %+v", err)
+				return
+			}
+			if err = h.r.CreateConversationRecording(ctx, userAudio, systemAudio); err != nil {
+				h.r.logger.Tracef(ctx, "failed to create conversation recording record: %+v", err)
+			}
+		})
+	}
+
+	done := make(chan struct{}, 1)
+	h.r.OnPacket(ctx, internal_type.AnalysisStartPacket{ContextID: p.ContextID, Done: done})
+	utils.Go(ctx, func() {
+		<-done
+		h.r.OnPacket(ctx, internal_type.FinalizeConversationPacket{ContextID: p.ContextID})
+	})
+}
+func (h requestorDispatchHandler) HandleFinalizeConversation(ctx context.Context, p internal_type.FinalizeConversationPacket) {
+	if h.r.observer != nil {
+		h.r.observer.EventCollectors().Collect(ctx, observe.EventRecord{
+			ConversationID: h.r.observer.Meta().AssistantConversationID,
+			MessageID:      h.r.GetID(),
+			Name:           observe.ComponentSession,
+			Data:           map[string]string{observe.DataType: observe.EventDisconnected, observe.DataMessages: fmt.Sprintf("%d", len(h.r.GetHistories()))},
+			Time:           time.Now(),
+		})
+	}
+	h.r.shutdownCollectors(ctx)
+	h.r.OnPacket(ctx, internal_type.FinalizeAssistantPacket{ContextID: p.ContextID})
+}
+func (h requestorDispatchHandler) HandleFinalizeAssistant(ctx context.Context, p internal_type.FinalizeAssistantPacket) {
+	if err := h.r.assistantExecutor.Close(ctx); err != nil {
+		h.r.logger.Errorf("failed to close assistant executor: %v", err)
+	}
+	h.r.OnPacket(ctx, internal_type.FinalizationCompletedPacket{ContextID: p.ContextID})
+}
+func (h requestorDispatchHandler) HandleFinalizationCompleted(ctx context.Context, p internal_type.FinalizationCompletedPacket) {
+	if h.r.disconnectDone != nil {
+		close(h.r.disconnectDone)
+	}
+}
+func (h requestorDispatchHandler) HandleAnalysisStart(ctx context.Context, p internal_type.AnalysisStartPacket) {
+	source := variable.NewCommunicationSource(h.r)
+	registry := internal_namespace.NewDefaultRegistry().With("event", &internal_namespace.EventNamespace{})
+	direction := h.r.Conversation().Direction.String()
+	for _, analysis := range h.r.assistant.AssistantAnalyses {
+		if !h.r.isConditionAllowed(analysis.GetOptions(), "analysis.condition", direction) {
+			continue
+		}
+		h.r.OnPacket(ctx, internal_type.ExecuteAnalysisPacket{
+			ContextID:      p.ContextID,
+			Analysis:       analysis,
+			Arguments:      registry.Apply(analysis.GetParameters(), source, variable.ResolveContext{Event: utils.ConversationCompleted.Get()}),
+			ConversationID: h.r.assistantConversation.Id,
+			Auth:           h.r.auth,
+		})
+	}
+	h.r.OnPacket(ctx, internal_type.AnalysisDonePacket{
+		ContextID: p.ContextID,
+		Event:     utils.ConversationCompleted,
+		Done:      p.Done,
+	})
+}
+func (h requestorDispatchHandler) HandleExecuteAnalysis(ctx context.Context, p internal_type.ExecuteAnalysisPacket) {
+	if h.r.analysisExecutor == nil {
+		return
+	}
+	if err := h.r.analysisExecutor.Execute(ctx, p); err != nil {
+		h.r.logger.Warnw("analysis execution failed", "name", p.Analysis.GetName(), "error", err)
+	}
+}
+func (h requestorDispatchHandler) HandleAnalysisDone(ctx context.Context, p internal_type.AnalysisDonePacket) {
+	h.r.OnPacket(ctx, internal_type.WebhookStartPacket{
+		ContextID: p.ContextID,
+		Event:     p.Event,
+		Done:      p.Done,
+	})
+}
+func (h requestorDispatchHandler) HandleWebhookStart(ctx context.Context, p internal_type.WebhookStartPacket) {
+	source := variable.NewCommunicationSource(h.r)
+	registry := internal_namespace.NewDefaultRegistry().With("event", &internal_namespace.EventNamespace{})
+	direction := h.r.Conversation().Direction.String()
+	for _, webhook := range h.r.assistant.AssistantWebhooks {
+		if !slices.Contains(webhook.GetAssistantEvents(), p.Event.Get()) {
+			continue
+		}
+		if !h.r.isConditionAllowed(webhook.GetOptions(), "webhook.condition", direction) {
+			continue
+		}
+		h.r.OnPacket(ctx, internal_type.ExecuteWebhookPacket{
+			ContextID: p.ContextID,
+			Event:     p.Event,
+			Webhook:   webhook,
+			Arguments: registry.Apply(webhook.GetBody(), source, variable.ResolveContext{Event: p.Event.Get()}),
+		})
+	}
+	h.r.OnPacket(ctx, internal_type.WebhookDonePacket{
+		ContextID: p.ContextID,
+		Done:      p.Done,
+	})
+}
+func (h requestorDispatchHandler) HandleExecuteWebhook(ctx context.Context, p internal_type.ExecuteWebhookPacket) {
+	if h.r.webhookExecutor == nil {
+		return
+	}
+	if err := h.r.webhookExecutor.Execute(ctx, p); err != nil {
+		h.r.logger.Warnw("webhook execution failed", "webhookID", p.Webhook.Id, "error", err)
+	}
+}
+func (h requestorDispatchHandler) HandleWebhookDone(ctx context.Context, p internal_type.WebhookDonePacket) {
+	if p.Done != nil {
+		close(p.Done)
+	}
+}
+
+func (h requestorDispatchHandler) callEndOfSpeech(ctx context.Context, vl internal_type.Packet) error {
+	if h.r.endOfSpeech != nil {
+		utils.Go(ctx, func() {
+			if err := h.r.endOfSpeech.Analyze(ctx, vl); err != nil {
+				h.r.logger.Errorf("end of speech analyze error: %v", err)
+			}
+		})
+		return nil
+	}
+	return errors.New("end of speech analyzer not configured")
+}
+
+func (h requestorDispatchHandler) callInputNormalizer(ctx context.Context, vl internal_type.EndOfSpeechPacket) error {
+	if h.r.inputNormalizer == nil {
+		return errors.New("input inputNormalizer not configured")
+	}
+	if err := h.r.inputNormalizer.Normalize(ctx, vl); err != nil {
+		h.r.logger.Errorf("input inputNormalizer error: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (r *genericRequestor) buildAuthBody() map[string]interface{} {
+	source := variable.NewCommunicationSource(r)
+	registry := internal_namespace.NewDefaultRegistry()
+	return registry.Expand(source, variable.ResolveContext{})
+}
+
+func (r *genericRequestor) notifyConfiguration(ctx context.Context, config *protos.ConversationInitialization, conversation *internal_conversation_entity.AssistantConversation) {
+	options := config.GetOptions()
+	mergedOptions := map[string]interface{}{}
+	if base, err := utils.AnyMapToInterfaceMap(config.GetOptions()); err == nil {
+		mergedOptions = base
+	}
+	if outputAudio, err := r.GetTextToSpeechTransformer(); err == nil && outputAudio != nil {
+		outputOpts := outputAudio.GetOptions()
+		if ambient, err := outputOpts.GetString("speaker.ambient"); err == nil && ambient != "" {
+			mergedOptions["speaker.ambient"] = ambient
+		}
+		if volume, err := outputOpts.GetString("speaker.ambient_volume"); err == nil && volume != "" {
+			mergedOptions["speaker.ambient_volume"] = volume
+		} else if volumeNum, err := outputOpts.GetUint64("speaker.ambient_volume"); err == nil {
+			mergedOptions["speaker.ambient_volume"] = volumeNum
+		}
+	}
+	if len(mergedOptions) > 0 {
+		if anyMap, err := utils.InterfaceMapToAnyMap(mergedOptions); err == nil {
+			options = anyMap
+		}
+	}
+	if err := r.Notify(ctx, &protos.ConversationInitialization{
+		AssistantConversationId: conversation.Id,
+		Assistant: &protos.AssistantDefinition{
+			AssistantId: r.assistant.Id,
+			Version:     utils.GetVersionString(r.assistant.AssistantProviderId),
+		},
+		Args:         config.GetArgs(),
+		Metadata:     config.GetMetadata(),
+		Options:      options,
+		StreamMode:   config.GetStreamMode(),
+		UserIdentity: config.GetUserIdentity(),
+		Time:         timestamppb.Now(),
+	}); err != nil {
+		r.logger.Errorf("failed to send configuration notification: %v", err)
+	}
+}
+
+func (r *genericRequestor) storeClientInformation(ctx context.Context) {
+	clientInfo := pkg_types.GetClientInfoFromGrpcContext(ctx)
+	if clientInfo == nil {
+		return
+	}
+	flat := map[string]interface{}{}
+	if clientInfo.Timezone != "" {
+		flat["client.timezone"] = clientInfo.Timezone
+	}
+	if clientInfo.Platform != "" {
+		flat["client.platform"] = clientInfo.Platform
+	}
+	if clientInfo.Language != "" {
+		flat["client.language"] = clientInfo.Language
+	}
+	if clientInfo.UserAgent != "" {
+		flat["client.user_agent"] = clientInfo.UserAgent
+	}
+	if clientInfo.Referrer != "" {
+		flat["client.referrer"] = clientInfo.Referrer
+	}
+	if clientInfo.ConnectionType != "" {
+		flat["client.connection_type"] = clientInfo.ConnectionType
+	}
+	if clientInfo.Latitude != 0 || clientInfo.Longitude != 0 {
+		flat["client.latitude"] = fmt.Sprintf("%f", clientInfo.Latitude)
+		flat["client.longitude"] = fmt.Sprintf("%f", clientInfo.Longitude)
+	}
+	r.onSetMetadata(ctx, r.Auth(), flat)
+}
+
+// RunError fires ConversationFailed webhooks with a nil Done channel, making
+// them fire-and-forget. No further finalization chain steps are triggered — the
+// session cleanup happens when the stream closes and Disconnect is called normally.
+func (r *genericRequestor) RunError(ctx context.Context, contextID string) {
+	r.OnPacket(ctx, internal_type.WebhookStartPacket{
+		ContextID: contextID,
+		Event:     utils.ConversationFailed,
+	})
+}
+
+func (r *genericRequestor) isConditionAllowed(opts utils.Option, key string, direction string) bool {
+	raw, err := opts.GetString(key)
+	if err != nil {
+		return true
+	}
+	parsed, parseErr := internal_condition.Parse(raw)
+	if parseErr != nil {
+		r.logger.Warnf("invalid %s: %v", key, parseErr)
+		return false
+	}
+	allowed, evalErr := parsed.Run(
+		internal_condition.ConditionValue{RuleType: internal_condition.RuleTypeSource, Value: r.GetSource().Get()},
+		internal_condition.ConditionValue{RuleType: internal_condition.RuleTypeMode, Value: r.GetMode().String()},
+		internal_condition.ConditionValue{RuleType: internal_condition.RuleTypeDirection, Value: direction},
+	)
+	if evalErr != nil {
+		r.logger.Warnf("condition eval failed for %s: %v", key, evalErr)
+		return false
+	}
+	return allowed
+}

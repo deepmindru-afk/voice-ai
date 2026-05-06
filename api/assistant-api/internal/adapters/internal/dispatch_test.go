@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	adapter_channel "github.com/rapidaai/api/assistant-api/internal/adapters/channel"
 	internal_assistant_entity "github.com/rapidaai/api/assistant-api/internal/entity/assistants"
 	internal_conversation_entity "github.com/rapidaai/api/assistant-api/internal/entity/conversations"
 	internal_message_gorm "github.com/rapidaai/api/assistant-api/internal/entity/messages"
@@ -252,6 +253,7 @@ func dispatchTestLogger(t *testing.T) commons.Logger {
 func newTestRequestor(t *testing.T, ctx context.Context) *genericRequestor {
 	t.Helper()
 	logger := dispatchTestLogger(t)
+	channels := adapter_channel.NewRequestorChannels()
 	return &genericRequestor{
 		logger:                logger,
 		streamer:              &dispatchTestStreamer{ctx: ctx},
@@ -262,21 +264,18 @@ func newTestRequestor(t *testing.T, ctx context.Context) *genericRequestor {
 		conversationService:   &noopConversationService{},
 		assistantToolService:  &noopAssistantToolService{},
 		histories:             make([]internal_type.MessagePacket, 0),
-		criticalCh:            make(chan packetEnvelope, 256),
-		inputCh:               make(chan packetEnvelope, 4096),
-		outputCh:              make(chan packetEnvelope, 2048),
-		lowCh:                 make(chan packetEnvelope, 2048),
+		channels:              channels,
 		// observer is nil in tests — handlers nil-check before use
 	}
 }
 
 // drainPacket reads from a channel until a packet of the desired type appears or timeout.
-func drainPacket[T internal_type.Packet](ch chan packetEnvelope, timeout time.Duration) (T, bool) {
+func drainPacket[T internal_type.Packet](ch chan adapter_channel.Envelope, timeout time.Duration) (T, bool) {
 	deadline := time.After(timeout)
 	for {
 		select {
 		case env := <-ch:
-			if pkt, ok := env.pkt.(T); ok {
+			if pkt, ok := env.Pkt.(T); ok {
 				return pkt, true
 			}
 		case <-deadline:
@@ -287,7 +286,7 @@ func drainPacket[T internal_type.Packet](ch chan packetEnvelope, timeout time.Du
 }
 
 // channelHasPacketType checks if the channel contains at least one packet of type T.
-func channelHasPacketType[T internal_type.Packet](ch chan packetEnvelope, timeout time.Duration) bool {
+func channelHasPacketType[T internal_type.Packet](ch chan adapter_channel.Envelope, timeout time.Duration) bool {
 	_, ok := drainPacket[T](ch, timeout)
 	return ok
 }
@@ -302,7 +301,7 @@ func TestOnPacket_RoutesToCorrectChannel(t *testing.T) {
 	type routeCase struct {
 		name    string
 		pkt     internal_type.Packet
-		channel string // "critical", "input", "output", "low"
+		channel string // "critical", "bootstrap", "input", "output", "low"
 	}
 
 	cases := []routeCase{
@@ -312,6 +311,7 @@ func TestOnPacket_RoutesToCorrectChannel(t *testing.T) {
 		{"LLMInterruptPacket", internal_type.LLMInterruptPacket{ContextID: "c"}, "critical"},
 		{"TurnChangePacket", internal_type.TurnChangePacket{ContextID: "c", PreviousContextID: "p"}, "critical"},
 		{"InjectMessagePacket", internal_type.InjectMessagePacket{ContextID: "c"}, "output"},
+		{"InitializeAssistantPacket", internal_type.InitializeAssistantPacket{ContextID: "c"}, "bootstrap"},
 
 		// Input
 		{"UserAudioReceivedPacket", internal_type.UserAudioReceivedPacket{ContextID: "c"}, "input"},
@@ -341,6 +341,7 @@ func TestOnPacket_RoutesToCorrectChannel(t *testing.T) {
 		{"RecordAssistantAudioPacket", internal_type.RecordAssistantAudioPacket{ContextID: "c"}, "low"},
 		{"MessageCreatePacket", internal_type.MessageCreatePacket{ContextID: "c"}, "low"},
 		{"ConversationEventPacket", internal_type.ConversationEventPacket{ContextID: "c"}, "low"},
+		{"FinalizeBehaviorPacket", internal_type.FinalizeBehaviorPacket{ContextID: "c"}, "low"},
 		{"LLMToolCallPacket", internal_type.LLMToolCallPacket{ContextID: "c"}, "output"},
 		{"LLMToolResultPacket", internal_type.LLMToolResultPacket{ContextID: "c"}, "input"},
 		{"UserMessageMetricPacket", internal_type.UserMessageMetricPacket{ContextID: "c"}, "low"},
@@ -360,25 +361,31 @@ func TestOnPacket_RoutesToCorrectChannel(t *testing.T) {
 			switch tc.channel {
 			case "critical":
 				select {
-				case <-r.criticalCh:
+				case <-r.channels.ControlChannel():
 				case <-time.After(timeout):
 					t.Fatalf("expected packet in criticalCh, timed out")
 				}
+			case "bootstrap":
+				select {
+				case <-r.channels.BootstrapChannel():
+				case <-time.After(timeout):
+					t.Fatalf("expected packet in bootstrapCh, timed out")
+				}
 			case "input":
 				select {
-				case <-r.inputCh:
+				case <-r.channels.IngressChannel():
 				case <-time.After(timeout):
 					t.Fatalf("expected packet in inputCh, timed out")
 				}
 			case "output":
 				select {
-				case <-r.outputCh:
+				case <-r.channels.EgressChannel():
 				case <-time.After(timeout):
 					t.Fatalf("expected packet in outputCh, timed out")
 				}
 			case "low":
 				select {
-				case <-r.lowCh:
+				case <-r.channels.BackgroundChannel():
 				case <-time.After(timeout):
 					t.Fatalf("expected packet in lowCh, timed out")
 				}
@@ -509,9 +516,9 @@ func TestHandleUserText_UnknownState_SkipsInterruption(t *testing.T) {
 	// No TTSInterruptPacket or LLMInterruptPacket should appear since
 	// Transition(Interrupted) is rejected from Unknown state.
 	select {
-	case env := <-r.criticalCh:
+	case env := <-r.channels.ControlChannel():
 		// Only TTSInterruptPacket/LLMInterruptPacket mean a problem.
-		switch env.pkt.(type) {
+		switch env.Pkt.(type) {
 		case internal_type.TTSInterruptPacket, internal_type.LLMInterruptPacket:
 			t.Fatal("interruption packets should not be emitted from Unknown state")
 		}
@@ -529,13 +536,13 @@ func TestHandleUserAudio_WithDenoiser_EmitsDenoisePacket(t *testing.T) {
 	r := newTestRequestor(t, context.Background())
 	r.denoiser = denoiserStub{}
 
-	r.handleUserAudio(context.Background(), internal_type.UserAudioReceivedPacket{
+	requestorDispatchHandler{r: r}.HandleUserAudio(context.Background(), internal_type.UserAudioReceivedPacket{
 		ContextID:    "ctx-1",
 		Audio:        []byte{1, 2, 3},
 		NoiseReduced: false,
 	})
 
-	pkt, ok := drainPacket[internal_type.DenoiseAudioPacket](r.inputCh, time.Second)
+	pkt, ok := drainPacket[internal_type.DenoiseAudioPacket](r.channels.IngressChannel(), time.Second)
 	require.True(t, ok, "expected DenoiseAudioPacket in inputCh")
 	assert.Equal(t, "ctx-1", pkt.ContextID)
 	assert.Equal(t, []byte{1, 2, 3}, pkt.Audio)
@@ -545,12 +552,12 @@ func TestHandleDenoisedAudio_ReEmitsUserAudioReceived(t *testing.T) {
 	t.Parallel()
 	r := newTestRequestor(t, context.Background())
 
-	r.handleDenoisedAudio(context.Background(), internal_type.DenoisedAudioPacket{
+	requestorDispatchHandler{r: r}.HandleDenoisedAudio(context.Background(), internal_type.DenoisedAudioPacket{
 		ContextID: "ctx-1",
 		Audio:     []byte{4, 5, 6},
 	})
 
-	pkt, ok := drainPacket[internal_type.UserAudioReceivedPacket](r.inputCh, time.Second)
+	pkt, ok := drainPacket[internal_type.UserAudioReceivedPacket](r.channels.IngressChannel(), time.Second)
 	require.True(t, ok, "expected UserAudioReceivedPacket in inputCh")
 	assert.True(t, pkt.NoiseReduced, "NoiseReduced must be true after denoise")
 	assert.Equal(t, []byte{4, 5, 6}, pkt.Audio)
@@ -570,15 +577,15 @@ func TestHandleUserAudio_NoDenoiser_FansOut(t *testing.T) {
 	r.endOfSpeech = eos
 
 	audio := internal_type.UserAudioReceivedPacket{ContextID: "ctx-1", Audio: []byte{1, 2, 3, 4}}
-	r.handleUserAudio(context.Background(), audio)
+	requestorDispatchHandler{r: r}.HandleUserAudio(context.Background(), audio)
 
 	// RecordUserAudioPacket in lowCh
-	rec, ok := drainPacket[internal_type.RecordUserAudioPacket](r.lowCh, time.Second)
+	rec, ok := drainPacket[internal_type.RecordUserAudioPacket](r.channels.BackgroundChannel(), time.Second)
 	require.True(t, ok, "expected RecordUserAudioPacket in lowCh")
 	assert.Equal(t, "ctx-1", rec.ContextID)
 
 	// VadAudioPacket in inputCh
-	vad, ok := drainPacket[internal_type.VadAudioPacket](r.inputCh, time.Second)
+	vad, ok := drainPacket[internal_type.VadAudioPacket](r.channels.IngressChannel(), time.Second)
 	require.True(t, ok, "expected VadAudioPacket in inputCh")
 	assert.Equal(t, "ctx-1", vad.ContextID)
 
@@ -597,13 +604,13 @@ func TestHandleUserAudio_NoDenoiser_FansOut(t *testing.T) {
 // 	t.Parallel()
 // 	r := newTestRequestor(t, context.Background())
 
-// 	r.handleEndOfSpeech(context.Background(), internal_type.EndOfSpeechPacket{
+// 	requestorDispatchHandler{r: r}.handleEndOfSpeech(context.Background(), internal_type.EndOfSpeechPacket{
 // 		ContextID: "ctx-1",
 // 		Speech:    "hello world",
 // 		Speechs:   []internal_type.SpeechToTextPacket{{Script: "hello world", Language: "en"}},
 // 	})
 
-// 	pkt, ok := drainPacket[internal_type.NormalizeInputPacket](r.inputCh, time.Second)
+// 	pkt, ok := drainPacket[internal_type.NormalizeInputPacket](r.channels.IngressChannel(), time.Second)
 // 	require.True(t, ok, "expected NormalizeInputPacket in inputCh")
 // 	assert.Equal(t, "ctx-1", pkt.ContextID)
 // 	assert.Equal(t, "hello world", pkt.Speech)
@@ -637,7 +644,7 @@ func TestHandleUserAudio_NoDenoiser_FansOut(t *testing.T) {
 // 	})
 // 	require.NoError(t, err)
 
-// 	pkt, ok := drainPacket[internal_type.UserInputPacket](r.inputCh, 2*time.Second)
+// 	pkt, ok := drainPacket[internal_type.UserInputPacket](r.channels.IngressChannel(), 2*time.Second)
 // 	require.True(t, ok, "expected UserInputPacket in inputCh")
 // 	assert.Equal(t, "ctx-1", pkt.ContextID)
 // 	assert.Equal(t, "bonjour", pkt.Text)
@@ -652,12 +659,12 @@ func TestHandleUserAudio_NoDenoiser_FansOut(t *testing.T) {
 // 	r := newTestRequestor(t, context.Background())
 // 	// No normalizer set -- callInputNormalizer returns error, triggering fallback.
 
-// 	r.handleNormalizeInput(context.Background(), internal_type.NormalizeInputPacket{
+// 	requestorDispatchHandler{r: r}.handleNormalizeInput(context.Background(), internal_type.NormalizeInputPacket{
 // 		ContextID: "ctx-1",
 // 		Speech:    "fallback text",
 // 	})
 
-// 	pkt, ok := drainPacket[internal_type.UserInputPacket](r.inputCh, time.Second)
+// 	pkt, ok := drainPacket[internal_type.UserInputPacket](r.channels.IngressChannel(), time.Second)
 // 	require.True(t, ok, "expected fallback UserInputPacket in inputCh")
 // 	assert.Equal(t, "ctx-1", pkt.ContextID)
 // 	assert.Equal(t, "fallback text", pkt.Text)
@@ -673,12 +680,12 @@ func TestHandleLLMDelta_EmitsTTSTextPacket(t *testing.T) {
 	// Set state so Transition(LLMGenerating) succeeds.
 	r.interactionState = Interrupted
 
-	r.handleLLMDelta(context.Background(), internal_type.LLMResponseDeltaPacket{
+	requestorDispatchHandler{r: r}.HandleLLMResponseDelta(context.Background(), internal_type.LLMResponseDeltaPacket{
 		ContextID: "ctx-1",
 		Text:      "Hello",
 	})
 
-	pkt, ok := drainPacket[internal_type.TTSTextPacket](r.outputCh, time.Second)
+	pkt, ok := drainPacket[internal_type.TTSTextPacket](r.channels.EgressChannel(), time.Second)
 	require.True(t, ok, "expected TTSTextPacket in outputCh")
 	assert.Equal(t, "ctx-1", pkt.ContextID)
 	assert.Equal(t, "Hello", pkt.Text)
@@ -694,25 +701,25 @@ func TestHandleLLMDone_EmitsAggregateAndPersistence(t *testing.T) {
 	r.interactionState = LLMGenerating
 	r.assistantConversation = &internal_conversation_entity.AssistantConversation{Audited: gorm_model.Audited{Id: 1}}
 
-	r.handleLLMDone(context.Background(), internal_type.LLMResponseDonePacket{
+	requestorDispatchHandler{r: r}.HandleLLMResponseDone(context.Background(), internal_type.LLMResponseDonePacket{
 		ContextID: "ctx-1",
 		Text:      "Done response",
 	})
 
 	// TTSDonePacket in outputCh
-	agg, ok := drainPacket[internal_type.TTSDonePacket](r.outputCh, time.Second)
+	agg, ok := drainPacket[internal_type.TTSDonePacket](r.channels.EgressChannel(), time.Second)
 	require.True(t, ok, "expected TTSDonePacket in outputCh")
 	assert.Equal(t, "Done response", agg.Text)
 
 	// MessageCreatePacket in lowCh
-	save, ok := drainPacket[internal_type.MessageCreatePacket](r.lowCh, time.Second)
+	save, ok := drainPacket[internal_type.MessageCreatePacket](r.channels.BackgroundChannel(), time.Second)
 	require.True(t, ok, "expected MessageCreatePacket in lowCh")
 	assert.Equal(t, "ctx-1", save.ContextID)
 	assert.Equal(t, "assistant", save.MessageRole)
 	assert.Equal(t, "Done response", save.Text)
 
 	// AssistantMessageMetricPacket in lowCh
-	metric, ok := drainPacket[internal_type.AssistantMessageMetricPacket](r.lowCh, time.Second)
+	metric, ok := drainPacket[internal_type.AssistantMessageMetricPacket](r.channels.BackgroundChannel(), time.Second)
 	require.True(t, ok, "expected AssistantMessageMetricPacket in lowCh")
 	assert.Equal(t, "ctx-1", metric.ContextID)
 	require.NotEmpty(t, metric.Metrics)
@@ -732,21 +739,21 @@ func TestHandleLLMDelta_StaleContext_Discarded(t *testing.T) {
 	r.contextID = "ctx-current"
 	r.interactionState = LLMGenerating
 
-	r.handleLLMDelta(context.Background(), internal_type.LLMResponseDeltaPacket{
+	requestorDispatchHandler{r: r}.HandleLLMResponseDelta(context.Background(), internal_type.LLMResponseDeltaPacket{
 		ContextID: "ctx-old",
 		Text:      "stale delta",
 	})
 
 	// Should emit ConversationEventPacket with stale_context reason.
-	evt, ok := drainPacket[internal_type.ConversationEventPacket](r.lowCh, time.Second)
+	evt, ok := drainPacket[internal_type.ConversationEventPacket](r.channels.BackgroundChannel(), time.Second)
 	require.True(t, ok, "expected ConversationEventPacket for stale context")
 	assert.Equal(t, "llm", evt.Name)
 	assert.Equal(t, "stale_context", evt.Data["reason"])
 
 	// No TTSTextPacket should appear.
 	select {
-	case env := <-r.outputCh:
-		if _, isAgg := env.pkt.(internal_type.TTSTextPacket); isAgg {
+	case env := <-r.channels.EgressChannel():
+		if _, isAgg := env.Pkt.(internal_type.TTSTextPacket); isAgg {
 			t.Fatal("TTSTextPacket should not be emitted for stale context")
 		}
 	case <-time.After(200 * time.Millisecond):
@@ -760,12 +767,12 @@ func TestHandleLLMDone_StaleContext_Discarded(t *testing.T) {
 	r.contextID = "ctx-current"
 	r.interactionState = LLMGenerating
 
-	r.handleLLMDone(context.Background(), internal_type.LLMResponseDonePacket{
+	requestorDispatchHandler{r: r}.HandleLLMResponseDone(context.Background(), internal_type.LLMResponseDonePacket{
 		ContextID: "ctx-old",
 		Text:      "stale done",
 	})
 
-	evt, ok := drainPacket[internal_type.ConversationEventPacket](r.lowCh, time.Second)
+	evt, ok := drainPacket[internal_type.ConversationEventPacket](r.channels.BackgroundChannel(), time.Second)
 	require.True(t, ok, "expected ConversationEventPacket for stale done")
 	assert.Equal(t, "stale_context", evt.Data["reason"])
 }
@@ -895,14 +902,14 @@ func TestHandleNormalizedText_EnqueuesExecuteLLMWithNormalizedPacket(t *testing.
 	r := newTestRequestor(t, context.Background())
 	r.assistantConversation = &internal_conversation_entity.AssistantConversation{Audited: gorm_model.Audited{Id: 1}}
 
-	r.handleUserInput(context.Background(), internal_type.UserInputPacket{
+	requestorDispatchHandler{r: r}.HandleUserInput(context.Background(), internal_type.UserInputPacket{
 		ContextID: "ctx-1",
 		Text:      "bonjour",
 		Language:  rapida_types.LookupLanguage("fr"),
 	})
 
 	// MessageCreatePacket in lowCh
-	save, ok := drainPacket[internal_type.MessageCreatePacket](r.lowCh, time.Second)
+	save, ok := drainPacket[internal_type.MessageCreatePacket](r.channels.BackgroundChannel(), time.Second)
 	require.True(t, ok, "expected MessageCreatePacket in lowCh")
 	assert.Equal(t, "ctx-1", save.ContextID)
 	assert.Equal(t, "bonjour", save.Text)
@@ -915,7 +922,7 @@ func TestHandleNormalizedText_UsesUnknownLanguageFallback(t *testing.T) {
 	r.contextID = "ctx-unknown"
 	r.assistantConversation = &internal_conversation_entity.AssistantConversation{Audited: gorm_model.Audited{Id: 1}}
 
-	r.handleUserInput(context.Background(), internal_type.UserInputPacket{
+	requestorDispatchHandler{r: r}.HandleUserInput(context.Background(), internal_type.UserInputPacket{
 		ContextID: "ctx-unknown",
 		Text:      "???",
 		// Language zero value (empty Language struct).
@@ -932,13 +939,13 @@ func TestHandleSpeechToText_NoEOS_FinalFallsBackToEndOfSpeech(t *testing.T) {
 	r := newTestRequestor(t, context.Background())
 	// No endOfSpeech set, so callEndOfSpeech returns error -> fallback.
 
-	r.handleSpeechToText(context.Background(), internal_type.SpeechToTextPacket{
+	requestorDispatchHandler{r: r}.HandleSpeechToText(context.Background(), internal_type.SpeechToTextPacket{
 		ContextID: "ctx-stt",
 		Script:    "hello world",
 		Interim:   false,
 	})
 
-	eos, ok := drainPacket[internal_type.EndOfSpeechPacket](r.inputCh, time.Second)
+	eos, ok := drainPacket[internal_type.EndOfSpeechPacket](r.channels.IngressChannel(), time.Second)
 	require.True(t, ok, "expected fallback EndOfSpeechPacket in inputCh")
 	assert.Equal(t, "hello world", eos.Speech)
 	assert.Len(t, eos.Speechs, 1)
@@ -949,14 +956,14 @@ func TestHandleSpeechToText_NoEOS_InterimDoesNotEmitFallback(t *testing.T) {
 	t.Parallel()
 	r := newTestRequestor(t, context.Background())
 
-	r.handleSpeechToText(context.Background(), internal_type.SpeechToTextPacket{
+	requestorDispatchHandler{r: r}.HandleSpeechToText(context.Background(), internal_type.SpeechToTextPacket{
 		ContextID: "ctx-stt",
 		Script:    "partial",
 		Interim:   true,
 	})
 
 	select {
-	case <-r.inputCh:
+	case <-r.channels.IngressChannel():
 		t.Fatal("interim STT should not emit fallback EndOfSpeechPacket")
 	case <-time.After(200 * time.Millisecond):
 		// Good.
@@ -977,13 +984,13 @@ func TestHandleUserAudio_WithDenoiser_STTNotCalledBeforeDenoise(t *testing.T) {
 	r.endOfSpeech = eos
 	r.denoiser = denoiserStub{}
 
-	r.handleUserAudio(context.Background(), internal_type.UserAudioReceivedPacket{
+	requestorDispatchHandler{r: r}.HandleUserAudio(context.Background(), internal_type.UserAudioReceivedPacket{
 		ContextID: "ctx-denoise",
 		Audio:     []byte{9, 9},
 	})
 
 	// Should emit DenoiseAudioPacket, not route to STT or EOS.
-	_, ok := drainPacket[internal_type.DenoiseAudioPacket](r.inputCh, time.Second)
+	_, ok := drainPacket[internal_type.DenoiseAudioPacket](r.channels.IngressChannel(), time.Second)
 	require.True(t, ok, "expected DenoiseAudioPacket")
 
 	time.Sleep(100 * time.Millisecond)
@@ -1000,12 +1007,12 @@ func TestHandleLLMError_EmitsMetricAndTransitions(t *testing.T) {
 	r.interactionState = LLMGenerating
 	r.assistantConversation = &internal_conversation_entity.AssistantConversation{Audited: gorm_model.Audited{Id: 1}}
 
-	r.handleErrorPacket(context.Background(), internal_type.LLMErrorPacket{
+	requestorDispatchHandler{r: r}.HandleError(context.Background(), internal_type.LLMErrorPacket{
 		ContextID: "ctx-1",
 		Error:     assert.AnError,
 	})
 
-	metric, ok := drainPacket[internal_type.UserMessageMetricPacket](r.lowCh, time.Second)
+	metric, ok := drainPacket[internal_type.UserMessageMetricPacket](r.channels.BackgroundChannel(), time.Second)
 	require.True(t, ok, "expected UserMessageMetricPacket for LLM error")
 	require.NotEmpty(t, metric.Metrics)
 	assert.Equal(t, "llm_error", metric.Metrics[0].Name)
@@ -1137,13 +1144,13 @@ func sameType(a, b interface{}) bool {
 }
 
 // collectFromChannel drains a channel and adds packets to the collector until ctx is done.
-func collectFromChannel(ctx context.Context, ch chan packetEnvelope, collector *collectedPackets) {
+func collectFromChannel(ctx context.Context, ch chan adapter_channel.Envelope, collector *collectedPackets) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case env := <-ch:
-			collector.add(env.pkt)
+			collector.add(env.Pkt)
 		}
 	}
 }
@@ -3157,15 +3164,15 @@ func TestDeadlock_CriticalChannel_SelfEnqueue(t *testing.T) {
 	// Pre-fill criticalCh with many packets to create backpressure.
 	// criticalCh has capacity 256. Fill ~200 slots with dummy directives.
 	for i := 0; i < 200; i++ {
-		r.criticalCh <- packetEnvelope{
-			ctx: ctx,
-			pkt: internal_type.LLMToolCallPacket{
+		r.channels.ControlChannel() <- adapter_channel.Envelope{
+			Ctx: ctx,
+			Pkt: internal_type.LLMToolCallPacket{
 				ContextID: fmt.Sprintf("fill-%d", i),
 				Action:    protos.ToolCallAction_TOOL_CALL_ACTION_END_CONVERSATION,
 			},
 		}
 	}
-	t.Logf("pre-filled criticalCh with 200 packets (cap=%d, len=%d)", cap(r.criticalCh), len(r.criticalCh))
+	t.Logf("pre-filled criticalCh with 200 packets (cap=%d, len=%d)", cap(r.channels.ControlChannel()), len(r.channels.ControlChannel()))
 
 	// Now fire idle timeout — onIdleTimeout enqueues 2 packets to criticalCh
 	// (InterruptionDetected + InjectMessage). handleInterruption then tries to
@@ -3182,10 +3189,10 @@ func TestDeadlock_CriticalChannel_SelfEnqueue(t *testing.T) {
 	case <-done:
 		t.Log("onIdleTimeout with backpressure completed without deadlock")
 	case <-time.After(5 * time.Second):
-		t.Fatalf("DEADLOCK: onIdleTimeout blocked with criticalCh len=%d cap=%d", len(r.criticalCh), cap(r.criticalCh))
+		t.Fatalf("DEADLOCK: onIdleTimeout blocked with criticalCh len=%d cap=%d", len(r.channels.ControlChannel()), cap(r.channels.ControlChannel()))
 	}
 
 	// Let dispatchers drain
 	time.Sleep(1 * time.Second)
-	t.Logf("criticalCh drained to len=%d", len(r.criticalCh))
+	t.Logf("criticalCh drained to len=%d", len(r.channels.ControlChannel()))
 }

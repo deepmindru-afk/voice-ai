@@ -67,14 +67,6 @@ func (listening *genericRequestor) initializeSpeechToText(ctx context.Context) e
 		})
 
 		eGroup.Go(func() error {
-			err := listening.initializeVAD(ctx, options)
-			if err != nil {
-				listening.logger.Errorf("illegal input audio transformer, check the config and re-init")
-			}
-			return nil
-		})
-
-		eGroup.Go(func() error {
 			err := listening.initializeDenoiser(ctx, options)
 			if err != nil {
 				listening.logger.Errorf("illegal input audio transformer, check the config and re-init")

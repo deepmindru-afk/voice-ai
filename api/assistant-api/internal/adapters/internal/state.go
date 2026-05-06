@@ -100,15 +100,15 @@ func (gr *genericRequestor) GetAssistant(
 	version string) (*internal_assistant_entity.Assistant, error) {
 	versionId := utils.GetVersionDefinition(version)
 	assistantOpts := &internal_services.GetAssistantOption{
-		InjectTag: false,
-		//
 		InjectAssistantProvider:      true,
 		InjectKnowledgeConfiguration: true,
 		InjectTool:                   true,
 		InjectAnalysis:               true,
 		InjectWebhook:                true,
-		InjectConversations:          false,
 		InjectTelemetryProvider:      true,
+		InjectAuthentication:         true,
+		InjectConversations:          false,
+		InjectTag:                    false,
 	}
 	switch gr.source {
 	case utils.PhoneCall:

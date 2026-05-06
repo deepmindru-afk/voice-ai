@@ -13,14 +13,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rapidaai/api/assistant-api/config"
+	adapter_channel "github.com/rapidaai/api/assistant-api/internal/adapters/channel"
 	"github.com/rapidaai/protos"
 
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 
 	internal_agent_embeddings "github.com/rapidaai/api/assistant-api/internal/agent/embedding"
 	internal_agent_rerankers "github.com/rapidaai/api/assistant-api/internal/agent/reranker"
-	internal_authentication "github.com/rapidaai/api/assistant-api/internal/authentication"
 	internal_analysis "github.com/rapidaai/api/assistant-api/internal/analysis"
+	internal_authentication "github.com/rapidaai/api/assistant-api/internal/authentication"
 	internal_assistant_entity "github.com/rapidaai/api/assistant-api/internal/entity/assistants"
 	internal_conversation_entity "github.com/rapidaai/api/assistant-api/internal/entity/conversations"
 	internal_knowledge_gorm "github.com/rapidaai/api/assistant-api/internal/entity/knowledges"
@@ -78,12 +79,6 @@ func (s InteractionState) String() string {
 	}
 }
 
-// packetEnvelope carries a packet together with the context it was sent from.
-type packetEnvelope struct {
-	ctx context.Context
-	pkt internal_type.Packet
-}
-
 type genericRequestor struct {
 	logger   commons.Logger
 	config   *config.AssistantConfig
@@ -118,10 +113,11 @@ type genericRequestor struct {
 	deploymentClient  endpoint_client.DeploymentServiceClient
 
 	// interaction state — inline replacement for the former Messaging wrapper
-	msgMu            sync.RWMutex
-	contextID        string
-	interactionState InteractionState
-	msgMode          type_enums.MessageMode
+	msgMu             sync.RWMutex
+	contextID         string
+	interactionState  InteractionState
+	msgMode           type_enums.MessageMode
+	dispatchStartOnce sync.Once
 
 	// listening
 	speechToTextTransformer internal_type.SpeechToTextTransformer
@@ -163,11 +159,8 @@ type genericRequestor struct {
 	workerCancel   context.CancelFunc
 	disconnectDone chan struct{}
 
-	// packet dispatcher channels — four priority tiers, each with its own goroutine
-	criticalCh chan packetEnvelope // interrupts and directives                        (cap 16)
-	inputCh    chan packetEnvelope // inbound: user audio, denoise, VAD, STT, EOS      (cap 4096)
-	outputCh   chan packetEnvelope // outbound: LLM, text aggregator, TTS pipeline     (cap 2048)
-	lowCh      chan packetEnvelope // recording, metrics, persistence, events           (cap 512)
+	// channel registry with semantic names.
+	channels adapter_channel.RequestorChannelBus
 }
 
 func NewGenericRequestor(
@@ -178,6 +171,7 @@ func NewGenericRequestor(
 	redis connectors.RedisConnector, storage storages.Storage, streamer internal_type.Streamer,
 ) *genericRequestor {
 	workerCtx, workerCancel := context.WithCancel(context.Background())
+
 	return &genericRequestor{
 		logger:   logger,
 		config:   config,
@@ -213,19 +207,13 @@ func NewGenericRequestor(
 		outputNormalizer:       internal_output_normalizer.NewOutputNormalizer(logger),
 
 		//
-		histories: make([]internal_type.MessagePacket, 0),
-		metadata:  make(map[string]interface{}),
-		args:      make(map[string]interface{}),
-		options:   make(map[string]interface{}),
-
+		histories:    make([]internal_type.MessagePacket, 0),
+		metadata:     make(map[string]interface{}),
+		args:         make(map[string]interface{}),
+		options:      make(map[string]interface{}),
 		workerCtx:    workerCtx,
 		workerCancel: workerCancel,
-
-		// dispatcher channels
-		criticalCh: make(chan packetEnvelope, 256),
-		inputCh:    make(chan packetEnvelope, 4096),
-		outputCh:   make(chan packetEnvelope, 2048),
-		lowCh:      make(chan packetEnvelope, 2048),
+		channels:     adapter_channel.NewRequestorChannels(),
 	}
 }
 

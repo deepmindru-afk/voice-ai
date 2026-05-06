@@ -14,6 +14,7 @@ import (
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 	"github.com/rapidaai/pkg/clients/rest"
 	"github.com/rapidaai/pkg/commons"
+	"github.com/rapidaai/protos"
 )
 
 const (
@@ -36,7 +37,7 @@ type Result struct {
 // Executor defines authentication runtime behavior.
 type Executor interface {
 	Init(ctx context.Context, communication internal_type.Communication)
-	Execute(ctx context.Context, packet internal_type.ExecuteAuthenticationPacket) (*Result, error)
+	Execute(ctx context.Context, packet internal_type.ExecuteSessionAuthenticationPacket)
 	Close(ctx context.Context)
 }
 
@@ -55,14 +56,15 @@ func (e *runtimeExecutor) Init(_ context.Context, communication internal_type.Co
 	e.onPacket = communication.OnPacket
 }
 
-// Execute runs authentication against the configured endpoint.
-func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.ExecuteAuthenticationPacket) (*Result, error) {
+// Execute runs authentication against the configured endpoint and emits packetized outcome.
+func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.ExecuteSessionAuthenticationPacket) {
 	auth := packet.Authentication
 	opts := auth.GetOptions()
 
 	url, err := opts.GetString(OptionHTTPURLKey)
 	if err != nil || url == "" {
-		return nil, fmt.Errorf("authentication: missing %s", OptionHTTPURLKey)
+		e.emitFailed(ctx, packet.ContextID, packet.Initialization, fmt.Errorf("authentication: missing %s", OptionHTTPURLKey))
+		return
 	}
 
 	method := "POST"
@@ -89,18 +91,30 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.Exec
 	if err != nil {
 		if auth.FailBehavior == FailBehaviorAllow {
 			e.logger.Warnw("authentication failed, allowing due to fail_behavior=allow", "url", url, "error", err)
-			return &Result{Authenticated: false}, nil
+			e.emitSucceeded(ctx, internal_type.SessionAuthenticationSucceededPacket{
+				ContextID:      packet.ContextID,
+				Authenticated:  false,
+				Initialization: packet.Initialization,
+			})
+			return
 		}
-		return nil, fmt.Errorf("authentication: request failed: %w", err)
+		e.emitFailed(ctx, packet.ContextID, packet.Initialization, fmt.Errorf("authentication: request failed: %w", err))
+		return
 	}
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		if auth.FailBehavior == FailBehaviorAllow {
 			e.logger.Warnw("authentication returned non-2xx, allowing due to fail_behavior=allow",
 				"url", url, "status", response.StatusCode)
-			return &Result{Authenticated: false}, nil
+			e.emitSucceeded(ctx, internal_type.SessionAuthenticationSucceededPacket{
+				ContextID:      packet.ContextID,
+				Authenticated:  false,
+				Initialization: packet.Initialization,
+			})
+			return
 		}
-		return nil, fmt.Errorf("authentication: endpoint returned status %d", response.StatusCode)
+		e.emitFailed(ctx, packet.ContextID, packet.Initialization, fmt.Errorf("authentication: endpoint returned status %d", response.StatusCode))
+		return
 	}
 
 	result := &Result{Authenticated: true}
@@ -116,7 +130,14 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.Exec
 		}
 	}
 
-	return result, nil
+	e.emitSucceeded(ctx, internal_type.SessionAuthenticationSucceededPacket{
+		ContextID:      packet.ContextID,
+		Authenticated:  result.Authenticated,
+		Arguments:      result.Args,
+		Metadata:       result.Metadata,
+		Options:        result.Options,
+		Initialization: packet.Initialization,
+	})
 }
 
 // Close releases executor dependencies.
@@ -134,5 +155,29 @@ func (e *runtimeExecutor) send(ctx context.Context, client *rest.RestClient, met
 		return client.Patch(ctx, "", body, headers)
 	default:
 		return client.Get(ctx, "", body, headers)
+	}
+}
+
+func (e *runtimeExecutor) emitSucceeded(ctx context.Context, packet internal_type.SessionAuthenticationSucceededPacket) {
+	if e.onPacket == nil {
+		e.logger.Warnf("authentication executor onPacket is nil; dropping success packet")
+		return
+	}
+	if err := e.onPacket(ctx, packet); err != nil {
+		e.logger.Errorf("failed to emit SessionAuthenticationSucceededPacket: %v", err)
+	}
+}
+
+func (e *runtimeExecutor) emitFailed(ctx context.Context, contextID string, initialization *protos.ConversationInitialization, err error) {
+	if e.onPacket == nil {
+		e.logger.Warnf("authentication executor onPacket is nil; dropping failure packet: %v", err)
+		return
+	}
+	if emitErr := e.onPacket(ctx, internal_type.SessionAuthenticationFailedPacket{
+		ContextID:      contextID,
+		Error:          err,
+		Initialization: initialization,
+	}); emitErr != nil {
+		e.logger.Errorf("failed to emit SessionAuthenticationFailedPacket: %v", emitErr)
 	}
 }

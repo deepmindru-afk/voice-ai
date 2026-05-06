@@ -59,6 +59,8 @@ const (
 
 const (
 	EventConnected            = "connected"
+	EventInitializing         = "initializing"
+	EventInitialized          = "initialized"
 	EventConnectFailed        = "connect_failed"
 	EventDisconnected         = "disconnected"
 	EventDisconnectRequested  = "disconnect_requested"

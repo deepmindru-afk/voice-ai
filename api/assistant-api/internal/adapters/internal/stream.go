@@ -10,11 +10,10 @@ import (
 	"fmt"
 	"time"
 
-	obs "github.com/rapidaai/api/assistant-api/internal/observe"
+	observe "github.com/rapidaai/api/assistant-api/internal/observe"
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 	"github.com/rapidaai/pkg/types"
 	type_enums "github.com/rapidaai/pkg/types/enums"
-	"github.com/rapidaai/pkg/utils"
 	"github.com/rapidaai/protos"
 )
 
@@ -29,172 +28,111 @@ import (
 // or a ConversationDisconnection message. All streamer implementations
 // guarantee one of these when the connection ends.
 func (t *genericRequestor) Talk(_ context.Context, auth types.SimplePrinciple) error {
-	var initialized bool
 	totalTime := time.Now()
 	for {
 		req, err := t.streamer.Recv()
 		if err != nil {
-			if initialized {
+			if t.Conversation() != nil {
 				t.emitCallCompletion(totalTime)
 				t.Disconnect(context.Background())
 			}
 			return nil
 		}
-
-		switch payload := req.(type) {
-		case *protos.ConversationInitialization:
-			if err := t.Connect(t.streamer.Context(), auth, payload); err != nil {
-				t.OnPacket(context.Background(), internal_type.ConversationEventPacket{
-					ContextID: t.GetID(),
-					Name:      obs.ComponentSession,
-					Data:      map[string]string{obs.DataType: obs.EventConnectFailed, obs.DataError: err.Error()},
-					Time:      time.Now(),
-				})
-				t.onAddMetrics(context.Background(), &protos.Metric{
-					Name:        type_enums.CONVERSATION_STATUS.String(),
-					Value:       "FAILED",
-					Description: fmt.Sprintf("Connection failed: %v", err),
-				})
-				return fmt.Errorf("talking.Connect error: %w", err)
-			}
-			initialized = true
-			t.OnPacket(t.streamer.Context(), internal_type.ConversationEventPacket{
-				ContextID: t.GetID(),
-				Name:      obs.ComponentSession,
-				Data:      map[string]string{obs.DataType: obs.EventConnected, obs.DataMode: payload.GetStreamMode().String()},
-				Time:      time.Now(),
-			})
-			t.streamer.NotifyMode(payload.GetStreamMode())
-
-		case *protos.ConversationConfiguration:
-			if initialized {
-				prevMode := t.GetMode().String()
-				switch payload.StreamMode {
-				case protos.StreamMode_STREAM_MODE_TEXT:
-					if t.speechToTextTransformer != nil {
-						utils.Go(t.streamer.Context(), func() {
-							t.disconnectSpeechToText(t.streamer.Context())
-						})
-					}
-					if t.textToSpeechTransformer != nil {
-						utils.Go(t.streamer.Context(), func() {
-							t.disconnectTextToSpeech(t.streamer.Context())
-						})
-					}
-					t.SwitchMode(type_enums.TextMode)
-				case protos.StreamMode_STREAM_MODE_AUDIO:
-					if t.textToSpeechTransformer == nil {
-						t.initializeTextToSpeech(t.streamer.Context())
-					}
-					if t.speechToTextTransformer == nil {
-						if err := t.initializeSpeechToText(t.streamer.Context()); err != nil {
-							t.logger.Errorf("failed to initialize speech-to-text on mode switch: %v", err)
-						}
-					}
-					t.SwitchMode(type_enums.AudioMode)
-				}
-				t.OnPacket(t.streamer.Context(), internal_type.ConversationEventPacket{
-					ContextID: t.GetID(),
-					Name:      obs.ComponentSession,
-					Data:      map[string]string{obs.DataType: obs.EventModeSwitch, obs.DataFrom: prevMode, obs.DataTo: payload.StreamMode.String()},
-					Time:      time.Now(),
-				})
-			}
-
-		case *protos.ConversationUserMessage:
-			if initialized {
-				switch msg := payload.GetMessage().(type) {
-				case *protos.ConversationUserMessage_Audio:
-					if err := t.OnPacket(t.streamer.Context(), internal_type.UserAudioReceivedPacket{ContextID: t.GetID(), Audio: msg.Audio}); err != nil {
-						t.logger.Errorf("error processing user audio: %v", err)
-					}
-				case *protos.ConversationUserMessage_Text:
-					if err := t.OnPacket(t.streamer.Context(), internal_type.UserTextReceivedPacket{ContextID: t.GetID(), Text: msg.Text}); err != nil {
-						t.logger.Errorf("error processing user text: %v", err)
-					}
-				default:
-					t.logger.Errorf("illegal input from the user %+v", msg)
-				}
-			}
-
-		case *protos.ConversationToolCallResult:
-			if initialized {
-				t.OnPacket(t.streamer.Context(), internal_type.LLMToolResultPacket{
-					ToolID:    payload.GetToolId(),
-					Name:      payload.GetName(),
-					ContextID: payload.GetId(),
-					Action:    payload.GetAction(),
-					Result:    payload.GetResult(),
-				})
-			}
-
-		case *protos.ConversationBridgeUserAudio:
-			if initialized {
-				t.OnPacket(t.streamer.Context(), internal_type.RecordUserAudioPacket{ContextID: t.GetID(), Audio: payload.Audio})
-			}
-
-		case *protos.ConversationBridgeOperatorAudio:
-			if initialized {
-				t.OnPacket(t.streamer.Context(), internal_type.RecordAssistantAudioPacket{ContextID: t.GetID(), Audio: payload.Audio})
-			}
-
-		case *protos.ConversationMetadata:
-			if initialized {
-				if err := t.OnPacket(t.streamer.Context(),
-					internal_type.ConversationMetadataPacket{
-						ContextID: payload.GetAssistantConversationId(),
-						Metadata:  payload.GetMetadata(),
-					}); err != nil {
-					t.logger.Errorf("error while accepting metadata: %v", err)
-				}
-			}
-
-		case *protos.ConversationMetric:
-			if initialized {
-				if err := t.OnPacket(t.streamer.Context(),
-					internal_type.ConversationMetricPacket{
-						ContextID: payload.GetAssistantConversationId(),
-						Metrics:   payload.GetMetrics(),
-					}); err != nil {
-					t.logger.Errorf("error while accepting metrics: %v", err)
-				}
-			}
-
-		case *protos.ConversationEvent:
-			if initialized {
-				if err := t.OnPacket(t.streamer.Context(), internal_type.ConversationEventPacket{
-					Name: payload.Name,
-					Data: payload.Data,
-					Time: payload.Time.AsTime(),
-				}); err != nil {
-					t.logger.Errorf("error processing channel event: %v", err)
-				}
-			}
-
-		case *protos.ConversationDisconnection:
-			if initialized {
-				ctx := context.Background()
-				t.OnPacket(ctx, internal_type.ConversationEventPacket{
-					ContextID: t.GetID(),
-					Name:      obs.ComponentSession,
-					Data:      map[string]string{obs.DataType: obs.EventDisconnectRequested, obs.DataReason: payload.GetType().String()},
-					Time:      time.Now(),
-				})
-				t.OnPacket(ctx,
-					internal_type.ConversationMetadataPacket{
-						ContextID: t.Conversation().Id,
-						Metadata: []*protos.Metadata{{
-							Key:   "disconnect_reason",
-							Value: payload.GetType().String(),
-						}},
-					},
-				)
-				t.emitCallCompletion(totalTime)
-				t.Disconnect(ctx)
-			}
+		if t.handleStreamInput(t.streamer.Context(), auth, totalTime, req) {
 			return nil
 		}
 	}
+}
+
+func (t *genericRequestor) handleStreamInput(ctx context.Context, auth types.SimplePrinciple, totalTime time.Time, req internal_type.Stream) bool {
+	switch payload := req.(type) {
+	case *protos.ConversationInitialization:
+		_ = t.Connect(ctx, auth, payload)
+		t.streamer.NotifyMode(payload.GetStreamMode())
+	case *protos.ConversationConfiguration:
+		t.handleStreamModeSwitch(ctx, payload)
+	case *protos.ConversationUserMessage:
+		t.handleStreamUserMessage(ctx, payload)
+	case *protos.ConversationToolCallResult:
+		t.OnPacket(ctx, internal_type.LLMToolResultPacket{
+			ToolID:    payload.GetToolId(),
+			Name:      payload.GetName(),
+			ContextID: payload.GetId(),
+			Action:    payload.GetAction(),
+			Result:    payload.GetResult(),
+		})
+	case *protos.ConversationBridgeUserAudio:
+		t.OnPacket(ctx, internal_type.RecordUserAudioPacket{ContextID: t.GetID(), Audio: payload.Audio})
+	case *protos.ConversationBridgeOperatorAudio:
+		t.OnPacket(ctx, internal_type.RecordAssistantAudioPacket{ContextID: t.GetID(), Audio: payload.Audio})
+	case *protos.ConversationMetadata:
+		t.OnPacket(ctx, internal_type.ConversationMetadataPacket{
+			ContextID: payload.GetAssistantConversationId(),
+			Metadata:  payload.GetMetadata(),
+		})
+	case *protos.ConversationMetric:
+		t.OnPacket(ctx, internal_type.ConversationMetricPacket{
+			ContextID: payload.GetAssistantConversationId(),
+			Metrics:   payload.GetMetrics(),
+		})
+	case *protos.ConversationEvent:
+		eventTime := time.Now()
+		if payload.Time != nil {
+			eventTime = payload.Time.AsTime()
+		}
+		t.OnPacket(ctx, internal_type.ConversationEventPacket{
+			Name: payload.Name,
+			Data: payload.Data,
+			Time: eventTime,
+		})
+	case *protos.ConversationDisconnection:
+		if t.Conversation() == nil {
+			return true
+		}
+		t.handleStreamDisconnection(totalTime, payload)
+		return true
+	}
+
+	return false
+}
+
+func (t *genericRequestor) handleStreamModeSwitch(ctx context.Context, payload *protos.ConversationConfiguration) {
+	t.OnPacket(ctx, internal_type.ModeSwitchRequestedPacket{
+		ContextID:   t.GetID(),
+		StreamMode:  payload.GetStreamMode(),
+		RequestedAt: time.Now(),
+	})
+}
+
+func (t *genericRequestor) handleStreamUserMessage(ctx context.Context, payload *protos.ConversationUserMessage) {
+	switch msg := payload.GetMessage().(type) {
+	case *protos.ConversationUserMessage_Audio:
+		t.OnPacket(ctx, internal_type.UserAudioReceivedPacket{ContextID: t.GetID(), Audio: msg.Audio})
+	case *protos.ConversationUserMessage_Text:
+		t.OnPacket(ctx, internal_type.UserTextReceivedPacket{ContextID: t.GetID(), Text: msg.Text})
+	default:
+		t.logger.Errorf("illegal input from the user %+v", msg)
+	}
+}
+
+func (t *genericRequestor) handleStreamDisconnection(totalTime time.Time, payload *protos.ConversationDisconnection) {
+	ctx := context.Background()
+	t.OnPacket(ctx,
+		internal_type.ConversationEventPacket{
+			ContextID: t.GetID(),
+			Name:      observe.ComponentSession,
+			Data:      map[string]string{observe.DataType: observe.EventDisconnectRequested, observe.DataReason: payload.GetType().String()},
+			Time:      time.Now(),
+		},
+		internal_type.ConversationMetadataPacket{
+			ContextID: t.Conversation().Id,
+			Metadata: []*protos.Metadata{{
+				Key:   "disconnect_reason",
+				Value: payload.GetType().String(),
+			}},
+		})
+	t.emitCallCompletion(totalTime)
+	t.Disconnect(ctx)
 }
 
 // emitCallCompletion persists final metrics and events when the talk loop exits.
@@ -218,18 +156,18 @@ func (t *genericRequestor) emitCallCompletion(startTime time.Time) {
 		t.logger.Errorf("talk: failed to persist completion metrics: %v", err)
 	}
 	if t.observer != nil {
-		t.observer.MetricCollectors().Collect(context.Background(), obs.ConversationMetricRecord{
+		t.observer.MetricCollectors().Collect(context.Background(), observe.ConversationMetricRecord{
 			ConversationID: fmt.Sprintf("%d", t.Conversation().Id),
 			Metrics:        completionMetrics,
 			Time:           time.Now(),
 		})
-		t.observer.EventCollectors().Collect(context.Background(), obs.EventRecord{
+		t.observer.EventCollectors().Collect(context.Background(), observe.EventRecord{
 			MessageID: t.GetID(),
-			Name:      obs.ComponentSession,
+			Name:      observe.ComponentSession,
 			Data: map[string]string{
-				obs.DataType:     obs.EventCompleted,
-				obs.DataDuration: fmt.Sprintf("%d", duration.Milliseconds()),
-				obs.DataMessages: fmt.Sprintf("%d", len(t.GetHistories())),
+				observe.DataType:     observe.EventCompleted,
+				observe.DataDuration: fmt.Sprintf("%d", duration.Milliseconds()),
+				observe.DataMessages: fmt.Sprintf("%d", len(t.GetHistories())),
 			},
 			Time: time.Now(),
 		})
