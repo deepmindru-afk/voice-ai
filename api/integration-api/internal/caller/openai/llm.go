@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/shared"
+	openai "github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/shared"
 
 	internal_caller_metrics "github.com/rapidaai/api/integration-api/internal/caller/metrics"
 	internal_callers "github.com/rapidaai/api/integration-api/internal/type"
@@ -31,15 +31,16 @@ func NewLargeLanguageCaller(logger commons.Logger, credential *protos.Credential
 func (llc *largeLanguageCaller) getChatCompletionOptions(
 	opts *internal_callers.ChatCompletionOptions, streaming bool,
 ) openai.ChatCompletionNewParams {
-	options := openai.ChatCompletionNewParams{}
-
+	options := openai.ChatCompletionNewParams{
+		Store: openai.Bool(false),
+	}
 	if streaming {
 		options.StreamOptions = openai.ChatCompletionStreamOptionsParam{
 			IncludeUsage: openai.Bool(true),
 		}
 	}
 	if len(opts.ToolDefinitions) > 0 {
-		fns := make([]openai.ChatCompletionToolParam, len(opts.ToolDefinitions))
+		fns := make([]openai.ChatCompletionToolUnionParam, len(opts.ToolDefinitions))
 		for idx, tl := range opts.ToolDefinitions {
 			switch tl.Type {
 			case "tool":
@@ -62,8 +63,8 @@ func (llc *largeLanguageCaller) getChatCompletionOptions(
 							"properties": map[string]interface{}{},
 						}
 					}
-					fns[idx] = openai.ChatCompletionToolParam{
-						Function: funcDef,
+					fns[idx] = openai.ChatCompletionToolUnionParam{
+						OfFunction: &openai.ChatCompletionFunctionToolParam{Function: funcDef},
 					}
 				}
 			}
@@ -121,7 +122,7 @@ func (llc *largeLanguageCaller) getChatCompletionOptions(
 			}
 		case "model.max_completion_tokens":
 			if maxTokens, err := utils.AnyToInt64(value); err == nil {
-				options.MaxTokens = openai.Int(maxTokens)
+				options.MaxCompletionTokens = openai.Int(maxTokens)
 			}
 		case "model.stop":
 			if stopStr, err := utils.AnyToString(value); err == nil {
@@ -130,6 +131,10 @@ func (llc *largeLanguageCaller) getChatCompletionOptions(
 						options.Stop.OfStringArray = append(options.Stop.OfStringArray, stopper)
 					}
 				}
+			}
+		case "model.store":
+			if store, err := utils.AnyToBool(value); err == nil {
+				options.Store = openai.Bool(store)
 			}
 		case "model.tool_choice":
 			if choice, err := utils.AnyToString(value); err == nil {
@@ -417,13 +422,15 @@ func (llc *largeLanguageCaller) BuildHistory(allMessages []*protos.Message) []op
 						}
 					}
 					if len(toolCalls) > 0 {
-						fctCall := make([]openai.ChatCompletionMessageToolCallParam, 0)
+						fctCall := make([]openai.ChatCompletionMessageToolCallUnionParam, 0)
 						for _, ttc := range toolCalls {
-							fctCall = append(fctCall, openai.ChatCompletionMessageToolCallParam{
-								ID: ttc.GetId(),
-								Function: openai.ChatCompletionMessageToolCallFunctionParam{
-									Name:      ttc.GetFunction().GetName(),
-									Arguments: ttc.GetFunction().GetArguments(),
+							fctCall = append(fctCall, openai.ChatCompletionMessageToolCallUnionParam{
+								OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
+									ID: ttc.GetId(),
+									Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
+										Name:      ttc.GetFunction().GetName(),
+										Arguments: ttc.GetFunction().GetArguments(),
+									},
 								},
 							})
 						}

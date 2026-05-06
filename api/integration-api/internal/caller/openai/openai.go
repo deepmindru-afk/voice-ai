@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/option"
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
 
 	internal_callers "github.com/rapidaai/api/integration-api/internal/type"
 	"github.com/rapidaai/pkg/commons"
