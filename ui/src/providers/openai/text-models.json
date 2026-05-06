@@ -3190,7 +3190,39 @@
           "colSpan": 2,
           "helpText": "Optional metadata about the request. Enter as JSON object."
         },
-        
+        {
+          "key": "model.reasoning_effort",
+          "label": "Reasoning Effort",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "Low",
+              "value": "low"
+            },
+            {
+              "label": "Medium",
+              "value": "medium"
+            },
+            {
+              "label": "High",
+              "value": "high"
+            },
+            {
+              "label": "Extra High",
+              "value": "xhigh"
+            },
+            {
+              "label": "Extra High",
+              "value": "xhigh"
+            }
+          ]
+        },
         {
           "key": "model.response_format",
           "label": "Response Format",
@@ -3295,7 +3327,39 @@
           "colSpan": 2,
           "helpText": "Optional metadata about the request. Enter as JSON object."
         },
-        
+        {
+          "key": "model.reasoning_effort",
+          "label": "Reasoning Effort",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "Low",
+              "value": "low"
+            },
+            {
+              "label": "Medium",
+              "value": "medium"
+            },
+            {
+              "label": "High",
+              "value": "high"
+            },
+            {
+              "label": "Extra High",
+              "value": "xhigh"
+            },
+            {
+              "label": "Extra High",
+              "value": "xhigh"
+            }
+          ]
+        },
         {
           "key": "model.response_format",
           "label": "Response Format",
@@ -3400,7 +3464,35 @@
           "colSpan": 2,
           "helpText": "Optional metadata about the request. Enter as JSON object."
         },
-        
+        {
+          "key": "model.reasoning_effort",
+          "label": "Reasoning Effort",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "Low",
+              "value": "low"
+            },
+            {
+              "label": "Medium",
+              "value": "medium"
+            },
+            {
+              "label": "High",
+              "value": "high"
+            },
+            {
+              "label": "Extra High",
+              "value": "xhigh"
+            }
+          ]
+        },
         {
           "key": "model.response_format",
           "label": "Response Format",
@@ -3505,7 +3597,35 @@
           "colSpan": 2,
           "helpText": "Optional metadata about the request. Enter as JSON object."
         },
-        
+        {
+          "key": "model.reasoning_effort",
+          "label": "Reasoning Effort",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "Low",
+              "value": "low"
+            },
+            {
+              "label": "Medium",
+              "value": "medium"
+            },
+            {
+              "label": "High",
+              "value": "high"
+            },
+            {
+              "label": "Extra High",
+              "value": "xhigh"
+            }
+          ]
+        },
         {
           "key": "model.response_format",
           "label": "Response Format",
@@ -3610,7 +3730,35 @@
           "colSpan": 2,
           "helpText": "Optional metadata about the request. Enter as JSON object."
         },
-        
+        {
+          "key": "model.reasoning_effort",
+          "label": "Reasoning Effort",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "Low",
+              "value": "low"
+            },
+            {
+              "label": "Medium",
+              "value": "medium"
+            },
+            {
+              "label": "High",
+              "value": "high"
+            },
+            {
+              "label": "Extra High",
+              "value": "xhigh"
+            }
+          ]
+        },
         {
           "key": "model.response_format",
           "label": "Response Format",
@@ -3715,7 +3863,35 @@
           "colSpan": 2,
           "helpText": "Optional metadata about the request. Enter as JSON object."
         },
-        
+        {
+          "key": "model.reasoning_effort",
+          "label": "Reasoning Effort",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "choices": [
+            {
+              "label": "None",
+              "value": "none"
+            },
+            {
+              "label": "Low",
+              "value": "low"
+            },
+            {
+              "label": "Medium",
+              "value": "medium"
+            },
+            {
+              "label": "High",
+              "value": "high"
+            },
+            {
+              "label": "Extra High",
+              "value": "xhigh"
+            }
+          ]
+        },
         {
           "key": "model.response_format",
           "label": "Response Format",
