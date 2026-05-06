@@ -165,40 +165,23 @@ func (tws *twilioWebsocketStreamer) Send(response internal_type.Stream) error {
 		if disc := tws.Disconnect(data.GetType()); disc != nil {
 			tws.Input(disc)
 		}
+		tws.Cancel()
 	case *protos.ConversationToolCall:
 		switch data.GetAction() {
 		case protos.ToolCallAction_TOOL_CALL_ACTION_END_CONVERSATION:
+			result := map[string]string{"status": "completed"}
 			if tws.GetConversationUuid() != "" {
 				client, err := twilioClient(tws.VaultCredential())
 				if err != nil {
 					tws.Logger.Errorf("Error creating Twilio client:", err)
-					tws.Input(&protos.ConversationToolCallResult{
-						Id:     data.GetId(),
-						ToolId: data.GetToolId(),
-						Name:   data.GetName(),
-						Action: data.GetAction(),
-						Result: map[string]string{"status": "failed", "reason": fmt.Sprintf("twilio client error: %v", err)},
-					})
-					if disc := tws.Disconnect(protos.ConversationDisconnection_DISCONNECTION_TYPE_TOOL); disc != nil {
-						tws.Input(disc)
+					result = map[string]string{"status": "failed", "reason": fmt.Sprintf("twilio client error: %v", err)}
+				} else {
+					params := &openapi.UpdateCallParams{}
+					params.SetStatus("completed")
+					if _, err := client.Api.UpdateCall(tws.GetConversationUuid(), params); err != nil {
+						tws.Logger.Errorf("Error ending Twilio call:", err)
+						result = map[string]string{"status": "failed", "reason": fmt.Sprintf("end call failed: %v", err)}
 					}
-					return nil
-				}
-				params := &openapi.UpdateCallParams{}
-				params.SetStatus("completed")
-				if _, err := client.Api.UpdateCall(tws.GetConversationUuid(), params); err != nil {
-					tws.Logger.Errorf("Error ending Twilio call:", err)
-					tws.Input(&protos.ConversationToolCallResult{
-						Id:     data.GetId(),
-						ToolId: data.GetToolId(),
-						Name:   data.GetName(),
-						Action: data.GetAction(),
-						Result: map[string]string{"status": "failed", "reason": fmt.Sprintf("end call failed: %v", err)},
-					})
-					if disc := tws.Disconnect(protos.ConversationDisconnection_DISCONNECTION_TYPE_TOOL); disc != nil {
-						tws.Input(disc)
-					}
-					return nil
 				}
 			}
 			tws.Input(&protos.ConversationToolCallResult{
@@ -206,20 +189,36 @@ func (tws *twilioWebsocketStreamer) Send(response internal_type.Stream) error {
 				ToolId: data.GetToolId(),
 				Name:   data.GetName(),
 				Action: data.GetAction(),
-				Result: map[string]string{"status": "completed"},
+				Result: result,
 			})
-			if disc := tws.Disconnect(protos.ConversationDisconnection_DISCONNECTION_TYPE_TOOL); disc != nil {
-				tws.Input(disc)
-			}
 		case protos.ToolCallAction_TOOL_CALL_ACTION_TRANSFER_CONVERSATION:
-			to := data.GetArgs()["to"]
-			if to == "" || tws.GetConversationUuid() == "" {
+			// Twilio transfer is a blind transfer via REST `UpdateCall` with TwiML
+			// `<Dial>`. Twilio takes over the leg; the AI WebSocket is closed by
+			// Cancel() below and cannot be resumed. As a result, only
+			// post_transfer_action=end_call is meaningful — resume_ai is NOT
+			// supported on Twilio. Supporting resume_ai would require a TwiML
+			// `<Dial action="...">` callback that hands the leg back to a fresh
+			// assistant Stream on hangup (not implemented).
+			//
+			// Multi-target failover (try t1, on failure try t2 …) is NOT
+			// supported either: once the redirect is dispatched, the WebSocket
+			// is closed and we lose the ability to retry. Only the first
+			// target from a SEPARATOR-joined transfer_to is dialed; the rest
+			// are dropped with a warning.
+			raw := data.GetArgs()["transfer_to"]
+			targets := tws.SplitTransferTargets(raw)
+			if raw == "" || len(targets) == 0 || tws.GetConversationUuid() == "" {
 				tws.Input(&protos.ConversationToolCallResult{
 					Id:     data.GetId(),
 					ToolId: data.GetToolId(), Name: data.GetName(), Action: data.GetAction(),
-					Result: map[string]string{"status": "failed", "reason": "missing target or call ID"},
+					Result: map[string]string{"status": "failed", "reason": "missing target or call ID", "next_action": "end_call"},
 				})
 				return nil
+			}
+			to := targets[0]
+			if len(targets) > 1 {
+				tws.Logger.Warnw("Twilio transfer received multiple targets; failover not supported, using first only",
+					"chosen", to, "ignored", targets[1:])
 			}
 			tws.Logger.Infow("Transferring Twilio call", "to", to)
 			client, err := twilioClient(tws.VaultCredential())
@@ -227,7 +226,7 @@ func (tws *twilioWebsocketStreamer) Send(response internal_type.Stream) error {
 				tws.Input(&protos.ConversationToolCallResult{
 					Id:     data.GetId(),
 					ToolId: data.GetToolId(), Name: data.GetName(), Action: data.GetAction(),
-					Result: map[string]string{"status": "failed", "reason": fmt.Sprintf("twilio client error: %v", err)},
+					Result: map[string]string{"status": "failed", "reason": fmt.Sprintf("twilio client error: %v", err), "next_action": "end_call"},
 				})
 				return nil
 			}
@@ -237,16 +236,19 @@ func (tws *twilioWebsocketStreamer) Send(response internal_type.Stream) error {
 				tws.Input(&protos.ConversationToolCallResult{
 					Id:     data.GetId(),
 					ToolId: data.GetToolId(), Name: data.GetName(), Action: data.GetAction(),
-					Result: map[string]string{"status": "failed", "reason": fmt.Sprintf("transfer failed: %v", err)},
+					Result: map[string]string{"status": "failed", "reason": fmt.Sprintf("transfer failed: %v", err), "next_action": "end_call"},
 				})
 			} else {
 				tws.Input(&protos.ConversationToolCallResult{
 					Id:     data.GetId(),
 					ToolId: data.GetToolId(), Name: data.GetName(), Action: data.GetAction(),
-					Result: map[string]string{"status": "completed"},
+					Result: map[string]string{
+						"status":      "dispatched",
+						"reason":      "transfer dispatched to Twilio; outcome not observed",
+						"next_action": "end_call",
+					},
 				})
 			}
-			tws.Cancel()
 		}
 	}
 	return nil

@@ -51,9 +51,6 @@ func (d *Dispatcher) executeTransfer(ctx context.Context, v sip_infra.TransferIn
 		targets = []string{v.TargetURI}
 	}
 
-	bridgeCtx, bridgeCancel := context.WithTimeout(v.Session.Context(), sip_infra.BridgeCallTimeout)
-	defer bridgeCancel()
-
 	var outboundSession *sip_infra.Session
 	var connectedTarget string
 	for i, target := range targets {
@@ -62,7 +59,16 @@ func (d *Dispatcher) executeTransfer(ctx context.Context, v sip_infra.TransferIn
 			"call_id", v.ID, "target", target,
 			"attempt", attempt, "total", len(targets))
 
-		session, err := d.server.MakeBridgeCall(bridgeCtx, cfg, target, cfg.CallerID)
+		if v.OnAttempt != nil {
+			v.OnAttempt(target, attempt, len(targets))
+		}
+
+		// Each target gets its own BridgeCallTimeout. The overall budget is
+		// bounded by the inbound session context — if the caller hangs up
+		// mid-failover, we stop trying.
+		perTargetCtx, perTargetCancel := context.WithTimeout(v.Session.Context(), sip_infra.BridgeCallTimeout)
+		session, err := d.server.MakeBridgeCall(perTargetCtx, cfg, target, cfg.CallerID)
+		perTargetCancel()
 		if err == nil {
 			outboundSession = session
 			connectedTarget = target
@@ -83,7 +89,8 @@ func (d *Dispatcher) executeTransfer(ctx context.Context, v sip_infra.TransferIn
 			},
 		})
 
-		if bridgeCtx.Err() != nil {
+		// Caller hung up or session ended — stop trying further targets.
+		if v.Session.Context().Err() != nil {
 			break
 		}
 	}
@@ -129,7 +136,7 @@ func (d *Dispatcher) executeTransfer(ctx context.Context, v sip_infra.TransferIn
 	// Track bridge duration from the moment the transfer target answered
 	bridgeStart := time.Now()
 
-	endReason, err := d.server.BridgeTransfer(context.Background(), v.Session, outboundSession, v.OnOperatorAudio)
+	endReason, err := d.server.BridgeTransfer(ctx, v.Session, outboundSession, v.OnOperatorAudio)
 	bridgeDuration := time.Since(bridgeStart)
 
 	if err != nil {
@@ -154,27 +161,13 @@ func (d *Dispatcher) executeTransfer(ctx context.Context, v sip_infra.TransferIn
 		v.Session.SetMetadata(sip_infra.MetadataBridgeTransferDuration, bridgeDuration.String())
 	}
 
-	// Operator (transfer target) hung up — return caller to AI.
-	// Don't end the inbound session; the Talk loop is still running.
-	if endReason == sip_infra.BridgeEndOutboundBye {
-		if v.OnTeardown != nil {
-			v.OnTeardown()
-		}
-		if v.OnResumeAI != nil {
-			v.OnResumeAI()
-		}
-		return
-	}
-
+	// SIP layer owns transfer transport only. Policy decisions (continue vs end_call)
+	// are handled upstream via tool-result handling.
 	if v.OnTeardown != nil {
 		v.OnTeardown()
 	}
-
-	// Caller hung up, timeout, or context cancelled — end the inbound session.
-	// This unblocks pipelineCallStart's session wait, which then reads the
-	// metadata for observer events. BridgeTransfer only ends the outbound leg.
-	if !v.Session.IsEnded() {
-		v.Session.End()
+	if v.OnResumeAI != nil {
+		v.OnResumeAI()
 	}
 }
 

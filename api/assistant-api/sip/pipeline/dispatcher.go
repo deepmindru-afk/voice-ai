@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 
+	callcontext "github.com/rapidaai/api/assistant-api/internal/callcontext"
 	observe "github.com/rapidaai/api/assistant-api/internal/observe"
 	sip_infra "github.com/rapidaai/api/assistant-api/sip/infra"
 	"github.com/rapidaai/pkg/commons"
@@ -38,11 +39,12 @@ type Dispatcher struct {
 	mediaCh   chan callEnvelope
 	controlCh chan callEnvelope
 
-	server             *sip_infra.Server
+	server             TransferServer
 	registrationClient *sip_infra.RegistrationClient
 
 	didResolver          DIDResolverFunc
 	onCreateConversation OnCreateConversationFunc
+	onEnsureCallContext  OnEnsureCallContextFunc
 	onCallSetup          OnCallSetupFunc
 	onCallStart          OnCallStartFunc
 	onCallEnd            OnCallEndFunc
@@ -54,7 +56,22 @@ type DIDResolverFunc func(did string) (assistantID uint64, auth types.SimplePrin
 
 type OnCreateConversationFunc func(ctx context.Context, auth types.SimplePrinciple, assistantID uint64, fromURI string, direction string) (conversationID uint64, err error)
 
-type OnCallSetupFunc func(ctx context.Context, session *sip_infra.Session, auth types.SimplePrinciple, assistantID uint64, conversationID uint64) (*CallSetupResult, error)
+// OnEnsureCallContextFunc resolves the durable CallContext for a SIP session.
+// Outbound: claim/load the record persisted by the channel pipeline. Inbound:
+// build from the INVITE URIs and persist. Should return an in-memory cc on DB
+// failure so the call still proceeds.
+type OnEnsureCallContextFunc func(
+	ctx context.Context,
+	session *sip_infra.Session,
+	auth types.SimplePrinciple,
+	assistantID uint64,
+	conversationID uint64,
+	direction sip_infra.CallDirection,
+	fromURI string,
+	toURI string,
+) (*callcontext.CallContext, error)
+
+type OnCallSetupFunc func(ctx context.Context, session *sip_infra.Session, auth types.SimplePrinciple, assistantID uint64, conversationID uint64, cc *callcontext.CallContext) (*CallSetupResult, error)
 
 type CallSetupResult struct {
 	AssistantID         uint64
@@ -64,6 +81,9 @@ type CallSetupResult struct {
 	AuthType            string
 	ProjectID           uint64
 	OrganizationID      uint64
+	// CallContext is resolved by OnEnsureCallContext and carried in memory
+	// into pipelineCallStart. May be nil if OnEnsureCallContext is unset.
+	CallContext *callcontext.CallContext
 }
 
 type OnCallStartFunc func(ctx context.Context, session *sip_infra.Session, setup *CallSetupResult, vaultCred interface{}, sipConfig *sip_infra.Config, direction string) error
@@ -77,9 +97,11 @@ type OnCreateHooksFunc func(ctx context.Context, auth types.SimplePrinciple, ass
 type DispatcherConfig struct {
 	Logger               commons.Logger
 	Server               *sip_infra.Server
+	TransferServer       TransferServer
 	RegistrationClient   *sip_infra.RegistrationClient
 	DIDResolver          DIDResolverFunc
 	OnCreateConversation OnCreateConversationFunc
+	OnEnsureCallContext  OnEnsureCallContextFunc
 	OnCallSetup          OnCallSetupFunc
 	OnCallStart          OnCallStartFunc
 	OnCallEnd            OnCallEndFunc
@@ -87,13 +109,25 @@ type DispatcherConfig struct {
 	OnCreateHooks        OnCreateHooksFunc
 }
 
+// TransferServer is the minimal SIP infra surface required by transfer orchestration.
+// It enables deterministic tests by allowing fake implementations.
+type TransferServer interface {
+	MakeBridgeCall(ctx context.Context, cfg *sip_infra.Config, toURI, fromURI string) (*sip_infra.Session, error)
+	BridgeTransfer(ctx context.Context, inbound, outbound *sip_infra.Session, onOperatorAudio func([]byte)) (sip_infra.BridgeEndReason, error)
+}
+
 func NewDispatcher(cfg *DispatcherConfig) *Dispatcher {
+	transferServer := cfg.TransferServer
+	if transferServer == nil && cfg.Server != nil {
+		transferServer = cfg.Server
+	}
 	return &Dispatcher{
 		logger:               cfg.Logger,
-		server:               cfg.Server,
+		server:               transferServer,
 		registrationClient:   cfg.RegistrationClient,
 		didResolver:          cfg.DIDResolver,
 		onCreateConversation: cfg.OnCreateConversation,
+		onEnsureCallContext:  cfg.OnEnsureCallContext,
 		onCallSetup:          cfg.OnCallSetup,
 		onCallStart:          cfg.OnCallStart,
 		onCallEnd:            cfg.OnCallEnd,

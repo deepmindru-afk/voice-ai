@@ -82,7 +82,7 @@ func newTestTwilioStreamer(t *testing.T) (*twilioWebsocketStreamer, func()) {
 	return tws, cleanup
 }
 
-func TestSend_EndConversation_PushesToolCallResultBeforeCancel(t *testing.T) {
+func TestSend_EndConversation_PushesToolCallResult(t *testing.T) {
 	tws, cleanup := newTestTwilioStreamer(t)
 	defer cleanup()
 
@@ -96,8 +96,6 @@ func TestSend_EndConversation_PushesToolCallResultBeforeCancel(t *testing.T) {
 	err := tws.Send(toolCall)
 	require.NoError(t, err)
 
-	// The ToolCallResult should have been pushed to CriticalCh (since Input
-	// routes ConversationToolCallResult to CriticalCh).
 	select {
 	case msg := <-tws.CriticalCh:
 		result, ok := msg.(*protos.ConversationToolCallResult)
@@ -110,18 +108,9 @@ func TestSend_EndConversation_PushesToolCallResultBeforeCancel(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("Expected ConversationToolCallResult in CriticalCh but timed out")
 	}
-
-	select {
-	case msg := <-tws.CriticalCh:
-		disc, ok := msg.(*protos.ConversationDisconnection)
-		require.True(t, ok, "Expected ConversationDisconnection, got %T", msg)
-		assert.Equal(t, protos.ConversationDisconnection_DISCONNECTION_TYPE_TOOL, disc.GetType())
-	case <-time.After(time.Second):
-		t.Fatal("Expected ConversationDisconnection in CriticalCh but timed out")
-	}
 }
 
-func TestSend_EndConversation_DoesNotCancelStreamerImmediately(t *testing.T) {
+func TestSend_EndConversation_DoesNotCancelStreamer(t *testing.T) {
 	tws, cleanup := newTestTwilioStreamer(t)
 	defer cleanup()
 
@@ -134,23 +123,14 @@ func TestSend_EndConversation_DoesNotCancelStreamerImmediately(t *testing.T) {
 
 	_ = tws.Send(toolCall)
 
-	// Drain the tool call result first.
+	// Drain the tool call result.
 	select {
 	case <-tws.CriticalCh:
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for ConversationToolCallResult")
 	}
 
-	select {
-	case msg := <-tws.CriticalCh:
-		disc, ok := msg.(*protos.ConversationDisconnection)
-		require.True(t, ok, "Expected ConversationDisconnection, got %T", msg)
-		assert.Equal(t, protos.ConversationDisconnection_DISCONNECTION_TYPE_TOOL, disc.GetType())
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for ConversationDisconnection")
-	}
-
-	// Context should remain open; teardown is owned by Talk loop.
+	// Context should remain open; disconnect is owned by handleToolResult.
 	select {
 	case <-tws.Ctx.Done():
 		t.Fatal("streamer context should remain open")
@@ -168,7 +148,7 @@ func TestSend_TransferConversation_MissingTarget(t *testing.T) {
 		ToolId: "tool-transfer",
 		Name:   "transfer_call",
 		Action: protos.ToolCallAction_TOOL_CALL_ACTION_TRANSFER_CONVERSATION,
-		Args:   map[string]string{"to": ""},
+		Args:   map[string]string{"transfer_to": ""},
 	}
 
 	err := tws.Send(toolCall)
@@ -196,7 +176,7 @@ func TestSend_TransferConversation_NoCallUUID(t *testing.T) {
 		ToolId: "tool-transfer",
 		Name:   "transfer_call",
 		Action: protos.ToolCallAction_TOOL_CALL_ACTION_TRANSFER_CONVERSATION,
-		Args:   map[string]string{"to": "+15551234567"},
+		Args:   map[string]string{"transfer_to": "+15551234567"},
 	}
 
 	err := tws.Send(toolCall)

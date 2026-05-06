@@ -252,6 +252,25 @@ func (f InjectMessagePacket) ContextId() string { return f.ContextID }
 func (f InjectMessagePacket) Content() string   { return f.Text }
 func (f InjectMessagePacket) Role() string      { return "rapida" }
 
+// StartIdleTimeoutPacket explicitly (re)starts the idle timeout timer.
+// Routed on outputCh so producers can order it relative to InjectMessagePacket
+// and TTS output packets that share the same channel.
+type StartIdleTimeoutPacket struct {
+	ContextID string
+}
+
+func (f StartIdleTimeoutPacket) ContextId() string { return f.ContextID }
+
+// StopIdleTimeoutPacket explicitly stops the idle timeout timer.
+// ResetCount = true also clears the consecutive idle backoff counter
+// (used when the user actively engages, not for system-driven stops).
+type StopIdleTimeoutPacket struct {
+	ContextID  string
+	ResetCount bool
+}
+
+func (f StopIdleTimeoutPacket) ContextId() string { return f.ContextID }
+
 // =============================================================================
 // LLM Pipeline — execute -> delta -> done -> error -> tools
 // =============================================================================
@@ -301,7 +320,7 @@ type LLMErrorPacket struct {
 
 func (f LLMErrorPacket) ContextId() string { return f.ContextID }
 func (f LLMErrorPacket) IsRecoverable() bool {
-	return f.Type == LLMRateLimit || f.Type == LLMNetworkTimeout
+	return f.Type != LLMAuthentication && f.Type != LLMSystemPanic
 }
 func (f LLMErrorPacket) Err() error         { return f.Error }
 func (f LLMErrorPacket) ErrMessage() string { return fmt.Sprintf("llm: %s", f.Error.Error()) }
@@ -417,7 +436,7 @@ type TTSErrorPacket struct {
 
 func (f TTSErrorPacket) ContextId() string { return f.ContextID }
 func (f TTSErrorPacket) IsRecoverable() bool {
-	return f.Type == TTSRateLimit || f.Type == TTSNetworkTimeout
+	return f.Type != TTSAuthentication
 }
 func (f TTSErrorPacket) Err() error         { return f.Error }
 func (f TTSErrorPacket) ErrMessage() string { return fmt.Sprintf("tts: %s", f.Error.Error()) }

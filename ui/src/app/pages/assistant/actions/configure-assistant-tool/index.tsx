@@ -14,6 +14,10 @@ import { useConfirmDialog } from '@/app/pages/assistant/actions/hooks/use-confir
 import { IconOnlyButton, PrimaryButton } from '@/app/components/carbon/button';
 import { BUILDIN_TOOLS } from '@/llm-tools';
 import {
+  getToolConditionSource,
+  getToolConditionSourceLabel,
+} from '@/app/components/tools/common';
+import {
   Breadcrumb,
   BreadcrumbItem,
   Button,
@@ -156,7 +160,6 @@ const ConfigureAssistantTool: FC<{ assistantId: string }> = ({
           totalSelected={selectedToolId ? 1 : 0}
           totalCount={axtion.tools.length}
           onCancel={() => setSelectedToolId(null)}
-          className="[&_[class*=divider]]:hidden [&_.cds--btn]:transition-colors [&_.cds--btn:hover]:!bg-primary [&_.cds--btn:hover]:!text-white"
         >
           {selectedToolId && (
             <>
@@ -223,6 +226,9 @@ const ConfigureAssistantTool: FC<{ assistantId: string }> = ({
                 const methodMeta = BUILDIN_TOOLS.find(x => x.code === method);
                 const isMcp = method === 'mcp';
                 const selected = selectedToolId === itm.getId();
+                const conditionSource = getToolConditionSource(
+                  itm.getExecutionoptionsList(),
+                );
 
                 return (
                   <TableRow
@@ -264,6 +270,12 @@ const ConfigureAssistantTool: FC<{ assistantId: string }> = ({
                         {!methodMeta && !isMcp && (
                           <Tag size="sm" type="gray">
                             {(method || 'Unknown').replace(/_/g, ' ')}
+                          </Tag>
+                        )}
+                        {conditionSource !== 'all' && (
+                          <Tag size="sm" type="blue">
+                            Source:{' '}
+                            {getToolConditionSourceLabel(conditionSource)}
                           </Tag>
                         )}
                       </div>
