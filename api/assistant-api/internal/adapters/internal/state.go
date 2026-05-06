@@ -173,7 +173,7 @@ func (tc *genericRequestor) GetMetadata() map[string]interface{} {
 	return tc.metadata
 }
 
-func (tc *genericRequestor) onSetMetadata(ctx context.Context, auth types.SimplePrinciple, mt map[string]interface{}) {
+func (tc *genericRequestor) onSetMetadata(_ context.Context, auth types.SimplePrinciple, mt map[string]interface{}) {
 	modified := make(map[string]interface{})
 	for k, v := range mt {
 		vl, ok := tc.metadata[k]
@@ -183,7 +183,7 @@ func (tc *genericRequestor) onSetMetadata(ctx context.Context, auth types.Simple
 		tc.metadata[k] = v
 		modified[k] = v
 	}
-	utils.Go(ctx, func() {
+	utils.Go(context.Background(), func() {
 		dbCtx, cancel := context.WithTimeout(context.Background(), dbWriteTimeout)
 		defer cancel()
 		start := time.Now()
@@ -195,7 +195,7 @@ func (tc *genericRequestor) onSetMetadata(ctx context.Context, auth types.Simple
 
 }
 
-func (tc *genericRequestor) onAddMetadata(ctx context.Context, metadata ...*protos.Metadata) error {
+func (tc *genericRequestor) onAddMetadata(_ context.Context, metadata ...*protos.Metadata) error {
 	dbCtx, cancel := context.WithTimeout(context.Background(), dbWriteTimeout)
 	defer cancel()
 	_, err := tc.conversationService.ApplyConversationMetadata(
@@ -211,7 +211,7 @@ func (tc *genericRequestor) onAddMetadata(ctx context.Context, metadata ...*prot
 	return err
 }
 
-func (tc *genericRequestor) onAddMetrics(ctx context.Context, metrics ...*protos.Metric) error {
+func (tc *genericRequestor) onAddMetrics(_ context.Context, metrics ...*protos.Metric) error {
 	dbCtx, cancel := context.WithTimeout(context.Background(), dbWriteTimeout)
 	defer cancel()
 	_, err := tc.conversationService.ApplyConversationMetrics(
@@ -227,7 +227,7 @@ func (tc *genericRequestor) onAddMetrics(ctx context.Context, metrics ...*protos
 	return err
 }
 
-func (deb *genericRequestor) onAddMessage(ctx context.Context, msg internal_type.MessagePacket) error {
+func (deb *genericRequestor) onAddMessage(_ context.Context, msg internal_type.MessagePacket) error {
 	deb.histories = append(deb.histories, msg)
 	dbCtx, cancel := context.WithTimeout(context.Background(), dbWriteTimeout)
 	defer cancel()
@@ -240,7 +240,7 @@ func (deb *genericRequestor) onAddMessage(ctx context.Context, msg internal_type
 	return nil
 }
 
-func (deb *genericRequestor) onAddMessageMetric(ctx context.Context, prefix string, messageId string, metrics []*protos.Metric) error {
+func (deb *genericRequestor) onAddMessageMetric(_ context.Context, prefix string, messageId string, metrics []*protos.Metric) error {
 	dbCtx, cancel := context.WithTimeout(context.Background(), dbWriteTimeout)
 	defer cancel()
 	if _, err := deb.conversationService.ApplyMessageMetrics(dbCtx, deb.Auth(), deb.Conversation().Id, fmt.Sprintf("%s-%s", prefix, messageId), metrics); err != nil {
@@ -250,7 +250,7 @@ func (deb *genericRequestor) onAddMessageMetric(ctx context.Context, prefix stri
 	return nil
 }
 
-func (deb *genericRequestor) onAddMessageMetadata(ctx context.Context, prefix string, messageId string, metadata []*protos.Metadata) error {
+func (deb *genericRequestor) onAddMessageMetadata(_ context.Context, prefix string, messageId string, metadata []*protos.Metadata) error {
 	dbCtx, cancel := context.WithTimeout(context.Background(), dbWriteTimeout)
 	defer cancel()
 	if _, err := deb.conversationService.ApplyMessageMetadata(dbCtx, deb.Auth(), deb.Conversation().Id, fmt.Sprintf("%s-%s", prefix, messageId), metadata); err != nil {

@@ -7,7 +7,6 @@ package channel
 
 import (
 	"context"
-	"sync"
 
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 )
@@ -80,10 +79,6 @@ type RequestorChannels struct {
 	// backgroundCh is for non-urgent/background lifecycle work:
 	// persistence, metrics, metadata, events, analysis/webhook completion, disconnect flow.
 	backgroundCh chan Envelope
-
-	// ingressMu guards ingress overflow handling (flush + enqueue) so concurrent
-	// writers do not interleave and cause inconsistent queue state.
-	ingressMu sync.Mutex
 }
 
 func NewRequestorChannels() *RequestorChannels {
@@ -116,14 +111,6 @@ func (c *RequestorChannels) OnBootstrap(e Envelope) {
 
 // OnIngress routes an envelope to the ingress channel.
 func (c *RequestorChannels) OnIngress(e Envelope) {
-	c.ingressMu.Lock()
-	defer c.ingressMu.Unlock()
-
-	if len(c.ingressCh) == cap(c.ingressCh) {
-		// Ingress-only overflow strategy:
-		// reset queued backlog by draining old ingress packets, then enqueue new packet.
-		_ = c.FlushIngress()
-	}
 	c.ingressCh <- e
 }
 

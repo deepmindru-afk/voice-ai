@@ -7,6 +7,7 @@ package router
 
 import (
 	"context"
+	"errors"
 
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 )
@@ -95,8 +96,8 @@ type DispatchHandler interface {
 }
 
 // DispatchPacket routes a packet to the matching typed method on handler.
-// Returns false when no packet mapping exists.
-func DispatchPacket(ctx context.Context, p internal_type.Packet, handler DispatchHandler) bool {
+// Returns an error when no packet mapping exists.
+func DispatchPacket(ctx context.Context, p internal_type.Packet, handler DispatchHandler) error {
 	switch vl := p.(type) {
 	case internal_type.UserTextReceivedPacket:
 		handler.HandleUserText(ctx, vl)
@@ -257,7 +258,7 @@ func DispatchPacket(ctx context.Context, p internal_type.Packet, handler Dispatc
 	case internal_type.WebhookDonePacket:
 		handler.HandleWebhookDone(ctx, vl)
 	default:
-		return false
+		return errors.New("unknown packet")
 	}
-	return true
+	return nil
 }

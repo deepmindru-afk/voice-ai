@@ -1325,8 +1325,8 @@ func (h requestorDispatchHandler) HandleInitializationCompleted(ctx context.Cont
 	if err := h.r.transitionSession(adapter_lifecycle.EventInitializationCompleted); err != nil {
 		h.r.logger.Tracef(ctx, "session lifecycle init-completed transition ignored: %v", err)
 	}
-
 	h.r.notifyConfiguration(ctx, p.Config, h.r.assistantConversation)
+	h.r.OnStartDispatchers(ctx)
 	h.r.OnPacket(ctx, internal_type.ConversationEventPacket{
 		ContextID: p.ContextID,
 		Name:      observe.ComponentSession,
@@ -1336,18 +1336,11 @@ func (h requestorDispatchHandler) HandleInitializationCompleted(ctx context.Cont
 			observe.DataMode: h.r.GetMode().String(),
 		},
 		Time: time.Now(),
-	})
-
-	streamMode := protos.StreamMode_STREAM_MODE_TEXT
-	if h.r.GetMode().Audio() {
-		streamMode = protos.StreamMode_STREAM_MODE_AUDIO
-	}
-	h.r.OnStartDispatchers(ctx)
-	h.r.streamer.NotifyMode(streamMode)
-	h.r.OnPacket(ctx, internal_type.WebhookStartPacket{
+	}, internal_type.WebhookStartPacket{
 		ContextID: p.ContextID,
 		Event:     p.Event,
 	})
+
 }
 func (h requestorDispatchHandler) HandleFinalizeBehavior(ctx context.Context, p internal_type.FinalizeBehaviorPacket) {
 	if h.r.idleTimeoutTimer != nil {

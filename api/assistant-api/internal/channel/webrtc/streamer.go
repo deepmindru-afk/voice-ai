@@ -649,17 +649,9 @@ func (s *webrtcStreamer) runGrpcReader() {
 		}
 		switch msg.GetRequest().(type) {
 		case *protos.WebTalkRequest_Initialization:
-			if ambientCfg, ok := internal_ambient.ParseFromInitialization(msg.GetInitialization()); ok {
-				s.Logger.Warnw("Ignoring client ambient override for WebRTC session",
-					"session", s.sessionID,
-					"source", "client_initialization",
-					"profile", ambientCfg.Profile,
-					"volume", ambientCfg.Volume)
-			}
 			s.Input(msg.GetInitialization())
 		case *protos.WebTalkRequest_Configuration:
 			s.Input(msg.GetConfiguration())
-			s.handleConfigurationMessage(msg.GetConfiguration().GetStreamMode())
 		case *protos.WebTalkRequest_Message:
 			s.Input(msg.GetMessage())
 		case *protos.WebTalkRequest_Metadata:
@@ -793,9 +785,9 @@ func (s *webrtcStreamer) ConsumeFrame(frame []byte) error {
 // NotifyMode is called by the Talk loop after Connect() completes.
 // For AUDIO mode it triggers the WebRTC handshake; for TEXT it is a no-op
 // (or tears down audio if switching back to text).
-func (s *webrtcStreamer) NotifyMode(mode protos.StreamMode) {
-	s.handleConfigurationMessage(mode)
-}
+// func (s *webrtcStreamer) NotifyMode(mode protos.StreamMode) {
+// 	s.handleConfigurationMessage(mode)
+// }
 
 // handleConfigurationMessage processes transport mode changes.
 // Switching text <-> audio only changes I/O transport - it does NOT create a new session.
@@ -807,7 +799,10 @@ func (s *webrtcStreamer) handleConfigurationMessage(mode protos.StreamMode) {
 	if mode == currentMode {
 		return
 	}
-
+	// clean the buffer and reset state on mode switch to avoid replaying stale audio or sending
+	s.ClearOutputBuffer()
+	s.sendClear()
+	// swith it
 	switch mode {
 	case protos.StreamMode_STREAM_MODE_AUDIO:
 		if err := s.setupAudioAndHandshake(); err != nil {
@@ -979,8 +974,10 @@ func (s *webrtcStreamer) Send(response internal_type.Stream) error {
 			s.Output(data)
 		}
 	case *protos.ConversationConfiguration:
+		s.handleConfigurationMessage(data.GetStreamMode())
 		s.Output(data)
 	case *protos.ConversationInitialization:
+		s.handleConfigurationMessage(data.GetStreamMode())
 		if ambientCfg, ok := internal_ambient.ParseFromInitialization(data); ok {
 			s.applyAmbientConfig(ambientCfg, "server_initialization")
 		}

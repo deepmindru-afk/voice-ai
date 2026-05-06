@@ -158,9 +158,9 @@ func (s *dispatchHandlerStub) HandleWebhookDone(context.Context, internal_type.W
 func TestDispatchPacket_DispatchesKnownPacket(t *testing.T) {
 	handler := &dispatchHandlerStub{}
 
-	ok := DispatchPacket(context.Background(), internal_type.UserTextReceivedPacket{ContextID: "c", Text: "hi"}, handler)
-	if !ok {
-		t.Fatalf("expected known packet to dispatch")
+	err := DispatchPacket(context.Background(), internal_type.UserTextReceivedPacket{ContextID: "c", Text: "hi"}, handler)
+	if err != nil {
+		t.Fatalf("expected known packet to not return an error, got: %v", err)
 	}
 	if !handler.calledUserText {
 		t.Fatalf("expected HandleUserText to be called")
@@ -169,8 +169,8 @@ func TestDispatchPacket_DispatchesKnownPacket(t *testing.T) {
 
 func TestDispatchPacket_UnknownPacketReturnsFalse(t *testing.T) {
 	var handler DispatchHandler
-	ok := DispatchPacket(context.Background(), unroutedPacket{contextID: "c"}, handler)
-	if ok {
-		t.Fatalf("expected unknown packet to return false")
+	err := DispatchPacket(context.Background(), unroutedPacket{contextID: "c"}, handler)
+	if err == nil {
+		t.Fatalf("expected unknown packet to return an error")
 	}
 }

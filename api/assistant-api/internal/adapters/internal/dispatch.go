@@ -85,7 +85,8 @@ func (r *genericRequestor) runLowDispatcher(ctx context.Context) {
 // =============================================================================
 
 func (r *genericRequestor) dispatch(ctx context.Context, p internal_type.Packet) {
-	if ok := adapter_router.DispatchPacket(ctx, p, requestorDispatchHandler{r: r}); !ok {
-		r.logger.Warnf("unknown packet type received in dispatcher %T", p)
+	defer r.benchmarkDispatch(p)()
+	if err := adapter_router.DispatchPacket(ctx, p, requestorDispatchHandler{r: r}); err != nil {
+		r.logger.Warnf("unknown packet type received in dispatcher %T: %v", p, err)
 	}
 }

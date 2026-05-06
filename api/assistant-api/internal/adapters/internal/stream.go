@@ -46,7 +46,7 @@ func (t *genericRequestor) Talk(_ context.Context, auth types.SimplePrinciple) e
 		}
 		switch payload := req.(type) {
 		case *protos.ConversationInitialization:
-			_ = t.OnConnect(t.streamer.Context(), auth, payload)
+			t.OnConnect(t.streamer.Context(), auth, payload)
 		case *protos.ConversationConfiguration:
 			t.OnStreamModeSwitch(t.streamer.Context(), payload)
 		case *protos.ConversationUserMessage:
@@ -104,7 +104,6 @@ func (t *genericRequestor) OnStreamModeSwitch(ctx context.Context, payload *prot
 func (t *genericRequestor) OnStreamUserMessage(ctx context.Context, payload *protos.ConversationUserMessage) {
 	switch msg := payload.GetMessage().(type) {
 	case *protos.ConversationUserMessage_Audio:
-		t.logger.Debugf("testing => receiving audio")
 		t.OnPacket(ctx, internal_type.UserAudioReceivedPacket{ContextID: t.GetID(), Audio: msg.Audio})
 	case *protos.ConversationUserMessage_Text:
 		t.OnPacket(ctx, internal_type.UserTextReceivedPacket{ContextID: t.GetID(), Text: msg.Text})
@@ -191,10 +190,10 @@ func (t *genericRequestor) Notify(ctx context.Context, actionDatas ...internal_t
 // The gRPC stream is already open by the time Connect is called; any init errors
 // are delivered to the client via InitializationFailedPacket → ConversationError
 // proto on the stream, not via this return value.
-func (r *genericRequestor) OnConnect(ctx context.Context, auth types.SimplePrinciple, config *protos.ConversationInitialization) error {
+func (r *genericRequestor) OnConnect(ctx context.Context, auth types.SimplePrinciple, config *protos.ConversationInitialization) {
 	if err := r.transitionSession(adapter_lifecycle.EventConnectRequested); err != nil {
 		r.logger.Tracef(ctx, "connect ignored due to session lifecycle transition: %v", err)
-		return nil
+		return
 	}
 	r.SetAuth(auth)
 	r.bootstrapStart.Do(func() {
@@ -213,7 +212,6 @@ func (r *genericRequestor) OnConnect(ctx context.Context, auth types.SimplePrinc
 			ContextID: r.GetID(),
 			Config:    config,
 		})
-	return nil
 }
 
 // Disconnect enqueues the disconnect chain and blocks until complete.
