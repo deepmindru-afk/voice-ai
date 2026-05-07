@@ -20,6 +20,7 @@ import (
 	internal_audio_recorder "github.com/rapidaai/api/assistant-api/internal/audio/recorder"
 	internal_authentication "github.com/rapidaai/api/assistant-api/internal/authentication"
 	internal_condition "github.com/rapidaai/api/assistant-api/internal/condition"
+	internal_llm "github.com/rapidaai/api/assistant-api/internal/llm"
 	internal_conversation_entity "github.com/rapidaai/api/assistant-api/internal/entity/conversations"
 	observe "github.com/rapidaai/api/assistant-api/internal/observe"
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
@@ -1029,7 +1030,8 @@ func (h requestorDispatchHandler) HandleSessionAuthenticationSucceeded(ctx conte
 
 func (h requestorDispatchHandler) HandleInitializeSpeechToText(ctx context.Context, p internal_type.InitializeSpeechToTextPacket) {
 	config := p.Config
-	if err := h.r.assistantExecutor.Initialize(ctx, h.r, config); err != nil {
+	assistantExec, err := internal_llm.NewExecutor(h.r.logger, ctx, h.r, config)
+	if err != nil {
 		h.r.logger.Tracef(ctx, "failed to initialize executor: %+v", err)
 		h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
 			ContextID: p.ContextID,
@@ -1038,6 +1040,7 @@ func (h requestorDispatchHandler) HandleInitializeSpeechToText(ctx context.Conte
 		})
 		return
 	}
+	h.r.assistantExecutor = assistantExec
 
 	switch config.StreamMode {
 	case protos.StreamMode_STREAM_MODE_TEXT:

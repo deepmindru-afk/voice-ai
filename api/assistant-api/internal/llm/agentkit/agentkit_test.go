@@ -1,4 +1,4 @@
-package internal_agentkit
+package internal_llm_agentkit
 
 import (
 	"context"

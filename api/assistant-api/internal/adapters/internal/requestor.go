@@ -177,8 +177,6 @@ func NewGenericRequestor(
 		messageLifecycle: adapter_lifecycle.NewMessageLifecycle(),
 		sessionLifecycle: adapter_lifecycle.NewSessionLifecycle(),
 
-		assistantExecutor: internal_llm.NewAssistantExecutor(logger),
-
 		inputNormalizer:  internal_input_normalizer.NewInputNormalizer(logger),
 		outputNormalizer: internal_output_normalizer.NewOutputNormalizer(logger),
 

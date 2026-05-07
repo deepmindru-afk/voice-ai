@@ -4,13 +4,15 @@
 // Licensed under GPL-2.0 with Rapida Additional Terms.
 // See LICENSE.md or contact sales@rapida.ai for commercial usage.
 
-package internal_agentkit
+package internal_llm_model
 
 import (
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 	"github.com/rapidaai/protos"
 )
 
+// AgentPipeline is a sealed marker interface for all pipeline types.
+// Only types in this package can satisfy it (unexported method).
 type AgentPipeline interface {
 	agentPipeline()
 }
@@ -19,12 +21,12 @@ type UserTurnPipeline struct {
 	Packet internal_type.UserInputPacket
 }
 
-type UserTextPipeline struct {
-	Packet internal_type.UserTextReceivedPacket
-}
-
 type InjectMessagePipeline struct {
 	Packet internal_type.InjectMessagePacket
+}
+
+type ToolResultPipeline struct {
+	Packet internal_type.LLMToolResultPacket
 }
 
 type InterruptionPipeline struct {
@@ -32,11 +34,16 @@ type InterruptionPipeline struct {
 }
 
 type ResponsePipeline struct {
-	Response *protos.TalkOutput
+	Response *protos.ChatResponse
+}
+
+type ToolFollowUpPipeline struct {
+	ContextID string
 }
 
 func (UserTurnPipeline) agentPipeline()      {}
-func (UserTextPipeline) agentPipeline()      {}
 func (InjectMessagePipeline) agentPipeline() {}
+func (ToolResultPipeline) agentPipeline()    {}
 func (InterruptionPipeline) agentPipeline()  {}
 func (ResponsePipeline) agentPipeline()      {}
+func (ToolFollowUpPipeline) agentPipeline()  {}

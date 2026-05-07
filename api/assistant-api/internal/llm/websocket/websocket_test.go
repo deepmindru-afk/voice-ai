@@ -1,4 +1,4 @@
-package internal_websocket
+package internal_llm_websocket
 
 import (
 	"context"

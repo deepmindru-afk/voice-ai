@@ -1,4 +1,4 @@
-package internal_model
+package internal_llm_model
 
 import (
 	"testing"
