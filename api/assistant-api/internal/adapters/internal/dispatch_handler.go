@@ -1055,6 +1055,9 @@ func (h requestorDispatchHandler) HandleInitializeSpeechToText(ctx context.Conte
 			})
 			return
 		}
+		if err := h.r.initializeDenoiser(ctx); err != nil {
+			h.r.logger.Errorf("failed to initialize denoiser: %v", err)
+		}
 	}
 
 	h.r.OnPacket(ctx, internal_type.InitializeTextToSpeechPacket{ContextID: p.ContextID, Config: config})
@@ -1078,12 +1081,7 @@ func (h requestorDispatchHandler) HandleInitializeTextToSpeech(ctx context.Conte
 func (h requestorDispatchHandler) HandleInitializeVoiceActivityDetection(ctx context.Context, p internal_type.InitializeVoiceActivityDetectionPacket) {
 	config := p.Config
 	if config.StreamMode == protos.StreamMode_STREAM_MODE_AUDIO {
-		options := utils.Option{"microphone.eos.timeout": 500}
-		transformerConfig, _ := h.r.GetSpeechToTextTransformer()
-		if transformerConfig != nil {
-			options = utils.MergeMaps(options, transformerConfig.GetOptions())
-		}
-		if err := h.r.initializeVAD(ctx, options); err != nil {
+		if err := h.r.initializeVAD(ctx); err != nil {
 			h.r.logger.Errorf("failed to initialize voice activity detection: %v", err)
 			h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
 				ContextID: p.ContextID,
@@ -1128,7 +1126,7 @@ func (h requestorDispatchHandler) HandleModeSwitchRequested(ctx context.Context,
 	switch p.StreamMode {
 	case protos.StreamMode_STREAM_MODE_AUDIO:
 		if h.r.GetMode().Audio() {
-			h.r.OnPacket(ctx, internal_type.ModeSwitchCompletedPacket{ContextID: p.ContextID, StreamMode: p.StreamMode})
+			h.r.Notify(ctx, &protos.ConversationConfiguration{StreamMode: p.StreamMode})
 			return
 		}
 		if !h.r.canSwitchSession() {
@@ -1149,13 +1147,15 @@ func (h requestorDispatchHandler) HandleModeSwitchRequested(ctx context.Context,
 			})
 			return
 		}
+		// Kick off the serial init chain. Each handler emits the next packet
+		// on success; any failure emits a non-recoverable ModeSwitchErrorPacket
+		// which routes through HandleError → OnDisconnect.
 		h.r.OnPacket(ctx, internal_type.ModeSwitchInitializeSpeechToTextPacket{
-			ContextID:  p.ContextID,
-			StreamMode: p.StreamMode,
+			ContextID: p.ContextID, StreamMode: p.StreamMode,
 		})
 	case protos.StreamMode_STREAM_MODE_TEXT:
 		if h.r.GetMode().Text() {
-			h.r.OnPacket(ctx, internal_type.ModeSwitchCompletedPacket{ContextID: p.ContextID, StreamMode: p.StreamMode})
+			h.r.Notify(ctx, &protos.ConversationConfiguration{StreamMode: p.StreamMode})
 			return
 		}
 		if !h.r.canSwitchSession() {
@@ -1176,10 +1176,18 @@ func (h requestorDispatchHandler) HandleModeSwitchRequested(ctx context.Context,
 			})
 			return
 		}
-		h.r.OnPacket(ctx, internal_type.ModeSwitchFinalizeEndOfSpeechPacket{
-			ContextID:  p.ContextID,
-			StreamMode: p.StreamMode,
-		})
+		// Fan out the 5 finalize packets in parallel (each is AsyncPacket) and
+		// emit ModeSwitchCompleted in the same batch — the client is told it's
+		// in text mode immediately while the 5 component closes happen in
+		// background goroutines.
+		h.r.OnPacket(ctx,
+			internal_type.ModeSwitchFinalizeSpeechToTextPacket{ContextID: p.ContextID, StreamMode: p.StreamMode},
+			internal_type.ModeSwitchFinalizeTextToSpeechPacket{ContextID: p.ContextID, StreamMode: p.StreamMode},
+			internal_type.ModeSwitchFinalizeVoiceActivityDetectionPacket{ContextID: p.ContextID, StreamMode: p.StreamMode},
+			internal_type.ModeSwitchFinalizeEndOfSpeechPacket{ContextID: p.ContextID, StreamMode: p.StreamMode},
+			internal_type.ModeSwitchFinalizeDenoisePacket{ContextID: p.ContextID, StreamMode: p.StreamMode},
+			internal_type.ModeSwitchCompletedPacket{ContextID: p.ContextID, StreamMode: p.StreamMode},
+		)
 	default:
 		err := fmt.Errorf("unsupported mode switch request: %s", p.StreamMode.String())
 		h.r.logger.Warnf(err.Error())
@@ -1192,148 +1200,100 @@ func (h requestorDispatchHandler) HandleModeSwitchRequested(ctx context.Context,
 	}
 }
 
+
+// Init chain — sequential. Each handler runs sync on the bootstrap goroutine,
+// and on success emits the next packet in the chain. On failure: emits
+// ModeSwitchErrorPacket (non-recoverable) which routes through HandleError →
+// OnDisconnect, tearing down the session.
+
 func (h requestorDispatchHandler) HandleModeSwitchInitializeSpeechToText(ctx context.Context, p internal_type.ModeSwitchInitializeSpeechToTextPacket) {
 	if err := h.r.initializeSpeechToText(ctx); err != nil {
-		h.r.logger.Errorf("failed to initialize speech-to-text: %v", err)
 		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
-			ContextID:  p.ContextID,
-			StreamMode: p.StreamMode,
-			Type:       internal_type.ModeSwitchErrorTypeInitializeSpeechToText,
-			Error:      err,
+			ContextID: p.ContextID, StreamMode: p.StreamMode,
+			Type: internal_type.ModeSwitchErrorTypeInitializeSpeechToText, Error: err,
 		})
 		return
 	}
-	h.r.OnPacket(ctx, internal_type.ModeSwitchInitializeTextToSpeechPacket{
-		ContextID:  p.ContextID,
-		StreamMode: p.StreamMode,
-	})
+	h.r.OnPacket(ctx, internal_type.ModeSwitchInitializeTextToSpeechPacket{ContextID: p.ContextID, StreamMode: p.StreamMode})
 }
 
 func (h requestorDispatchHandler) HandleModeSwitchInitializeTextToSpeech(ctx context.Context, p internal_type.ModeSwitchInitializeTextToSpeechPacket) {
 	if err := h.r.initializeTextToSpeech(ctx); err != nil {
-		h.r.logger.Errorf("failed to initialize text-to-speech: %v", err)
 		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
-			ContextID:  p.ContextID,
-			StreamMode: p.StreamMode,
-			Type:       internal_type.ModeSwitchErrorTypeInitializeTextToSpeech,
-			Error:      err,
+			ContextID: p.ContextID, StreamMode: p.StreamMode,
+			Type: internal_type.ModeSwitchErrorTypeInitializeTextToSpeech, Error: err,
 		})
 		return
 	}
-	h.r.OnPacket(ctx, internal_type.ModeSwitchInitializeVoiceActivityDetectionPacket{
-		ContextID:  p.ContextID,
-		StreamMode: p.StreamMode,
-	})
+	h.r.OnPacket(ctx, internal_type.ModeSwitchInitializeVoiceActivityDetectionPacket{ContextID: p.ContextID, StreamMode: p.StreamMode})
 }
 
 func (h requestorDispatchHandler) HandleModeSwitchInitializeVoiceActivityDetection(ctx context.Context, p internal_type.ModeSwitchInitializeVoiceActivityDetectionPacket) {
-	options := utils.Option{"microphone.eos.timeout": 500}
-	transformerConfig, _ := h.r.GetSpeechToTextTransformer()
-	if transformerConfig != nil {
-		options = utils.MergeMaps(options, transformerConfig.GetOptions())
-	}
-	if err := h.r.initializeVAD(ctx, options); err != nil {
-		h.r.logger.Errorf("failed to initialize voice activity detection: %v", err)
+	if err := h.r.initializeVAD(ctx); err != nil {
 		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
-			ContextID:  p.ContextID,
-			StreamMode: p.StreamMode,
-			Type:       internal_type.ModeSwitchErrorTypeInitializeVoiceActivityDetection,
-			Error:      err,
+			ContextID: p.ContextID, StreamMode: p.StreamMode,
+			Type: internal_type.ModeSwitchErrorTypeInitializeVoiceActivityDetection, Error: err,
 		})
 		return
 	}
-	h.r.OnPacket(ctx, internal_type.ModeSwitchInitializeEndOfSpeechPacket{
-		ContextID:  p.ContextID,
-		StreamMode: p.StreamMode,
-	})
+	h.r.OnPacket(ctx, internal_type.ModeSwitchInitializeDenoisePacket{ContextID: p.ContextID, StreamMode: p.StreamMode})
+}
+
+func (h requestorDispatchHandler) HandleModeSwitchInitializeDenoise(ctx context.Context, p internal_type.ModeSwitchInitializeDenoisePacket) {
+	if err := h.r.initializeDenoiser(ctx); err != nil {
+		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
+			ContextID: p.ContextID, StreamMode: p.StreamMode,
+			Type: internal_type.ModeSwitchErrorTypeInitializeDenoise, Error: err,
+		})
+		return
+	}
+	h.r.OnPacket(ctx, internal_type.ModeSwitchInitializeEndOfSpeechPacket{ContextID: p.ContextID, StreamMode: p.StreamMode})
 }
 
 func (h requestorDispatchHandler) HandleModeSwitchInitializeEndOfSpeech(ctx context.Context, p internal_type.ModeSwitchInitializeEndOfSpeechPacket) {
 	if err := h.r.initializeEndOfSpeech(ctx); err != nil {
-		h.r.logger.Errorf("failed to initialize end of speech: %v", err)
 		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
-			ContextID:  p.ContextID,
-			StreamMode: p.StreamMode,
-			Type:       internal_type.ModeSwitchErrorTypeInitializeEndOfSpeech,
-			Error:      err,
+			ContextID: p.ContextID, StreamMode: p.StreamMode,
+			Type: internal_type.ModeSwitchErrorTypeInitializeEndOfSpeech, Error: err,
 		})
 		return
 	}
-	h.r.OnPacket(ctx, internal_type.ModeSwitchCompletedPacket{
-		ContextID:  p.ContextID,
-		StreamMode: p.StreamMode,
-	})
+	// Terminal step in the init chain — emit Completed.
+	h.r.OnPacket(ctx, internal_type.ModeSwitchCompletedPacket{ContextID: p.ContextID, StreamMode: p.StreamMode})
 }
 
-func (h requestorDispatchHandler) HandleModeSwitchFinalizeEndOfSpeech(ctx context.Context, p internal_type.ModeSwitchFinalizeEndOfSpeechPacket) {
-	if err := h.r.disconnectEndOfSpeech(ctx); err != nil {
-		h.r.logger.Warnf("failed to close end of speech: %+v", err)
-		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
-			ContextID:  p.ContextID,
-			StreamMode: p.StreamMode,
-			Type:       internal_type.ModeSwitchErrorTypeFinalizeEndOfSpeech,
-			Error:      err,
-		})
-		return
-	}
-	h.r.OnPacket(ctx, internal_type.ModeSwitchFinalizeVoiceActivityDetectionPacket{
-		ContextID:  p.ContextID,
-		StreamMode: p.StreamMode,
-	})
-}
+// Finalize handlers — fire-and-forget. Each runs in its own goroutine
+// (AsyncPacket). The client has already been confirmed in text mode by the
+// time these run. Errors are logged only — no client-facing error packet.
 
-func (h requestorDispatchHandler) HandleModeSwitchFinalizeVoiceActivityDetection(ctx context.Context, p internal_type.ModeSwitchFinalizeVoiceActivityDetectionPacket) {
-	if h.r.vad != nil {
-		if err := h.r.vad.Close(); err != nil {
-			h.r.logger.Warnf("failed to close voice activity detection: %+v", err)
-			h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
-				ContextID:  p.ContextID,
-				StreamMode: p.StreamMode,
-				Type:       internal_type.ModeSwitchErrorTypeFinalizeVoiceActivityDetection,
-				Error:      err,
-			})
-			return
-		}
-		h.r.vad = nil
+func (h requestorDispatchHandler) HandleModeSwitchFinalizeSpeechToText(ctx context.Context, p internal_type.ModeSwitchFinalizeSpeechToTextPacket) {
+	if err := h.r.disconnectSpeechToText(ctx); err != nil {
+		h.r.logger.Warnf("mode-switch finalize speech-to-text: %v", err)
 	}
-	h.r.OnPacket(ctx, internal_type.ModeSwitchFinalizeTextToSpeechPacket{
-		ContextID:  p.ContextID,
-		StreamMode: p.StreamMode,
-	})
 }
 
 func (h requestorDispatchHandler) HandleModeSwitchFinalizeTextToSpeech(ctx context.Context, p internal_type.ModeSwitchFinalizeTextToSpeechPacket) {
 	if err := h.r.disconnectTextToSpeech(ctx); err != nil {
-		h.r.logger.Warnf("failed to close output transformer: %+v", err)
-		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
-			ContextID:  p.ContextID,
-			StreamMode: p.StreamMode,
-			Type:       internal_type.ModeSwitchErrorTypeFinalizeTextToSpeech,
-			Error:      err,
-		})
-		return
+		h.r.logger.Warnf("mode-switch finalize text-to-speech: %v", err)
 	}
-	h.r.OnPacket(ctx, internal_type.ModeSwitchFinalizeSpeechToTextPacket{
-		ContextID:  p.ContextID,
-		StreamMode: p.StreamMode,
-	})
 }
 
-func (h requestorDispatchHandler) HandleModeSwitchFinalizeSpeechToText(ctx context.Context, p internal_type.ModeSwitchFinalizeSpeechToTextPacket) {
-	if err := h.r.disconnectSpeechToText(ctx); err != nil {
-		h.r.logger.Warnf("failed to close input transformer: %+v", err)
-		h.r.OnPacket(ctx, internal_type.ModeSwitchErrorPacket{
-			ContextID:  p.ContextID,
-			StreamMode: p.StreamMode,
-			Type:       internal_type.ModeSwitchErrorTypeFinalizeSpeechToText,
-			Error:      err,
-		})
-		return
+func (h requestorDispatchHandler) HandleModeSwitchFinalizeVoiceActivityDetection(ctx context.Context, p internal_type.ModeSwitchFinalizeVoiceActivityDetectionPacket) {
+	if err := h.r.disconnectVAD(ctx); err != nil {
+		h.r.logger.Warnf("mode-switch finalize voice activity detection: %v", err)
 	}
-	h.r.OnPacket(ctx, internal_type.ModeSwitchCompletedPacket{
-		ContextID:  p.ContextID,
-		StreamMode: p.StreamMode,
-	})
+}
+
+func (h requestorDispatchHandler) HandleModeSwitchFinalizeEndOfSpeech(ctx context.Context, p internal_type.ModeSwitchFinalizeEndOfSpeechPacket) {
+	if err := h.r.disconnectEndOfSpeech(ctx); err != nil {
+		h.r.logger.Warnf("mode-switch finalize end of speech: %v", err)
+	}
+}
+
+func (h requestorDispatchHandler) HandleModeSwitchFinalizeDenoise(ctx context.Context, p internal_type.ModeSwitchFinalizeDenoisePacket) {
+	if err := h.r.disconnectDenoiser(ctx); err != nil {
+		h.r.logger.Warnf("mode-switch finalize denoiser: %v", err)
+	}
 }
 
 func (h requestorDispatchHandler) HandleModeSwitchCompleted(ctx context.Context, p internal_type.ModeSwitchCompletedPacket) {

@@ -3,6 +3,7 @@ package internal_openai_callers
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -18,6 +19,8 @@ import (
 type OpenAI struct {
 	logger     commons.Logger
 	credential internal_callers.CredentialResolver
+	mu         sync.Mutex
+	client     *openai.Client
 }
 
 var (
@@ -51,6 +54,11 @@ func openAI(logger commons.Logger, credential *integration_api.Credential) OpenA
 
 func (openAI *OpenAI) GetClient() (*openai.Client, error) {
 	openAI.logger.Debugf("Getting client for open ai")
+	openAI.mu.Lock()
+	defer openAI.mu.Unlock()
+	if openAI.client != nil {
+		return openAI.client, nil
+	}
 	credentials := openAI.credential()
 	cx, ok := credentials[API_KEY]
 	if !ok {
@@ -60,7 +68,8 @@ func (openAI *OpenAI) GetClient() (*openai.Client, error) {
 	clt := openai.NewClient(
 		option.WithAPIKey(cx.(string)),
 	)
-	return &clt, nil
+	openAI.client = &clt
+	return openAI.client, nil
 }
 
 func (openAI *OpenAI) GetComplitionUsages(usages openai.CompletionUsage) []*protos.Metric {

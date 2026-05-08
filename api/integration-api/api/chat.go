@@ -6,6 +6,7 @@ package integration_api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 
@@ -57,6 +58,7 @@ func (iApi *integrationApi) StreamChatBidirectional(
 	}
 
 	iApi.logger.Infof("Bidirectional stream chat opened for provider: %s", providerName)
+	cachedCallers := make(map[string]internal_callers.LargeLanguageCaller)
 
 	// Keep connection open and process multiple requests
 	for {
@@ -83,8 +85,9 @@ func (iApi *integrationApi) StreamChatBidirectional(
 			irRequest.AdditionalData = map[string]string{}
 		}
 
-		// Populate request metadata
-		irRequest.AdditionalData["provider_name"] = providerName
+		// Populate request metadata with normalized provider name.
+		tag := strings.ToLower(providerName)
+		irRequest.AdditionalData["provider_name"] = tag
 		model, ok := irRequest.ModelParameters["model.name"]
 		if ok {
 			mdl, err := utils.AnyToString(model)
@@ -116,8 +119,13 @@ func (iApi *integrationApi) StreamChatBidirectional(
 			irRequest.AdditionalData["region"] = clientRegion.Get()
 		}
 
-		// Create a new LLM caller for this request with its credential
-		llmCaller := callerFactory(irRequest.GetCredential())
+		// Reuse caller per provider+credential within the same stream session.
+		cacheKey := buildStreamCallerCacheKey(providerName, irRequest.GetCredential())
+		llmCaller, ok := cachedCallers[cacheKey]
+		if !ok {
+			llmCaller = callerFactory(irRequest.GetCredential())
+			cachedCallers[cacheKey] = llmCaller
+		}
 
 		// Process the chat completion request
 		err = llmCaller.StreamChatCompletion(
@@ -126,8 +134,8 @@ func (iApi *integrationApi) StreamChatBidirectional(
 			internal_callers.NewChatOptions(
 				uuID,
 				irRequest,
-				iApi.PreHook(stream.Context(), iAuth, irRequest, uuID, providerName),
-				iApi.PostHook(stream.Context(), iAuth, irRequest, uuID, providerName),
+				iApi.PreHook(stream.Context(), iAuth, irRequest, uuID, tag),
+				iApi.PostHook(stream.Context(), iAuth, irRequest, uuID, tag),
 			),
 			func(rID string, content *protos.Message) error {
 				return stream.Send(&protos.ChatResponse{
@@ -182,6 +190,7 @@ func (iApi *integrationApi) Chat(
 	tag string,
 	caller internal_callers.LargeLanguageCaller,
 ) (*protos.ChatResponse, error) {
+	tag = strings.ToLower(tag)
 	iApi.logger.Infof("Chat from grpc with provider %s", tag)
 	iAuth, isAuthenticated := types.GetSimplePrincipleGRPC(c)
 	if !isAuthenticated || !iAuth.HasProject() {
@@ -262,6 +271,7 @@ func (iApi *integrationApi) StreamChatBidirectionalUnified(
 	}
 
 	iApi.logger.Infof("Bidirectional stream chat opened for unified provider")
+	cachedCallers := make(map[string]internal_callers.LargeLanguageCaller)
 
 	for {
 		irRequest, err := stream.Recv()
@@ -294,19 +304,24 @@ func (iApi *integrationApi) StreamChatBidirectionalUnified(
 			continue
 		}
 
-		llmCaller, err := internal_caller_factory.GetLargeLanguageCaller(logger, providerName, irRequest.GetCredential())
-		if err != nil {
-			stream.Send(&protos.ChatResponse{
-				Success:   false,
-				Code:      400,
-				RequestId: irRequest.GetRequestId(),
-				Error: &protos.Error{
-					ErrorCode:    400,
-					ErrorMessage: err.Error(),
-					HumanMessage: err.Error(),
-				},
-			})
-			continue
+		cacheKey := buildStreamCallerCacheKey(providerName, irRequest.GetCredential())
+		llmCaller, ok := cachedCallers[cacheKey]
+		if !ok {
+			llmCaller, err = internal_caller_factory.GetLargeLanguageCaller(logger, providerName, irRequest.GetCredential())
+			if err != nil {
+				stream.Send(&protos.ChatResponse{
+					Success:   false,
+					Code:      400,
+					RequestId: irRequest.GetRequestId(),
+					Error: &protos.Error{
+						ErrorCode:    400,
+						ErrorMessage: err.Error(),
+						HumanMessage: err.Error(),
+					},
+				})
+				continue
+			}
+			cachedCallers[cacheKey] = llmCaller
 		}
 
 		uuID := iApi.RequestId()
@@ -314,7 +329,8 @@ func (iApi *integrationApi) StreamChatBidirectionalUnified(
 			irRequest.AdditionalData = map[string]string{}
 		}
 
-		irRequest.AdditionalData["provider_name"] = providerName
+		tag := strings.ToLower(providerName)
+		irRequest.AdditionalData["provider_name"] = tag
 		model, ok := irRequest.ModelParameters["model.name"]
 		if ok {
 			mdl, err := utils.AnyToString(model)
@@ -346,7 +362,6 @@ func (iApi *integrationApi) StreamChatBidirectionalUnified(
 			irRequest.AdditionalData["region"] = clientRegion.Get()
 		}
 
-		tag := strings.ToUpper(providerName)
 		err = llmCaller.StreamChatCompletion(
 			stream.Context(),
 			irRequest.GetConversations(),
@@ -399,4 +414,16 @@ func (iApi *integrationApi) StreamChatBidirectionalUnified(
 			})
 		}
 	}
+}
+
+func buildStreamCallerCacheKey(providerName string, credential *protos.Credential) string {
+	providerName = strings.ToLower(providerName)
+	if credential == nil {
+		return fmt.Sprintf("%s|nil", providerName)
+	}
+	credentialValue := ""
+	if credential.GetValue() != nil {
+		credentialValue = credential.GetValue().String()
+	}
+	return fmt.Sprintf("%s|%d|%s", providerName, credential.GetId(), credentialValue)
 }

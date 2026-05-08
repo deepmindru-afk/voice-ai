@@ -76,6 +76,8 @@ type DispatchHandler interface {
 	HandleModeSwitchInitializeVoiceActivityDetection(context.Context, internal_type.ModeSwitchInitializeVoiceActivityDetectionPacket)
 	HandleModeSwitchInitializeEndOfSpeech(context.Context, internal_type.ModeSwitchInitializeEndOfSpeechPacket)
 	HandleModeSwitchFinalizeEndOfSpeech(context.Context, internal_type.ModeSwitchFinalizeEndOfSpeechPacket)
+	HandleModeSwitchInitializeDenoise(context.Context, internal_type.ModeSwitchInitializeDenoisePacket)
+	HandleModeSwitchFinalizeDenoise(context.Context, internal_type.ModeSwitchFinalizeDenoisePacket)
 	HandleModeSwitchFinalizeVoiceActivityDetection(context.Context, internal_type.ModeSwitchFinalizeVoiceActivityDetectionPacket)
 	HandleModeSwitchFinalizeTextToSpeech(context.Context, internal_type.ModeSwitchFinalizeTextToSpeechPacket)
 	HandleModeSwitchFinalizeSpeechToText(context.Context, internal_type.ModeSwitchFinalizeSpeechToTextPacket)
@@ -223,8 +225,12 @@ func DispatchPacket(ctx context.Context, p internal_type.Packet, handler Dispatc
 		handler.HandleModeSwitchInitializeVoiceActivityDetection(ctx, vl)
 	case internal_type.ModeSwitchInitializeEndOfSpeechPacket:
 		handler.HandleModeSwitchInitializeEndOfSpeech(ctx, vl)
+	case internal_type.ModeSwitchInitializeDenoisePacket:
+		handler.HandleModeSwitchInitializeDenoise(ctx, vl)
 	case internal_type.ModeSwitchFinalizeEndOfSpeechPacket:
 		handler.HandleModeSwitchFinalizeEndOfSpeech(ctx, vl)
+	case internal_type.ModeSwitchFinalizeDenoisePacket:
+		handler.HandleModeSwitchFinalizeDenoise(ctx, vl)
 	case internal_type.ModeSwitchFinalizeVoiceActivityDetectionPacket:
 		handler.HandleModeSwitchFinalizeVoiceActivityDetection(ctx, vl)
 	case internal_type.ModeSwitchFinalizeTextToSpeechPacket:

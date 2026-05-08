@@ -485,6 +485,8 @@ const (
 	ModeSwitchErrorTypeInitializeVoiceActivityDetection ModeSwitchErrorType = "initialize_vad"
 	ModeSwitchErrorTypeInitializeEndOfSpeech            ModeSwitchErrorType = "initialize_eos"
 	ModeSwitchErrorTypeFinalizeEndOfSpeech              ModeSwitchErrorType = "finalize_eos"
+	ModeSwitchErrorTypeInitializeDenoise                ModeSwitchErrorType = "initialize_denoise"
+	ModeSwitchErrorTypeFinalizeDenoise                  ModeSwitchErrorType = "finalize_denoise"
 	ModeSwitchErrorTypeFinalizeVoiceActivityDetection   ModeSwitchErrorType = "finalize_vad"
 	ModeSwitchErrorTypeFinalizeTextToSpeech             ModeSwitchErrorType = "finalize_tts"
 	ModeSwitchErrorTypeFinalizeSpeechToText             ModeSwitchErrorType = "finalize_stt"
@@ -513,6 +515,8 @@ func (f ModeSwitchErrorPacket) ErrMessage() string {
 }
 
 // ModeSwitchInitializeSpeechToTextPacket initializes STT for text->audio switch.
+// Sync — runs serially on the bootstrap goroutine; on success emits the next
+// packet in the chain, on failure emits ModeSwitchErrorPacket (non-recoverable).
 type ModeSwitchInitializeSpeechToTextPacket struct {
 	ContextID  string
 	StreamMode protos.StreamMode
@@ -544,21 +548,24 @@ type ModeSwitchInitializeEndOfSpeechPacket struct {
 
 func (f ModeSwitchInitializeEndOfSpeechPacket) ContextId() string { return f.ContextID }
 
-// ModeSwitchFinalizeEndOfSpeechPacket finalizes EOS for audio->text switch.
-type ModeSwitchFinalizeEndOfSpeechPacket struct {
+// ModeSwitchInitializeDenoisePacket initializes the denoiser for text->audio switch.
+type ModeSwitchInitializeDenoisePacket struct {
 	ContextID  string
 	StreamMode protos.StreamMode
 }
 
-func (f ModeSwitchFinalizeEndOfSpeechPacket) ContextId() string { return f.ContextID }
+func (f ModeSwitchInitializeDenoisePacket) ContextId() string { return f.ContextID }
 
-// ModeSwitchFinalizeVoiceActivityDetectionPacket finalizes VAD for audio->text switch.
-type ModeSwitchFinalizeVoiceActivityDetectionPacket struct {
+// ModeSwitchFinalizeSpeechToTextPacket finalizes STT for audio->text switch.
+// Async — runs in its own goroutine. Fire-and-forget; the client has already
+// been confirmed in text mode by the time these handlers run. Errors are logged.
+type ModeSwitchFinalizeSpeechToTextPacket struct {
 	ContextID  string
 	StreamMode protos.StreamMode
 }
 
-func (f ModeSwitchFinalizeVoiceActivityDetectionPacket) ContextId() string { return f.ContextID }
+func (f ModeSwitchFinalizeSpeechToTextPacket) ContextId() string { return f.ContextID }
+func (f ModeSwitchFinalizeSpeechToTextPacket) IsAsync() bool     { return true }
 
 // ModeSwitchFinalizeTextToSpeechPacket finalizes TTS for audio->text switch.
 type ModeSwitchFinalizeTextToSpeechPacket struct {
@@ -567,14 +574,34 @@ type ModeSwitchFinalizeTextToSpeechPacket struct {
 }
 
 func (f ModeSwitchFinalizeTextToSpeechPacket) ContextId() string { return f.ContextID }
+func (f ModeSwitchFinalizeTextToSpeechPacket) IsAsync() bool     { return true }
 
-// ModeSwitchFinalizeSpeechToTextPacket finalizes STT for audio->text switch.
-type ModeSwitchFinalizeSpeechToTextPacket struct {
+// ModeSwitchFinalizeVoiceActivityDetectionPacket finalizes VAD for audio->text switch.
+type ModeSwitchFinalizeVoiceActivityDetectionPacket struct {
 	ContextID  string
 	StreamMode protos.StreamMode
 }
 
-func (f ModeSwitchFinalizeSpeechToTextPacket) ContextId() string { return f.ContextID }
+func (f ModeSwitchFinalizeVoiceActivityDetectionPacket) ContextId() string { return f.ContextID }
+func (f ModeSwitchFinalizeVoiceActivityDetectionPacket) IsAsync() bool     { return true }
+
+// ModeSwitchFinalizeEndOfSpeechPacket finalizes EOS for audio->text switch.
+type ModeSwitchFinalizeEndOfSpeechPacket struct {
+	ContextID  string
+	StreamMode protos.StreamMode
+}
+
+func (f ModeSwitchFinalizeEndOfSpeechPacket) ContextId() string { return f.ContextID }
+func (f ModeSwitchFinalizeEndOfSpeechPacket) IsAsync() bool     { return true }
+
+// ModeSwitchFinalizeDenoisePacket finalizes the denoiser for audio->text switch.
+type ModeSwitchFinalizeDenoisePacket struct {
+	ContextID  string
+	StreamMode protos.StreamMode
+}
+
+func (f ModeSwitchFinalizeDenoisePacket) ContextId() string { return f.ContextID }
+func (f ModeSwitchFinalizeDenoisePacket) IsAsync() bool     { return true }
 
 // =============================================================================
 // Finalization chain:
@@ -708,6 +735,7 @@ type ExecuteWebhookPacket struct {
 }
 
 func (f ExecuteWebhookPacket) ContextId() string { return f.ContextID }
+func (f ExecuteWebhookPacket) IsAsync() bool     { return true }
 
 // WebhookDonePacket marks that all webhooks have been processed.
 // If Done is non-nil, the handler closes it to signal the waiting goroutine

@@ -123,7 +123,11 @@ func (s *dispatchHandlerStub) HandleModeSwitchInitializeVoiceActivityDetection(c
 }
 func (s *dispatchHandlerStub) HandleModeSwitchInitializeEndOfSpeech(context.Context, internal_type.ModeSwitchInitializeEndOfSpeechPacket) {
 }
+func (s *dispatchHandlerStub) HandleModeSwitchInitializeDenoise(context.Context, internal_type.ModeSwitchInitializeDenoisePacket) {
+}
 func (s *dispatchHandlerStub) HandleModeSwitchFinalizeEndOfSpeech(context.Context, internal_type.ModeSwitchFinalizeEndOfSpeechPacket) {
+}
+func (s *dispatchHandlerStub) HandleModeSwitchFinalizeDenoise(context.Context, internal_type.ModeSwitchFinalizeDenoisePacket) {
 }
 func (s *dispatchHandlerStub) HandleModeSwitchFinalizeVoiceActivityDetection(context.Context, internal_type.ModeSwitchFinalizeVoiceActivityDetectionPacket) {
 }

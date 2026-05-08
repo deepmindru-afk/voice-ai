@@ -37,7 +37,7 @@ func (u *unifiedProviderGRPCApi) Chat(c context.Context, req *protos.ChatRequest
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	return u.integrationApi.Chat(c, req, strings.ToUpper(providerName), caller)
+	return u.integrationApi.Chat(c, req, providerName, caller)
 }
 
 func (u *unifiedProviderGRPCApi) StreamChat(stream protos.UnifiedProviderService_StreamChatServer) error {
@@ -58,7 +58,7 @@ func (u *unifiedProviderGRPCApi) Embedding(c context.Context, req *protos.Embedd
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	return u.integrationApi.Embedding(c, req, strings.ToUpper(providerName), caller)
+	return u.integrationApi.Embedding(c, req, providerName, caller)
 }
 
 func (u *unifiedProviderGRPCApi) Reranking(c context.Context, req *protos.RerankingRequest) (*protos.RerankingResponse, error) {
@@ -70,7 +70,7 @@ func (u *unifiedProviderGRPCApi) Reranking(c context.Context, req *protos.Rerank
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	return u.integrationApi.Reranking(c, req, strings.ToUpper(providerName), caller)
+	return u.integrationApi.Reranking(c, req, providerName, caller)
 }
 
 func (u *unifiedProviderGRPCApi) VerifyCredential(c context.Context, req *protos.VerifyCredentialRequest) (*protos.VerifyCredentialResponse, error) {

@@ -231,6 +231,7 @@ const (
 	ConversationDisconnection_DISCONNECTION_TYPE_USER         ConversationDisconnection_DisconnectionType = 2
 	ConversationDisconnection_DISCONNECTION_TYPE_IDLE_TIMEOUT ConversationDisconnection_DisconnectionType = 3
 	ConversationDisconnection_DISCONNECTION_TYPE_MAX_DURATION ConversationDisconnection_DisconnectionType = 4
+	ConversationDisconnection_DISCONNECTION_TYPE_ERROR        ConversationDisconnection_DisconnectionType = 5
 )
 
 // Enum value maps for ConversationDisconnection_DisconnectionType.
@@ -241,6 +242,7 @@ var (
 		2: "DISCONNECTION_TYPE_USER",
 		3: "DISCONNECTION_TYPE_IDLE_TIMEOUT",
 		4: "DISCONNECTION_TYPE_MAX_DURATION",
+		5: "DISCONNECTION_TYPE_ERROR",
 	}
 	ConversationDisconnection_DisconnectionType_value = map[string]int32{
 		"DISCONNECTION_TYPE_UNSPECIFIED":  0,
@@ -248,6 +250,7 @@ var (
 		"DISCONNECTION_TYPE_USER":         2,
 		"DISCONNECTION_TYPE_IDLE_TIMEOUT": 3,
 		"DISCONNECTION_TYPE_MAX_DURATION": 4,
+		"DISCONNECTION_TYPE_ERROR":        5,
 	}
 )
 

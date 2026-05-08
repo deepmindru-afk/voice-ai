@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	cohereV2 "github.com/cohere-ai/cohere-go/v2"
@@ -23,6 +24,8 @@ var (
 type Cohere struct {
 	logger     commons.Logger
 	credential internal_callers.CredentialResolver
+	mu         sync.Mutex
+	client     *cohereclient.Client
 }
 
 func NewCohere(logger commons.Logger, credential *integration_api.Credential) Cohere {
@@ -35,20 +38,27 @@ func NewCohere(logger commons.Logger, credential *integration_api.Credential) Co
 }
 
 func (cohere *Cohere) GetClient() (*cohereclient.Client, error) {
+	cohere.mu.Lock()
+	defer cohere.mu.Unlock()
+	if cohere.client != nil {
+		return cohere.client, nil
+	}
 	credentials := cohere.credential()
 	cx, ok := credentials[API_KEY]
 	if !ok {
 		cohere.logger.Errorf("Unable to get client for user")
 		return nil, errors.New("unable to resolve the credential")
 	}
-	return cohereclient.NewClient(
+	client := cohereclient.NewClient(
 		cohereclient.WithToken(cx.(string)),
 		cohereclient.WithHTTPClient(
 			&http.Client{
 				Timeout: time.Minute,
 			},
 		),
-	), nil
+	)
+	cohere.client = client
+	return cohere.client, nil
 }
 func (cohere *Cohere) UsageMetrics(usages *cohereV2.Usage) []*protos.Metric {
 	metrics := make([]*protos.Metric, 0)
