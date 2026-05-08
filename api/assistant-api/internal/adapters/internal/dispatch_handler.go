@@ -53,9 +53,24 @@ func (h requestorDispatchHandler) HandleUserText(ctx context.Context, vl interna
 	})
 
 	vl.ContextID = h.r.GetID()
-	if err := h.callEndOfSpeech(ctx, vl); err != nil {
-		h.r.OnPacket(ctx, internal_type.EndOfSpeechPacket{ContextID: vl.ContextID, Speech: vl.Text})
-	}
+	h.r.OnPacket(ctx,
+		internal_type.InterimEndOfSpeechPacket{Speech: vl.Text, ContextID: vl.ContextID},
+		internal_type.ConversationEventPacket{Name: "eos", Data: map[string]string{"type": "interim", "speech": vl.Text}},
+		internal_type.EndOfSpeechPacket{
+			Speech:    vl.Text,
+			ContextID: vl.ContextID,
+		},
+		internal_type.ConversationEventPacket{
+			Name: "eos",
+			Data: map[string]string{
+				"type":       "detected",
+				"provider":   "text_input",
+				"context_id": vl.ContextID,
+				"speech":     vl.Text,
+			},
+			Time: time.Now(),
+		},
+	)
 }
 
 func (h requestorDispatchHandler) HandleUserAudio(ctx context.Context, vl internal_type.UserAudioReceivedPacket) {
@@ -188,7 +203,6 @@ func (h requestorDispatchHandler) HandleInterruptionDetected(ctx context.Context
 	if p.ContextID == "" {
 		p.ContextID = h.r.GetID()
 	}
-
 	switch p.Source {
 	case internal_type.InterruptionSourceWord:
 		h.r.OnPacket(ctx, internal_type.StopIdleTimeoutPacket{ContextID: p.ContextID})
@@ -1051,10 +1065,15 @@ func (h requestorDispatchHandler) HandleSessionAuthenticationSucceeded(ctx conte
 		)
 		h.r.SwitchMode(type_enums.AudioMode)
 	}
-	h.r.OnPacket(ctx, internal_type.InitializeAssistantExecutorPacket{
-		ContextID: p.ContextID,
-		Config:    p.Initialization,
-	})
+	h.r.OnPacket(ctx,
+		internal_type.InitializeAssistantExecutorPacket{
+			ContextID: p.ContextID,
+			Config:    p.Initialization,
+		},
+		internal_type.InitializeBehaviorPacket{
+			ContextID: p.ContextID,
+			Config:    p.Initialization,
+		})
 
 }
 
@@ -1243,7 +1262,6 @@ func (h requestorDispatchHandler) HandleInitializeVoiceActivityDetection(ctx con
 
 }
 func (h requestorDispatchHandler) HandleInitializeEndOfSpeech(ctx context.Context, p internal_type.InitializeEndOfSpeechPacket) {
-	config := p.Config
 	cfg, err := h.r.GetSpeechToTextTransformer()
 	if err != nil {
 		h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
@@ -1263,11 +1281,9 @@ func (h requestorDispatchHandler) HandleInitializeEndOfSpeech(ctx context.Contex
 		return
 	}
 	h.r.endOfSpeech = endOfSpeech
-	h.r.OnPacket(ctx, internal_type.InitializeBehaviorPacket{ContextID: p.ContextID, Config: config})
 }
 func (h requestorDispatchHandler) HandleInitializeBehavior(ctx context.Context, p internal_type.InitializeBehaviorPacket) {
 	h.r.initializeBehavior(ctx)
-
 	event := utils.ConversationResume
 	if p.Config.GetAssistantConversationId() == 0 {
 		event = utils.ConversationBegin

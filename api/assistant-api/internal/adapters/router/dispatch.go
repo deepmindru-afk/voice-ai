@@ -193,6 +193,8 @@ func DispatchPacket(ctx context.Context, p internal_type.Packet, handler Dispatc
 		handler.HandleInitializeSessionRuntime(ctx, vl)
 	case internal_type.InitializeAuthenticationPacket:
 		handler.HandleInitializeAuthentication(ctx, vl)
+	case internal_type.InitializeAssistantExecutorPacket:
+		handler.HandleInitializeAssistantExecutorPacket(ctx, vl)
 	case internal_type.ExecuteSessionAuthenticationPacket:
 		handler.HandleExecuteSessionAuthentication(ctx, vl)
 	case internal_type.SessionAuthenticationSucceededPacket:
