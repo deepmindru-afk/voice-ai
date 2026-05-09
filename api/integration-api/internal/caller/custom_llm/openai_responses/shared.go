@@ -1,10 +1,11 @@
+// Rapida – Open Source Voice AI Orchestration Platform
+// Copyright (C) 2023-2025 Prashant Srivastav <prashant@rapida.ai>
+// Licensed under a modified GPL-2.0. See the LICENSE file for details.
 package internal_custom_llm_openai_responses
 
 import (
-	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	openai "github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/responses"
@@ -12,7 +13,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	internal_custom_llm_common "github.com/rapidaai/api/integration-api/internal/caller/custom_llm/common"
-	internal_caller_metrics "github.com/rapidaai/api/integration-api/internal/caller/metrics"
 	internal_callers "github.com/rapidaai/api/integration-api/internal/type"
 	"github.com/rapidaai/pkg/commons"
 	type_enums "github.com/rapidaai/pkg/types/enums"
@@ -20,266 +20,21 @@ import (
 	"github.com/rapidaai/protos"
 )
 
-type adapter struct {
-	logger commons.Logger
-	client *openai.Client
-}
-
-func New(
-	dependencies internal_custom_llm_common.AdapterDependencies,
-) (internal_custom_llm_common.Adapter, error) {
-	if dependencies.OpenAIClient == nil {
-		return nil, fmt.Errorf(
-			"custom-llm: %s adapter missing OpenAI client",
-			internal_custom_llm_common.CompatibilityOpenAIResponses,
-		)
-	}
-	return &adapter{
-		logger: dependencies.Logger,
-		client: dependencies.OpenAIClient,
-	}, nil
-}
-
-func (a *adapter) GetChatCompletion(
-	ctx context.Context,
-	allMessages []*protos.Message,
-	options *internal_callers.ChatCompletionOptions,
-) (*protos.Message, []*protos.Metric, error) {
-	metrics := internal_caller_metrics.NewMetricBuilder(options.RequestId)
-	metrics.OnStart()
-
-	request := a.buildResponseParams(options)
-	request.Input = responses.ResponseNewParamsInputUnion{
-		OfInputItemList: a.buildHistory(allMessages),
-	}
-	options.PreHook(utils.ToJson(request))
-
-	resp, err := a.client.Responses.New(ctx, request)
-	if err != nil {
-		a.logger.Errorf("custom-llm openai_responses: request failed: %v", err)
-		failure := metrics.OnFailure().Build()
-		options.PostHook(map[string]interface{}{
-			"error":  err,
-			"result": resp,
-		}, failure)
-		return nil, failure, err
-	}
-
-	assistantMessage := &protos.AssistantMessage{
-		Contents:  make([]string, 0),
-		ToolCalls: make([]*protos.ToolCall, 0),
-	}
-	if outputText := resp.OutputText(); outputText != "" {
-		assistantMessage.Contents = append(assistantMessage.Contents, outputText)
-	}
-	for _, outputItem := range resp.Output {
-		if outputItem.Type != "function_call" {
-			continue
-		}
-		functionCall := outputItem.AsFunctionCall()
-		callID := functionCall.CallID
-		if callID == "" {
-			callID = functionCall.ID
-		}
-		assistantMessage.ToolCalls = append(assistantMessage.ToolCalls, &protos.ToolCall{
-			Id:   callID,
-			Type: "function",
-			Function: &protos.FunctionCall{
-				Name:      functionCall.Name,
-				Arguments: functionCall.Arguments,
-			},
-		})
-	}
-
-	protoMessage := &protos.Message{
-		Role: internal_custom_llm_common.ChatRoleAssistant,
-		Message: &protos.Message_Assistant{
-			Assistant: assistantMessage,
-		},
-	}
-
-	metrics.OnAddMetrics(a.buildResponseUsageMetrics(resp.Usage)...)
-	success := metrics.OnSuccess().Build()
-	options.PostHook(map[string]interface{}{"result": resp}, success)
-	return protoMessage, success, nil
-}
-
-func (a *adapter) StreamChatCompletion(
-	ctx context.Context,
-	allMessages []*protos.Message,
-	options *internal_callers.ChatCompletionOptions,
-	onStream func(string, *protos.Message) error,
-	onMetrics func(string, *protos.Message, []*protos.Metric) error,
-	onError func(string, error),
-) error {
-	start := time.Now()
-	metrics := internal_caller_metrics.NewMetricBuilder(options.RequestId)
-	metrics.OnStart()
-	var firstTokenAt *time.Time
-
-	request := a.buildResponseParams(options)
-	request.Input = responses.ResponseNewParamsInputUnion{
-		OfInputItemList: a.buildHistory(allMessages),
-	}
-	options.PreHook(utils.ToJson(request))
-
-	stream := a.client.Responses.NewStreaming(ctx, request)
-	if stream.Err() != nil {
-		err := stream.Err()
-		a.logger.Errorf("custom-llm openai_responses: stream init failed: %v", err)
-		failure := metrics.OnFailure().Build()
-		options.PostHook(map[string]interface{}{
-			"error":  err,
-			"result": utils.ToJson(stream),
-		}, failure)
-		if onError != nil {
-			onError(options.Request.GetRequestId(), err)
-		}
-		return err
-	}
-	defer stream.Close()
-
-	assistantMessage := &protos.AssistantMessage{
-		Contents:  make([]string, 0),
-		ToolCalls: make([]*protos.ToolCall, 0),
-	}
-	var contentBuilder strings.Builder
-	hasToolCalls := false
-	var finalResponse *responses.Response
-
-	for stream.Next() {
-		event := stream.Current()
-		switch typed := event.AsAny().(type) {
-		case responses.ResponseTextDeltaEvent:
-			if typed.Delta == "" {
-				continue
-			}
-			contentBuilder.WriteString(typed.Delta)
-			if hasToolCalls {
-				continue
-			}
-			if firstTokenAt == nil {
-				now := time.Now()
-				firstTokenAt = &now
-			}
-			if onStream != nil {
-				tokenMessage := &protos.Message{
-					Role: internal_custom_llm_common.ChatRoleAssistant,
-					Message: &protos.Message_Assistant{
-						Assistant: &protos.AssistantMessage{Contents: []string{typed.Delta}},
-					},
-				}
-				if err := onStream(options.Request.GetRequestId(), tokenMessage); err != nil {
-					a.logger.Warnf("custom-llm openai_responses: onStream error: %v", err)
-				}
-			}
-		case responses.ResponseFunctionCallArgumentsDeltaEvent:
-			hasToolCalls = true
-		case responses.ResponseFunctionCallArgumentsDoneEvent:
-			hasToolCalls = true
-		case responses.ResponseOutputItemAddedEvent:
-			if typed.Item.Type == "function_call" {
-				hasToolCalls = true
-			}
-		case responses.ResponseOutputItemDoneEvent:
-			if typed.Item.Type == "function_call" {
-				hasToolCalls = true
-			}
-		case responses.ResponseCompletedEvent:
-			finalResponse = &typed.Response
-			if a.containsFunctionCall(typed.Response.Output) {
-				hasToolCalls = true
-			}
-		}
-	}
-
-	if stream.Err() != nil {
-		err := stream.Err()
-		a.logger.Errorf("custom-llm openai_responses: stream read failed: %v", err)
-		failure := metrics.OnFailure().Build()
-		options.PostHook(map[string]interface{}{
-			"error":  err,
-			"result": utils.ToJson(stream),
-		}, failure)
-		if onError != nil {
-			onError(options.Request.GetRequestId(), err)
-		}
-		return err
-	}
-
-	if finalResponse != nil {
-		if outputText := finalResponse.OutputText(); outputText != "" {
-			assistantMessage.Contents = append(assistantMessage.Contents, outputText)
-		}
-		for _, outputItem := range finalResponse.Output {
-			if outputItem.Type != "function_call" {
-				continue
-			}
-			functionCall := outputItem.AsFunctionCall()
-			callID := functionCall.CallID
-			if callID == "" {
-				callID = functionCall.ID
-			}
-			assistantMessage.ToolCalls = append(assistantMessage.ToolCalls, &protos.ToolCall{
-				Id:   callID,
-				Type: "function",
-				Function: &protos.FunctionCall{
-					Name:      functionCall.Name,
-					Arguments: functionCall.Arguments,
-				},
-			})
-		}
-		metrics.OnAddMetrics(a.buildResponseUsageMetrics(finalResponse.Usage)...)
-	} else if contentBuilder.Len() > 0 {
-		assistantMessage.Contents = append(assistantMessage.Contents, contentBuilder.String())
-	}
-
-	protoMessage := &protos.Message{
-		Role: internal_custom_llm_common.ChatRoleAssistant,
-		Message: &protos.Message_Assistant{
-			Assistant: assistantMessage,
-		},
-	}
-
-	if firstTokenAt != nil {
-		metrics.OnAddMetrics(&protos.Metric{
-			Name:        type_enums.TIME_TO_FIRST_TOKEN.String(),
-			Value:       fmt.Sprintf("%d", firstTokenAt.Sub(start)),
-			Description: "Time to receive first token from LLM",
-		})
-	}
-	success := metrics.OnSuccess().Build()
-	if onMetrics != nil {
-		onMetrics(options.Request.GetRequestId(), protoMessage, success)
-	}
-	resultPayload := utils.ToJson(stream)
-	if finalResponse != nil {
-		resultPayload = utils.ToJson(finalResponse)
-	}
-	options.PostHook(map[string]interface{}{"result": resultPayload}, success)
-	return nil
-}
-
-func (a *adapter) VerifyCredential(
-	ctx context.Context,
-	options *internal_callers.CredentialVerifierOptions,
-) (*string, error) {
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-	_, err := a.client.Models.List(ctx)
+func newClient(logger commons.Logger, credential *protos.Credential) (*openai.Client, error) {
+	config, err := internal_custom_llm_common.ParseClientConfig(logger, credential)
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	client := internal_custom_llm_common.NewOpenAIClient(config)
+	return &client, nil
 }
 
-func (a *adapter) buildResponseParams(
+func buildResponseParams(
 	opts *internal_callers.ChatCompletionOptions,
 ) responses.ResponseNewParams {
 	request := responses.ResponseNewParams{
 		Store: openai.Bool(false),
 	}
-
 	if len(opts.ToolDefinitions) > 0 {
 		tools := make([]responses.ToolUnionParam, 0, len(opts.ToolDefinitions))
 		for _, toolDefinition := range opts.ToolDefinitions {
@@ -335,8 +90,8 @@ func (a *adapter) buildResponseParams(
 	}
 
 	extraFields := map[string]interface{}{}
-	a.applyResponseParameters(&request, opts, directModelParameters, extraFields)
-	a.applyResponseParameters(&request, opts, nestedModelParameters, extraFields)
+	applyResponseParameters(&request, opts, directModelParameters, extraFields)
+	applyResponseParameters(&request, opts, nestedModelParameters, extraFields)
 	if len(extraFields) > 0 {
 		request.SetExtraFields(extraFields)
 	}
@@ -344,7 +99,7 @@ func (a *adapter) buildResponseParams(
 	return request
 }
 
-func (a *adapter) applyResponseParameters(
+func applyResponseParameters(
 	request *responses.ResponseNewParams,
 	opts *internal_callers.ChatCompletionOptions,
 	parameters map[string]*anypb.Any,
@@ -472,9 +227,7 @@ func (a *adapter) applyResponseParameters(
 	}
 }
 
-func (a *adapter) buildHistory(
-	allMessages []*protos.Message,
-) []responses.ResponseInputItemUnionParam {
+func buildHistory(allMessages []*protos.Message) []responses.ResponseInputItemUnionParam {
 	messageHistory := make([]responses.ResponseInputItemUnionParam, 0, len(allMessages))
 	for _, message := range allMessages {
 		switch message.GetRole() {
@@ -529,7 +282,7 @@ func (a *adapter) buildHistory(
 	return messageHistory
 }
 
-func (a *adapter) containsFunctionCall(outputItems []responses.ResponseOutputItemUnion) bool {
+func containsFunctionCall(outputItems []responses.ResponseOutputItemUnion) bool {
 	for _, item := range outputItems {
 		if item.Type == "function_call" {
 			return true
@@ -538,7 +291,7 @@ func (a *adapter) containsFunctionCall(outputItems []responses.ResponseOutputIte
 	return false
 }
 
-func (a *adapter) buildResponseUsageMetrics(usages responses.ResponseUsage) []*protos.Metric {
+func buildResponseUsageMetrics(usages responses.ResponseUsage) []*protos.Metric {
 	return []*protos.Metric{
 		{
 			Name:        type_enums.OUTPUT_TOKEN.String(),

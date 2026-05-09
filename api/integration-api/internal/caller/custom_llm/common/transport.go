@@ -20,9 +20,6 @@ func NewOpenAIClient(config ClientConfig) openai.Client {
 		option.WithBaseURL(config.BaseURL),
 	}
 	for key, value := range config.Headers {
-		if key == "" {
-			continue
-		}
 		opts = append(opts, option.WithHeader(key, value))
 	}
 	return openai.NewClient(opts...)

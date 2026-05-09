@@ -27,7 +27,6 @@ func testAny(t *testing.T, value interface{}) *anypb.Any {
 }
 
 func TestNewChatCompletionParams_UsesSetExtraFieldsForCompatibilityOptions(t *testing.T) {
-	ad := &adapter{logger: testLogger()}
 	options := &internal_callers.ChatCompletionOptions{
 		AIOptions: internal_callers.AIOptions{
 			ModelParameter: map[string]*anypb.Any{
@@ -43,7 +42,7 @@ func TestNewChatCompletionParams_UsesSetExtraFieldsForCompatibilityOptions(t *te
 		},
 	}
 
-	params := ad.newChatCompletionParams(options, false)
+	params := newChatCompletionParams(testLogger(), options, false)
 	body, err := json.Marshal(params)
 	require.NoError(t, err)
 

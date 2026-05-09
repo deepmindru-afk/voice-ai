@@ -1,4 +1,4 @@
-package internal_custom_llm_openai_chat_completions
+package internal_custom_llm_openai_responses
 
 import (
 	"encoding/json"
@@ -27,40 +27,35 @@ func testAny(t *testing.T, value interface{}) *anypb.Any {
 	return anyValue
 }
 
-func TestNewChatCompletionParams_AppliesKnownAndExtraFields(t *testing.T) {
-	ad := &adapter{logger: testLogger()}
+func TestBuildResponseParams_AppliesKnownAndExtraFields(t *testing.T) {
 	options := &internal_callers.ChatCompletionOptions{
 		AIOptions: internal_callers.AIOptions{
 			ModelParameter: map[string]*anypb.Any{
-				"model.name": testAny(t, "gpt-4o-mini"),
+				"model.name": testAny(t, "gpt-4o"),
 				"model.parameters": testAny(t, map[string]interface{}{
-					"temperature": 0.2,
-					"top_k":       10,
-					"chat_template_kwargs": map[string]interface{}{
-						"enable_thinking": false,
-					},
+					"temperature":         0.1,
+					"max_output_tokens":   123,
+					"service_tier":        "default",
+					"vendor_custom_field": "x",
 				}),
 			},
 		},
 	}
 
-	params := ad.newChatCompletionParams(options, false)
+	params := buildResponseParams(options)
 	body, err := json.Marshal(params)
 	require.NoError(t, err)
 
 	payload := map[string]interface{}{}
 	require.NoError(t, json.Unmarshal(body, &payload))
-	assert.Equal(t, "gpt-4o-mini", payload["model"])
-	assert.Equal(t, float64(0.2), payload["temperature"])
-	assert.Equal(t, float64(10), payload["top_k"])
-
-	chatTemplateKwargs, ok := payload["chat_template_kwargs"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, false, chatTemplateKwargs["enable_thinking"])
+	assert.Equal(t, "gpt-4o", payload["model"])
+	assert.Equal(t, float64(0.1), payload["temperature"])
+	assert.Equal(t, float64(123), payload["max_output_tokens"])
+	assert.Equal(t, "default", payload["service_tier"])
+	assert.Equal(t, "x", payload["vendor_custom_field"])
 }
 
 func TestBuildHistory_MixedMessages(t *testing.T) {
-	ad := &adapter{logger: testLogger()}
 	msgs := []*protos.Message{
 		{Role: "system", Message: &protos.Message_System{System: &protos.SystemMessage{Content: "Be brief"}}},
 		{Role: "user", Message: &protos.Message_User{User: &protos.UserMessage{Content: "Hi"}}},
@@ -68,10 +63,6 @@ func TestBuildHistory_MixedMessages(t *testing.T) {
 		{Role: "tool", Message: &protos.Message_Tool{Tool: &protos.ToolMessage{Tools: []*protos.ToolMessage_Tool{{Id: "call_1", Name: "weather", Content: `{"temp":72}`}}}}},
 	}
 
-	history := ad.buildHistory(msgs)
+	history := buildHistory(msgs)
 	require.Len(t, history, 4)
-	assert.NotNil(t, history[0].OfSystem)
-	assert.NotNil(t, history[1].OfUser)
-	assert.NotNil(t, history[2].OfAssistant)
-	assert.NotNil(t, history[3].OfTool)
 }

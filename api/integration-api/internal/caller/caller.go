@@ -45,7 +45,7 @@ func GetLargeLanguageCaller(logger commons.Logger, provider string, credential *
 	case OPENAI:
 		return nil, fmt.Errorf("openai large language caller is removed; use chat/chat_stream openai factory")
 	case CUSTOM_LLM:
-		return internal_custom_llm_callers.NewLargeLanguageCaller(logger, credential)
+		return nil, fmt.Errorf("custom-llm large language caller is removed; use chat/chat_stream custom-llm factory")
 	case ANTHROPIC:
 		return internal_anthropic_callers.NewLargeLanguageCaller(logger, credential), nil
 	case GEMINI:
@@ -76,8 +76,10 @@ func GetChat(
 	switch IntegrationProvider(provider) {
 	case OPENAI:
 		return internal_openai_callers.NewChat(logger, credential, connectionOptions)
+	case CUSTOM_LLM:
+		return internal_custom_llm_callers.NewChat(logger, credential, connectionOptions)
 	default:
-		return nil, fmt.Errorf("unsupported chat provider: %s (only openai is enabled)", provider)
+		return nil, fmt.Errorf("unsupported chat provider: %s", provider)
 	}
 }
 
@@ -90,8 +92,10 @@ func GetChatStream(
 	switch IntegrationProvider(provider) {
 	case OPENAI:
 		return internal_openai_callers.NewChatStream(logger, credential, connectionOptions)
+	case CUSTOM_LLM:
+		return internal_custom_llm_callers.NewChatStream(logger, credential, connectionOptions)
 	default:
-		return nil, fmt.Errorf("unsupported stream provider: %s (only openai is enabled)", provider)
+		return nil, fmt.Errorf("unsupported stream provider: %s", provider)
 	}
 }
 

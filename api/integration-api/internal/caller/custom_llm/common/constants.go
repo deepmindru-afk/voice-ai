@@ -1,3 +1,6 @@
+// Rapida – Open Source Voice AI Orchestration Platform
+// Copyright (C) 2023-2025 Prashant Srivastav <prashant@rapida.ai>
+// Licensed under a modified GPL-2.0. See the LICENSE file for details.
 package internal_custom_llm_common
 
 import "time"
@@ -10,8 +13,9 @@ const (
 	CompatibilityAnthropicMessages     Compatibility = "anthropic_messages"
 	CompatibilityGeminiGenerateContent Compatibility = "gemini_generate_content"
 	CompatibilityOpenAICompatible      Compatibility = "openai_compatible"
-	CompatibilityLegacyOpenAI          Compatibility = "openai"
 )
+
+const DefaultCompatibility = CompatibilityOpenAIChatCompletions
 
 const (
 	CredentialKeyAPICompatibilitySnake = "api_compatibility"

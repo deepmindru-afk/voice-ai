@@ -1,3 +1,6 @@
+// Rapida – Open Source Voice AI Orchestration Platform
+// Copyright (C) 2023-2025 Prashant Srivastav <prashant@rapida.ai>
+// Licensed under a modified GPL-2.0. See the LICENSE file for details.
 package internal_custom_llm_common
 
 import (
@@ -43,8 +46,15 @@ func ParseClientConfig(
 	return cfg, nil
 }
 
+func ResolveCompatibility(credential *protos.Credential) (Compatibility, error) {
+	if credential == nil || credential.GetValue() == nil {
+		return DefaultCompatibility, nil
+	}
+	return parseCompatibility(credential.GetValue().AsMap())
+}
+
 func parseCompatibility(credentials map[string]any) (Compatibility, error) {
-	compatibility := CompatibilityOpenAIChatCompletions
+	compatibility := DefaultCompatibility
 	rawCompatibility, found := credentials[CredentialKeyAPICompatibilitySnake]
 	if !found {
 		rawCompatibility, found = credentials[CredentialKeyAPICompatibilityCamel]
@@ -58,9 +68,6 @@ func parseCompatibility(credentials map[string]any) (Compatibility, error) {
 			return "", errors.New("custom-llm: api compatibility must not be empty")
 		}
 		compatibility = Compatibility(compatibilityStr)
-	}
-	if compatibility == CompatibilityLegacyOpenAI {
-		return CompatibilityOpenAIChatCompletions, nil
 	}
 	return compatibility, nil
 }
@@ -88,9 +95,7 @@ func parseHeaders(credentials map[string]any) (map[string]string, error) {
 	if !found {
 		return map[string]string{}, nil
 	}
-	headers, err := utils.Option{
-		CredentialKeyHeaders: headersRaw,
-	}.GetStringMap(CredentialKeyHeaders)
+	headers, err := utils.Option{CredentialKeyHeaders: headersRaw}.GetStringMap(CredentialKeyHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("custom-llm: invalid headers: %w", err)
 	}

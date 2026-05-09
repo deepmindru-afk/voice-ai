@@ -1,11 +1,10 @@
 package internal_custom_llm_callers
 
 import (
-	"context"
+	"fmt"
 	"testing"
 
 	internal_custom_llm_common "github.com/rapidaai/api/integration-api/internal/caller/custom_llm/common"
-	internal_callers "github.com/rapidaai/api/integration-api/internal/type"
 	"github.com/rapidaai/pkg/commons"
 	"github.com/rapidaai/protos"
 	"github.com/stretchr/testify/assert"
@@ -25,117 +24,134 @@ func newCredential(
 	t.Helper()
 	pb, err := structpb.NewStruct(values)
 	require.NoError(t, err)
-	return &protos.Credential{
-		Value: pb,
-	}
+	return &protos.Credential{Value: pb}
 }
 
-func TestNewLargeLanguageCaller_RoutesAllCompatibilities(t *testing.T) {
+func TestNewChat_DefaultTransportIsCredentialCompatibility(t *testing.T) {
+	chat, err := NewChat(newTestLogger(), newCredential(t, map[string]interface{}{
+		"base_url": "http://localhost:8000/v1",
+	}), nil)
+	require.NoError(t, err)
+	assert.Equal(t, "*internal_custom_llm_openai_chat_completions.chatCaller", fmt.Sprintf("%T", chat))
+
+	stream, err := NewChatStream(newTestLogger(), newCredential(t, map[string]interface{}{
+		"base_url": "http://localhost:8000/v1",
+	}), nil)
+	require.NoError(t, err)
+	assert.Equal(t, "*internal_custom_llm_openai_chat_completions.streamCaller", fmt.Sprintf("%T", stream))
+}
+
+func TestNewChat_RoutesByCompatibility(t *testing.T) {
 	tests := []struct {
 		name          string
 		compatibility string
-		want          internal_custom_llm_common.Compatibility
+		wantChatType  string
+		wantStrmType  string
 	}{
 		{
 			name:          "openai chat completions",
-			compatibility: "openai_chat_completions",
-			want:          internal_custom_llm_common.CompatibilityOpenAIChatCompletions,
+			compatibility: string(internal_custom_llm_common.CompatibilityOpenAIChatCompletions),
+			wantChatType:  "*internal_custom_llm_openai_chat_completions.chatCaller",
+			wantStrmType:  "*internal_custom_llm_openai_chat_completions.streamCaller",
 		},
 		{
 			name:          "openai responses",
-			compatibility: "openai_responses",
-			want:          internal_custom_llm_common.CompatibilityOpenAIResponses,
+			compatibility: string(internal_custom_llm_common.CompatibilityOpenAIResponses),
+			wantChatType:  "*internal_custom_llm_openai_responses.chatCaller",
+			wantStrmType:  "*internal_custom_llm_openai_responses.streamCaller",
 		},
 		{
 			name:          "openai compatible",
-			compatibility: "openai_compatible",
-			want:          internal_custom_llm_common.CompatibilityOpenAICompatible,
+			compatibility: string(internal_custom_llm_common.CompatibilityOpenAICompatible),
+			wantChatType:  "*internal_custom_llm_openai_compatible.chatCaller",
+			wantStrmType:  "*internal_custom_llm_openai_compatible.streamCaller",
 		},
 		{
 			name:          "anthropic messages",
-			compatibility: "anthropic_messages",
-			want:          internal_custom_llm_common.CompatibilityAnthropicMessages,
+			compatibility: string(internal_custom_llm_common.CompatibilityAnthropicMessages),
+			wantChatType:  "*internal_custom_llm_anthropic_messages.chatCaller",
+			wantStrmType:  "*internal_custom_llm_anthropic_messages.streamCaller",
 		},
 		{
 			name:          "gemini generate content",
-			compatibility: "gemini_generate_content",
-			want:          internal_custom_llm_common.CompatibilityGeminiGenerateContent,
-		},
-		{
-			name:          "legacy openai maps to chat completions",
-			compatibility: "openai",
-			want:          internal_custom_llm_common.CompatibilityOpenAIChatCompletions,
+			compatibility: string(internal_custom_llm_common.CompatibilityGeminiGenerateContent),
+			wantChatType:  "*internal_custom_llm_gemini_generate_content.chatCaller",
+			wantStrmType:  "*internal_custom_llm_gemini_generate_content.streamCaller",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			caller, err := NewLargeLanguageCaller(newTestLogger(), newCredential(t, map[string]interface{}{
+			credential := newCredential(t, map[string]interface{}{
 				"api_compatibility": tc.compatibility,
 				"base_url":          "http://localhost:8000/v1",
-			}))
+			})
+
+			chat, err := NewChat(newTestLogger(), credential, nil)
 			require.NoError(t, err)
-			llc, ok := caller.(*largeLanguageCaller)
-			require.True(t, ok)
-			assert.Equal(t, tc.want, llc.compatibility)
+			assert.Equal(t, tc.wantChatType, fmt.Sprintf("%T", chat))
+
+			stream, err := NewChatStream(newTestLogger(), credential, nil)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantStrmType, fmt.Sprintf("%T", stream))
 		})
 	}
 }
 
-func TestNewLargeLanguageCaller_UsesDefaultsAndCamelCaseKeys(t *testing.T) {
-	t.Run("defaults compatibility", func(t *testing.T) {
-		caller, err := NewLargeLanguageCaller(newTestLogger(), newCredential(t, map[string]interface{}{
-			"base_url": "http://localhost:8000/v1",
-		}))
-		require.NoError(t, err)
-		llc := caller.(*largeLanguageCaller)
-		assert.Equal(t, internal_custom_llm_common.CompatibilityOpenAIChatCompletions, llc.compatibility)
+func TestNewChat_ConnectionTransportOverridesCompatibility(t *testing.T) {
+	credential := newCredential(t, map[string]interface{}{
+		"api_compatibility": string(internal_custom_llm_common.CompatibilityAnthropicMessages),
+		"base_url":          "http://localhost:8000/v1",
 	})
 
-	t.Run("camelCase compatibility and base url", func(t *testing.T) {
-		caller, err := NewLargeLanguageCaller(newTestLogger(), newCredential(t, map[string]interface{}{
-			"apiCompatibility": "openai_responses",
-			"baseUrl":          "http://localhost:8000/v1",
-		}))
-		require.NoError(t, err)
-		llc := caller.(*largeLanguageCaller)
-		assert.Equal(t, internal_custom_llm_common.CompatibilityOpenAIResponses, llc.compatibility)
+	chat, err := NewChat(newTestLogger(), credential, map[string]string{
+		OptionTransportKey: string(internal_custom_llm_common.CompatibilityOpenAIResponses),
 	})
+	require.NoError(t, err)
+	assert.Equal(t, "*internal_custom_llm_openai_responses.chatCaller", fmt.Sprintf("%T", chat))
+
+	stream, err := NewChatStream(newTestLogger(), credential, map[string]string{
+		OptionTransportKey: string(internal_custom_llm_common.CompatibilityOpenAIResponses),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "*internal_custom_llm_openai_responses.streamCaller", fmt.Sprintf("%T", stream))
 }
 
-func TestNewLargeLanguageCaller_RejectsUnsupportedCompatibility(t *testing.T) {
-	_, err := NewLargeLanguageCaller(newTestLogger(), newCredential(t, map[string]interface{}{
-		"api_compatibility": "unsupported_api",
-		"base_url":          "http://localhost:8000/v1",
-	}))
+func TestNewChat_RejectsUnsupportedTransport(t *testing.T) {
+	credential := newCredential(t, map[string]interface{}{
+		"base_url": "http://localhost:8000/v1",
+	})
+
+	chat, err := NewChat(newTestLogger(), credential, map[string]string{
+		OptionTransportKey: "invalid",
+	})
 	require.Error(t, err)
+	assert.Nil(t, chat)
+	assert.Contains(t, err.Error(), "unsupported custom-llm transport option")
+
+	stream, err := NewChatStream(newTestLogger(), credential, map[string]string{
+		OptionTransportKey: "invalid",
+	})
+	require.Error(t, err)
+	assert.Nil(t, stream)
+	assert.Contains(t, err.Error(), "unsupported custom-llm transport option")
+}
+
+func TestNewChat_RejectsUnsupportedCompatibility(t *testing.T) {
+	credential := newCredential(t, map[string]interface{}{
+		"api_compatibility": "unsupported_compatibility",
+		"base_url":          "http://localhost:8000/v1",
+	})
+
+	chat, err := NewChat(newTestLogger(), credential, nil)
+	require.Error(t, err)
+	assert.Nil(t, chat)
 	_, ok := err.(internal_custom_llm_common.UnsupportedCompatibilityError)
 	assert.True(t, ok)
-}
 
-func TestNotImplementedAdapters_ReturnDeterministicErrors(t *testing.T) {
-	tests := []string{
-		"anthropic_messages",
-		"gemini_generate_content",
-	}
-	for _, compatibility := range tests {
-		t.Run(compatibility, func(t *testing.T) {
-			caller, err := NewLargeLanguageCaller(newTestLogger(), newCredential(t, map[string]interface{}{
-				"api_compatibility": compatibility,
-				"base_url":          "http://localhost:8000/v1",
-			}))
-			require.NoError(t, err)
-
-			_, _, err = caller.GetChatCompletion(
-				context.Background(),
-				nil,
-				&internal_callers.ChatCompletionOptions{
-					Request: &protos.ChatRequest{RequestId: "req-id"},
-				},
-			)
-			require.Error(t, err)
-			_, ok := err.(internal_custom_llm_common.NotImplementedCompatibilityError)
-			assert.True(t, ok)
-		})
-	}
+	stream, err := NewChatStream(newTestLogger(), credential, nil)
+	require.Error(t, err)
+	assert.Nil(t, stream)
+	_, ok = err.(internal_custom_llm_common.UnsupportedCompatibilityError)
+	assert.True(t, ok)
 }

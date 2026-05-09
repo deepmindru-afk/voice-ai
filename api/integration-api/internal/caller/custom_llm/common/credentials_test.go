@@ -25,16 +25,9 @@ func testCredential(
 	return &protos.Credential{Value: pb}
 }
 
-func TestParseClientConfig_DefaultAndLegacyCompatibility(t *testing.T) {
+func TestParseClientConfig_DefaultCompatibility(t *testing.T) {
 	cfg, err := ParseClientConfig(testLogger(), testCredential(t, map[string]interface{}{
 		CredentialKeyBaseURLSnake: "http://localhost:8000/v1",
-	}))
-	require.NoError(t, err)
-	assert.Equal(t, CompatibilityOpenAIChatCompletions, cfg.Compatibility)
-
-	cfg, err = ParseClientConfig(testLogger(), testCredential(t, map[string]interface{}{
-		CredentialKeyAPICompatibilitySnake: "openai",
-		CredentialKeyBaseURLSnake:          "http://localhost:8000/v1",
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, CompatibilityOpenAIChatCompletions, cfg.Compatibility)
@@ -72,4 +65,16 @@ func TestParseClientConfig_ValidatesBaseURLAndCompatibilityType(t *testing.T) {
 		CredentialKeyAPICompatibilitySnake: "openai_chat_completions",
 	}))
 	require.Error(t, err)
+}
+
+func TestResolveCompatibility_DefaultAndCredentialValue(t *testing.T) {
+	compatibility, err := ResolveCompatibility(nil)
+	require.NoError(t, err)
+	assert.Equal(t, CompatibilityOpenAIChatCompletions, compatibility)
+
+	compatibility, err = ResolveCompatibility(testCredential(t, map[string]interface{}{
+		CredentialKeyAPICompatibilitySnake: string(CompatibilityOpenAIResponses),
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, CompatibilityOpenAIResponses, compatibility)
 }
