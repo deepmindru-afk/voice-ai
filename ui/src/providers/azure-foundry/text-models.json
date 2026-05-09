@@ -119,6 +119,29 @@
           "advanced": true,
           "required": false,
           "placeholder": "User identifier"
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for Azure OpenAI requests."
         }
       ]
     }
@@ -243,6 +266,29 @@
           "advanced": true,
           "required": false,
           "placeholder": "User identifier"
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for Azure OpenAI requests."
         }
       ]
     }
@@ -367,6 +413,29 @@
           "advanced": true,
           "required": false,
           "placeholder": "User identifier"
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for Azure OpenAI requests."
         }
       ]
     }
@@ -491,6 +560,29 @@
           "advanced": true,
           "required": false,
           "placeholder": "User identifier"
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for Azure OpenAI requests."
         }
       ]
     }
@@ -615,6 +707,29 @@
           "advanced": true,
           "required": false,
           "placeholder": "User identifier"
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for Azure OpenAI requests."
         }
       ]
     }

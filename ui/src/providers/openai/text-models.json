@@ -194,10 +194,6 @@
               "value": "chat_complete"
             },
             {
-              "label": "WebSocket",
-              "value": "websocket"
-            },
-            {
               "label": "Chat Response",
               "value": "chat_response"
             }
@@ -400,10 +396,6 @@
             {
               "label": "Chat Complete",
               "value": "chat_complete"
-            },
-            {
-              "label": "WebSocket",
-              "value": "websocket"
             },
             {
               "label": "Chat Response",
@@ -610,10 +602,6 @@
               "value": "chat_complete"
             },
             {
-              "label": "WebSocket",
-              "value": "websocket"
-            },
-            {
               "label": "Chat Response",
               "value": "chat_response"
             }
@@ -816,10 +804,6 @@
             {
               "label": "Chat Complete",
               "value": "chat_complete"
-            },
-            {
-              "label": "WebSocket",
-              "value": "websocket"
             },
             {
               "label": "Chat Response",
@@ -1026,10 +1010,6 @@
               "value": "chat_complete"
             },
             {
-              "label": "WebSocket",
-              "value": "websocket"
-            },
-            {
               "label": "Chat Response",
               "value": "chat_response"
             }
@@ -1227,11 +1207,19 @@
           "type": "select",
           "advanced": true,
           "required": false,
-          "default": "websocket",
+          "default": "chat_complete",
           "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
             {
               "label": "WebSocket",
               "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
             }
           ],
           "helpText": "Select transport for OpenAI requests."
@@ -1432,10 +1420,6 @@
             {
               "label": "Chat Complete",
               "value": "chat_complete"
-            },
-            {
-              "label": "WebSocket",
-              "value": "websocket"
             },
             {
               "label": "Chat Response",
@@ -1642,10 +1626,6 @@
               "value": "chat_complete"
             },
             {
-              "label": "WebSocket",
-              "value": "websocket"
-            },
-            {
               "label": "Chat Response",
               "value": "chat_response"
             }
@@ -1848,10 +1828,6 @@
             {
               "label": "Chat Complete",
               "value": "chat_complete"
-            },
-            {
-              "label": "WebSocket",
-              "value": "websocket"
             },
             {
               "label": "Chat Response",
@@ -2058,10 +2034,6 @@
               "value": "chat_complete"
             },
             {
-              "label": "WebSocket",
-              "value": "websocket"
-            },
-            {
               "label": "Chat Response",
               "value": "chat_response"
             }
@@ -2266,10 +2238,6 @@
               "value": "chat_complete"
             },
             {
-              "label": "WebSocket",
-              "value": "websocket"
-            },
-            {
               "label": "Chat Response",
               "value": "chat_response"
             }
@@ -2467,11 +2435,19 @@
           "type": "select",
           "advanced": true,
           "required": false,
-          "default": "websocket",
+          "default": "chat_complete",
           "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
             {
               "label": "WebSocket",
               "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
             }
           ],
           "helpText": "Select transport for OpenAI requests."
@@ -2672,10 +2648,6 @@
             {
               "label": "Chat Complete",
               "value": "chat_complete"
-            },
-            {
-              "label": "WebSocket",
-              "value": "websocket"
             },
             {
               "label": "Chat Response",
@@ -2882,10 +2854,6 @@
               "value": "chat_complete"
             },
             {
-              "label": "WebSocket",
-              "value": "websocket"
-            },
-            {
               "label": "Chat Response",
               "value": "chat_response"
             }
@@ -3088,10 +3056,6 @@
             {
               "label": "Chat Complete",
               "value": "chat_complete"
-            },
-            {
-              "label": "WebSocket",
-              "value": "websocket"
             },
             {
               "label": "Chat Response",
@@ -3298,10 +3262,6 @@
               "value": "chat_complete"
             },
             {
-              "label": "WebSocket",
-              "value": "websocket"
-            },
-            {
               "label": "Chat Response",
               "value": "chat_response"
             }
@@ -3506,10 +3466,6 @@
               "value": "chat_complete"
             },
             {
-              "label": "WebSocket",
-              "value": "websocket"
-            },
-            {
               "label": "Chat Response",
               "value": "chat_response"
             }
@@ -3659,11 +3615,19 @@
           "type": "select",
           "advanced": true,
           "required": false,
-          "default": "websocket",
+          "default": "chat_complete",
           "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
             {
               "label": "WebSocket",
               "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
             }
           ],
           "helpText": "Select transport for OpenAI requests."
@@ -3811,11 +3775,19 @@
           "type": "select",
           "advanced": true,
           "required": false,
-          "default": "websocket",
+          "default": "chat_complete",
           "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
             {
               "label": "WebSocket",
               "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
             }
           ],
           "helpText": "Select transport for OpenAI requests."
@@ -3959,11 +3931,19 @@
           "type": "select",
           "advanced": true,
           "required": false,
-          "default": "websocket",
+          "default": "chat_complete",
           "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
             {
               "label": "WebSocket",
               "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
             }
           ],
           "helpText": "Select transport for OpenAI requests."
@@ -4107,11 +4087,19 @@
           "type": "select",
           "advanced": true,
           "required": false,
-          "default": "websocket",
+          "default": "chat_complete",
           "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
             {
               "label": "WebSocket",
               "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
             }
           ],
           "helpText": "Select transport for OpenAI requests."
@@ -4255,11 +4243,19 @@
           "type": "select",
           "advanced": true,
           "required": false,
-          "default": "websocket",
+          "default": "chat_complete",
           "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
             {
               "label": "WebSocket",
               "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
             }
           ],
           "helpText": "Select transport for OpenAI requests."
@@ -4403,11 +4399,19 @@
           "type": "select",
           "advanced": true,
           "required": false,
-          "default": "websocket",
+          "default": "chat_complete",
           "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
             {
               "label": "WebSocket",
               "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
             }
           ],
           "helpText": "Select transport for OpenAI requests."
