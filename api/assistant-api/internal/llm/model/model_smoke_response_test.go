@@ -15,7 +15,7 @@ func TestModel_ResponsePipeline_DropsStaleResponse(t *testing.T) {
 	e, comm, stream, _ := newModelTestEnv(t)
 	require.Nil(t, e.currentPacket)
 
-	e.Run(context.Background(), comm, ResponsePipeline{Response: &protos.ChatStreamResponse{
+	e.Run(context.Background(), comm, ResponsePipeline{Response: &protos.StreamChatOutput{
 		RequestId: "ctx-1",
 		Data:      &protos.Message{Role: "assistant", Message: &protos.Message_Assistant{Assistant: &protos.AssistantMessage{Contents: []string{"ignored"}}}},
 	}})
@@ -28,7 +28,7 @@ func TestModel_ResponsePipeline_Error_EmitsLLMErrorAndEvent(t *testing.T) {
 	e, comm, _, _ := newModelTestEnv(t)
 	e.currentPacket = &internal_type.UserInputPacket{ContextID: "ctx-1"}
 
-	e.Run(context.Background(), comm, ResponsePipeline{Response: &protos.ChatStreamResponse{
+	e.Run(context.Background(), comm, ResponsePipeline{Response: &protos.StreamChatOutput{
 		RequestId: "ctx-1",
 		Error:     &protos.Error{ErrorMessage: "provider down"},
 	}})
@@ -46,7 +46,7 @@ func TestModel_ResponsePipeline_Chunk_EmitsDeltaEvenWhenEmpty(t *testing.T) {
 	e, comm, _, _ := newModelTestEnv(t)
 	e.currentPacket = &internal_type.UserInputPacket{ContextID: "ctx-1"}
 
-	e.Run(context.Background(), comm, ResponsePipeline{Response: &protos.ChatStreamResponse{
+	e.Run(context.Background(), comm, ResponsePipeline{Response: &protos.StreamChatOutput{
 		RequestId: "ctx-1",
 		Data:      &protos.Message{Role: "assistant", Message: &protos.Message_Assistant{Assistant: &protos.AssistantMessage{Contents: []string{""}}}},
 	}})
@@ -61,7 +61,7 @@ func TestModel_ResponsePipeline_DoneWithToolCalls_ExecutesToolsAndOpensBlock(t *
 	e, comm, _, toolExec := newModelTestEnv(t)
 	e.currentPacket = &internal_type.UserInputPacket{ContextID: "ctx-1"}
 
-	e.Run(context.Background(), comm, ResponsePipeline{Response: &protos.ChatStreamResponse{
+	e.Run(context.Background(), comm, ResponsePipeline{Response: &protos.StreamChatOutput{
 		RequestId:    "ctx-1",
 		FinishReason: "tool_calls",
 		Metrics:      []*protos.Metric{{Name: "token_count", Value: "3"}},
@@ -82,7 +82,7 @@ func TestModel_ResponsePipeline_DoneWithoutToolCalls_AppendsAssistant(t *testing
 	e, comm, _, toolExec := newModelTestEnv(t)
 	e.currentPacket = &internal_type.UserInputPacket{ContextID: "ctx-1"}
 
-	e.Run(context.Background(), comm, ResponsePipeline{Response: &protos.ChatStreamResponse{
+	e.Run(context.Background(), comm, ResponsePipeline{Response: &protos.StreamChatOutput{
 		RequestId:    "ctx-1",
 		FinishReason: "stop",
 		Metrics:      []*protos.Metric{{Name: "token_count", Value: "3"}},
@@ -103,7 +103,7 @@ func TestModel_Flow_UserToLLM_Stream_Done(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, stream.sendCalls, 1)
 
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "ctx-flow-1",
 		Data: &protos.Message{
 			Role: "assistant",
@@ -113,7 +113,7 @@ func TestModel_Flow_UserToLLM_Stream_Done(t *testing.T) {
 		},
 	})
 
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "ctx-flow-1",
 		Data: &protos.Message{
 			Role: "assistant",
@@ -141,7 +141,7 @@ func TestModel_Interrupt_LateResponseStillEmittedForPersistence(t *testing.T) {
 
 	require.NoError(t, e.Execute(context.Background(), comm, internal_type.LLMInterruptPacket{ContextID: "ctx-int"}))
 
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "ctx-int",
 		Data: &protos.Message{
 			Role: "assistant",

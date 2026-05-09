@@ -57,7 +57,7 @@ func TestModel_Flow_UserToLLM_Stream_Tool_Done(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, stream.sendCalls, 1)
 
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "ctx-flow-2",
 		Data: &protos.Message{
 			Role: "assistant",
@@ -67,7 +67,7 @@ func TestModel_Flow_UserToLLM_Stream_Tool_Done(t *testing.T) {
 		},
 	})
 
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId:    "ctx-flow-2",
 		FinishReason: "tool_calls",
 		Data: &protos.Message{
@@ -98,7 +98,7 @@ func TestModel_Flow_UserToLLM_Stream_Tool_Done(t *testing.T) {
 	require.Len(t, stream.sendCalls, 2)
 	require.Equal(t, "ctx-flow-2", stream.sendCalls[1].GetChat().GetRequestId())
 
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "ctx-flow-2",
 		Data: &protos.Message{
 			Role: "assistant",
@@ -138,7 +138,7 @@ func TestModel_Flow_ToolResultToLLM_Stream_Done(t *testing.T) {
 	require.Len(t, stream.sendCalls, 1)
 	require.Equal(t, "ctx-flow-3", stream.sendCalls[0].GetChat().GetRequestId())
 
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "ctx-flow-3",
 		Data: &protos.Message{
 			Role: "assistant",
@@ -148,7 +148,7 @@ func TestModel_Flow_ToolResultToLLM_Stream_Done(t *testing.T) {
 		},
 	})
 
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "ctx-flow-3",
 		Data: &protos.Message{
 			Role: "assistant",
@@ -272,7 +272,7 @@ func TestModel_ContextSwitch_OldToolResultIgnored_NewUserContinues(t *testing.T)
 	require.Len(t, stream.sendCalls, 1)
 
 	// LLM responds with tool calls for ctx-1 (opens pending tool block).
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId:    "ctx-1",
 		FinishReason: "tool_calls",
 		Data: &protos.Message{
@@ -312,7 +312,7 @@ func TestModel_ContextSwitch_OldToolResultIgnored_NewUserContinues(t *testing.T)
 	require.Equal(t, "ctx-1", lastEvent.Data["pending_context"])
 
 	// Confirm ctx-2 can still complete normally (not stuck).
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "ctx-2",
 		Data: &protos.Message{
 			Role: "assistant",

@@ -3,7 +3,6 @@ package internal_azure_callers
 import (
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
@@ -17,8 +16,6 @@ import (
 type AzureAi struct {
 	logger     commons.Logger
 	credential internal_callers.CredentialResolver
-	mu         sync.Mutex
-	client     *openai.Client
 }
 
 var (
@@ -52,11 +49,6 @@ func azure(logger commons.Logger, credential *integration_api.Credential) AzureA
 }
 
 func (az *AzureAi) GetClient() (*openai.Client, error) {
-	az.mu.Lock()
-	defer az.mu.Unlock()
-	if az.client != nil {
-		return az.client, nil
-	}
 	credentials := az.credential()
 	cx, ok := credentials[AZ_SUBSCRIPTION_KEY]
 	if !ok {
@@ -73,8 +65,7 @@ func (az *AzureAi) GetClient() (*openai.Client, error) {
 		option.WithBaseURL(ux.(string)),
 		option.WithAPIKey(cx.(string)),
 	)
-	az.client = &client
-	return az.client, nil
+	return &client, nil
 }
 
 func (az *AzureAi) GetComplitionUsages(usages openai.CompletionUsage) []*integration_api.Metric {

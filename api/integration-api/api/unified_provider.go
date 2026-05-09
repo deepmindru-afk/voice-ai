@@ -29,15 +29,7 @@ func NewUnifiedProviderGRPC(cfg *config.IntegrationConfig, logger commons.Logger
 }
 
 func (u *unifiedProviderGRPCApi) Chat(c context.Context, req *protos.ChatRequest) (*protos.ChatResponse, error) {
-	providerName := strings.ToLower(req.GetProviderName())
-	if providerName == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "providerName is required")
-	}
-	caller, err := internal_callers.GetLargeLanguageCaller(u.logger, providerName, req.GetCredential())
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-	return u.integrationApi.Chat(c, req, providerName, caller)
+	return u.integrationApi.Chat(c, req, req.GetProviderName())
 }
 
 func (u *unifiedProviderGRPCApi) StreamChat(stream protos.UnifiedProviderService_StreamChatServer) error {

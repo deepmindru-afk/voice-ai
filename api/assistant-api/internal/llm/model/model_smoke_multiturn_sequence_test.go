@@ -18,7 +18,7 @@ func TestModel_MultiTurn_4Turn_MixedDoneAndToolFlow(t *testing.T) {
 
 	// Turn 1: user -> llm done
 	require.NoError(t, e.Execute(context.Background(), comm, internal_type.UserInputPacket{ContextID: "t1", Text: "hello"}))
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "t1", Data: &protos.Message{
 			Role: "assistant",
 			Message: &protos.Message_Assistant{
@@ -30,7 +30,7 @@ func TestModel_MultiTurn_4Turn_MixedDoneAndToolFlow(t *testing.T) {
 
 	// Turn 2: user -> llm tool call -> tool result -> llm done
 	require.NoError(t, e.Execute(context.Background(), comm, internal_type.UserInputPacket{ContextID: "t2", Text: "check weather"}))
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "t2", FinishReason: "tool_calls",
 		Data: &protos.Message{
 			Role: "assistant",
@@ -48,7 +48,7 @@ func TestModel_MultiTurn_4Turn_MixedDoneAndToolFlow(t *testing.T) {
 	require.NoError(t, e.Execute(context.Background(), comm, internal_type.LLMToolResultPacket{
 		ContextID: "t2", ToolID: "t2-tool", Name: "get_weather", Result: map[string]string{"temp": "72F"},
 	}))
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "t2", Data: &protos.Message{
 			Role: "assistant",
 			Message: &protos.Message_Assistant{
@@ -60,7 +60,7 @@ func TestModel_MultiTurn_4Turn_MixedDoneAndToolFlow(t *testing.T) {
 
 	// Turn 3: user -> llm done
 	require.NoError(t, e.Execute(context.Background(), comm, internal_type.UserInputPacket{ContextID: "t3", Text: "thanks"}))
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "t3", Data: &protos.Message{
 			Role: "assistant",
 			Message: &protos.Message_Assistant{
@@ -72,7 +72,7 @@ func TestModel_MultiTurn_4Turn_MixedDoneAndToolFlow(t *testing.T) {
 
 	// Turn 4: user -> llm tool call -> tool result -> llm done
 	require.NoError(t, e.Execute(context.Background(), comm, internal_type.UserInputPacket{ContextID: "t4", Text: "book a cab"}))
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "t4", FinishReason: "tool_calls",
 		Data: &protos.Message{
 			Role: "assistant",
@@ -90,7 +90,7 @@ func TestModel_MultiTurn_4Turn_MixedDoneAndToolFlow(t *testing.T) {
 	require.NoError(t, e.Execute(context.Background(), comm, internal_type.LLMToolResultPacket{
 		ContextID: "t4", ToolID: "t4-tool", Name: "book_cab", Result: map[string]string{"status": "confirmed"},
 	}))
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "t4", Data: &protos.Message{
 			Role: "assistant",
 			Message: &protos.Message_Assistant{
@@ -114,7 +114,7 @@ func TestModel_MultiTurn_5Turn_WithContextSwitchDuringPendingTool(t *testing.T) 
 
 	// Turn 1 done.
 	require.NoError(t, e.Execute(context.Background(), comm, internal_type.UserInputPacket{ContextID: "s1", Text: "hi"}))
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "s1", Data: &protos.Message{
 			Role:    "assistant",
 			Message: &protos.Message_Assistant{Assistant: &protos.AssistantMessage{Contents: []string{"s1 done"}}},
@@ -124,7 +124,7 @@ func TestModel_MultiTurn_5Turn_WithContextSwitchDuringPendingTool(t *testing.T) 
 
 	// Turn 2 opens tool block.
 	require.NoError(t, e.Execute(context.Background(), comm, internal_type.UserInputPacket{ContextID: "s2", Text: "find places"}))
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "s2", FinishReason: "tool_calls",
 		Data: &protos.Message{
 			Role: "assistant",
@@ -149,7 +149,7 @@ func TestModel_MultiTurn_5Turn_WithContextSwitchDuringPendingTool(t *testing.T) 
 	require.Equal(t, beforeLate, len(stream.sendCalls))
 
 	// Turn 3 done.
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "s3", Data: &protos.Message{
 			Role:    "assistant",
 			Message: &protos.Message_Assistant{Assistant: &protos.AssistantMessage{Contents: []string{"s3 done"}}},
@@ -159,7 +159,7 @@ func TestModel_MultiTurn_5Turn_WithContextSwitchDuringPendingTool(t *testing.T) 
 
 	// Turn 4 done.
 	require.NoError(t, e.Execute(context.Background(), comm, internal_type.UserInputPacket{ContextID: "s4", Text: "another"}))
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "s4", Data: &protos.Message{
 			Role:    "assistant",
 			Message: &protos.Message_Assistant{Assistant: &protos.AssistantMessage{Contents: []string{"s4 done"}}},
@@ -169,7 +169,7 @@ func TestModel_MultiTurn_5Turn_WithContextSwitchDuringPendingTool(t *testing.T) 
 
 	// Turn 5 tool flow completes.
 	require.NoError(t, e.Execute(context.Background(), comm, internal_type.UserInputPacket{ContextID: "s5", Text: "final tool request"}))
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "s5", FinishReason: "tool_calls",
 		Data: &protos.Message{
 			Role: "assistant",
@@ -185,7 +185,7 @@ func TestModel_MultiTurn_5Turn_WithContextSwitchDuringPendingTool(t *testing.T) 
 	require.NoError(t, e.Execute(context.Background(), comm, internal_type.LLMToolResultPacket{
 		ContextID: "s5", ToolID: "s5-tool", Name: "do_work", Result: map[string]string{"ok": "1"},
 	}))
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "s5", Data: &protos.Message{
 			Role:    "assistant",
 			Message: &protos.Message_Assistant{Assistant: &protos.AssistantMessage{Contents: []string{"s5 done"}}},

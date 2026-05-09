@@ -2,7 +2,6 @@ package internal_custom_llm_callers
 
 import (
 	"context"
-	"time"
 
 	internal_callers "github.com/rapidaai/api/integration-api/internal/type"
 	"github.com/rapidaai/pkg/commons"
@@ -10,28 +9,30 @@ import (
 )
 
 type verifyCredentialCaller struct {
-	CustomLLM
+	*CustomLLM
 }
 
-func NewVerifyCredentialCaller(logger commons.Logger, credential *protos.Credential) internal_callers.Verifier {
+func NewVerifyCredentialCaller(
+	logger commons.Logger,
+	credential *protos.Credential,
+) internal_callers.Verifier {
+	customLLM, err := New(logger, credential)
+	if err != nil {
+		logger.Errorf("custom-llm: failed to create verify credential caller: %v", err)
+		customLLM = &CustomLLM{}
+	}
 	return &verifyCredentialCaller{
-		CustomLLM: customLLM(logger, credential),
+		CustomLLM: customLLM,
 	}
 }
 
-func (stc *verifyCredentialCaller) CredentialVerifier(
+func (vc *verifyCredentialCaller) CredentialVerifier(
 	ctx context.Context,
-	options *internal_callers.CredentialVerifierOptions) (*string, error) {
-	client, err := stc.GetClient()
+	options *internal_callers.CredentialVerifierOptions,
+) (*string, error) {
+	adapter, err := vc.GetAdapter()
 	if err != nil {
 		return nil, err
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
-	if _, err := client.Models.List(ctx); err != nil {
-		return nil, err
-	}
-	return nil, nil
+	return adapter.VerifyCredential(ctx, options)
 }

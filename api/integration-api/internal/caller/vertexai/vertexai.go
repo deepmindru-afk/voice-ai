@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sync"
 
 	"cloud.google.com/go/auth"
 	"google.golang.org/genai"
@@ -22,8 +21,6 @@ import (
 type VertexAi struct {
 	logger     commons.Logger
 	credential internal_callers.CredentialResolver
-	mu         sync.Mutex
-	client     *genai.Client
 }
 
 var (
@@ -42,13 +39,7 @@ func vertexai(logger commons.Logger, credential *protos.Credential) VertexAi {
 }
 func (goog *VertexAi) GetClient() (*genai.Client, error) {
 	ctx := context.Background()
-	goog.mu.Lock()
-	defer goog.mu.Unlock()
-	if goog.client != nil {
-		return goog.client, nil
-	}
 	credentials := goog.credential()
-
 	prj, ok := credentials[PROJECT_ID]
 	if !ok {
 		return nil, errors.New("unable to resolve the credential")
@@ -94,8 +85,7 @@ func (goog *VertexAi) GetClient() (*genai.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	goog.client = client
-	return goog.client, nil
+	return client, nil
 }
 func (goog *VertexAi) UsageMetrics(usages *genai.GenerateContentResponseUsageMetadata) []*protos.Metric {
 	metrics := make([]*protos.Metric, 0)

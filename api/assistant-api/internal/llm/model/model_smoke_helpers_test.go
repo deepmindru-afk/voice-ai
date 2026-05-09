@@ -71,6 +71,7 @@ type testComm struct {
 	internal_type.Communication
 	assistant    *internal_assistant_entity.Assistant
 	conversation *internal_conversation_entity.AssistantConversation
+	options      utils.Option
 	pkts         []internal_type.Packet
 }
 
@@ -89,7 +90,7 @@ func (m *testComm) GetHistories() []internal_type.MessagePacket {
 }
 func (m *testComm) GetMode() type_enums.MessageMode { return type_enums.TextMode }
 func (m *testComm) GetSource() utils.RapidaSource   { return utils.WebPlugin }
-func (m *testComm) GetOptions() utils.Option        { return nil }
+func (m *testComm) GetOptions() utils.Option        { return m.options }
 
 func newModelTestEnv(t *testing.T) (*modelAssistantExecutor, *testComm, *testStream, *testToolExecutor) {
 	t.Helper()

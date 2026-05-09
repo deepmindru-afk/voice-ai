@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 
 	"google.golang.org/genai"
 
@@ -21,8 +20,6 @@ import (
 type Google struct {
 	logger     commons.Logger
 	credential internal_callers.CredentialResolver
-	mu         sync.Mutex
-	client     *genai.Client
 }
 
 var (
@@ -38,13 +35,7 @@ func google(logger commons.Logger, credential *integration_api.Credential) Googl
 	}
 }
 func (goog *Google) GetClient() (*genai.Client, error) {
-	// need to replace with current request context
 	ctx := context.Background()
-	goog.mu.Lock()
-	defer goog.mu.Unlock()
-	if goog.client != nil {
-		return goog.client, nil
-	}
 	credentials := goog.credential()
 	cx, ok := credentials[API_KEY]
 	if !ok {
@@ -57,8 +48,7 @@ func (goog *Google) GetClient() (*genai.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	goog.client = client
-	return goog.client, nil
+	return client, nil
 }
 func (goog *Google) UsageMetrics(usages *genai.GenerateContentResponseUsageMetadata) []*protos.Metric {
 	metrics := make([]*protos.Metric, 0)

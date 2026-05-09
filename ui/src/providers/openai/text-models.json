@@ -180,6 +180,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -365,6 +388,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -550,6 +596,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -735,6 +804,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -920,6 +1012,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -1105,6 +1220,21 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "websocket",
+          "choices": [
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -1290,6 +1420,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -1475,6 +1628,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -1660,6 +1836,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -1845,6 +2044,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -2030,6 +2252,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -2215,6 +2460,21 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "websocket",
+          "choices": [
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -2400,6 +2660,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -2585,6 +2868,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -2770,6 +3076,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -2955,6 +3284,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -3140,6 +3492,29 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "chat_complete",
+          "choices": [
+            {
+              "label": "Chat Complete",
+              "value": "chat_complete"
+            },
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            },
+            {
+              "label": "Chat Response",
+              "value": "chat_response"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -3277,6 +3652,21 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "websocket",
+          "choices": [
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -3414,6 +3804,21 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "websocket",
+          "choices": [
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -3547,6 +3952,21 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "websocket",
+          "choices": [
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -3680,6 +4100,21 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "websocket",
+          "choices": [
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -3813,6 +4248,21 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "websocket",
+          "choices": [
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }
@@ -3946,6 +4396,21 @@
           "max": 20,
           "step": 1,
           "helpText": "Number of most likely tokens to return at each position (0-20)."
+        },
+        {
+          "key": "connection.transport",
+          "label": "Transport",
+          "type": "select",
+          "advanced": true,
+          "required": false,
+          "default": "websocket",
+          "choices": [
+            {
+              "label": "WebSocket",
+              "value": "websocket"
+            }
+          ],
+          "helpText": "Select transport for OpenAI requests."
         }
       ]
     }

@@ -4,7 +4,10 @@ import (
 	"context"
 	"testing"
 
+	internal_assistant_entity "github.com/rapidaai/api/assistant-api/internal/entity/assistants"
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
+	gorm_models "github.com/rapidaai/pkg/models/gorm"
+	"github.com/rapidaai/pkg/utils"
 	"github.com/rapidaai/protos"
 	"github.com/stretchr/testify/require"
 )
@@ -76,7 +79,7 @@ func TestModel_UserUser_LateFirstResponseDropped(t *testing.T) {
 	require.NoError(t, e.Execute(context.Background(), comm, internal_type.UserInputPacket{ContextID: "ctx-2", Text: "second"}))
 	require.Len(t, stream.sendCalls, 2)
 
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "ctx-1",
 		Data: &protos.Message{
 			Role: "assistant",
@@ -87,7 +90,7 @@ func TestModel_UserUser_LateFirstResponseDropped(t *testing.T) {
 		Metrics: []*protos.Metric{{Name: "token_count", Value: "2"}},
 	})
 
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "ctx-2",
 		Data: &protos.Message{
 			Role: "assistant",
@@ -116,4 +119,32 @@ func TestModel_ExecuteUserTurn_SupersedesOpenToolBlock(t *testing.T) {
 	require.Equal(t, "tool", evt.Name)
 	require.Equal(t, "tool_block_superseded", evt.Data["type"])
 	require.Equal(t, "user_interrupted", evt.Data["reason"])
+}
+
+func TestModel_ExecuteUserTurn_FiltersConnectionAndCredentialFromModelParameters(t *testing.T) {
+	e, comm, stream, _ := newModelTestEnv(t)
+	comm.assistant.AssistantProviderModel.AssistantModelOptions = []*internal_assistant_entity.AssistantProviderModelOption{
+		{Metadata: gorm_models.Metadata{Key: "model.temperature", Value: "0.6"}},
+		{Metadata: gorm_models.Metadata{Key: "connection.transport", Value: "websocket"}},
+		{Metadata: gorm_models.Metadata{Key: "rapida.credential_id", Value: "9"}},
+	}
+	comm.options = utils.Option{
+		"model.top_p":          "0.8",
+		"connection.transport": "chat_complete",
+	}
+
+	err := e.Execute(context.Background(), comm, internal_type.UserInputPacket{
+		ContextID: "ctx-1",
+		Text:      "hello",
+	})
+	require.NoError(t, err)
+	require.Len(t, stream.sendCalls, 1)
+
+	modelParameters := stream.sendCalls[0].GetChat().GetModelParameters()
+	require.Contains(t, modelParameters, "model.temperature")
+	require.Contains(t, modelParameters, "model.top_p")
+	_, hasTransport := modelParameters["connection.transport"]
+	require.False(t, hasTransport)
+	_, hasCredential := modelParameters["rapida.credential_id"]
+	require.False(t, hasCredential)
 }

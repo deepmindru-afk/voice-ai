@@ -34,7 +34,7 @@ type InterruptionPipeline struct {
 }
 
 type ResponsePipeline struct {
-	Response *protos.ChatStreamResponse
+	Response *protos.StreamChatOutput
 }
 
 type ToolFollowUpPipeline struct {

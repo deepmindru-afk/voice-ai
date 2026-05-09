@@ -4,147 +4,77 @@
 package internal_custom_llm_callers
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-	"strings"
 
-	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/option"
-
-	internal_callers "github.com/rapidaai/api/integration-api/internal/type"
+	internal_anthropic_messages "github.com/rapidaai/api/integration-api/internal/caller/custom_llm/anthropic_messages"
+	internal_custom_llm_common "github.com/rapidaai/api/integration-api/internal/caller/custom_llm/common"
+	internal_gemini_generate_content "github.com/rapidaai/api/integration-api/internal/caller/custom_llm/gemini_generate_content"
+	internal_openai_chat_completions "github.com/rapidaai/api/integration-api/internal/caller/custom_llm/openai_chat_completions"
+	internal_openai_compatible "github.com/rapidaai/api/integration-api/internal/caller/custom_llm/openai_compatible"
+	internal_openai_responses "github.com/rapidaai/api/integration-api/internal/caller/custom_llm/openai_responses"
 	"github.com/rapidaai/pkg/commons"
-	type_enums "github.com/rapidaai/pkg/types/enums"
 	integration_api "github.com/rapidaai/protos"
 )
 
 type CustomLLM struct {
-	logger     commons.Logger
-	credential internal_callers.CredentialResolver
+	compatibility internal_custom_llm_common.Compatibility
+	adapter       internal_custom_llm_common.Adapter
 }
 
-const (
-	CRED_API_COMPATIBILITY = "apiCompatibility"
-	CRED_BASE_URL          = "baseUrl"
-	CRED_HEADERS           = "headers"
-)
-
-const (
-	CompatOpenAI    = "openai"
-	CompatAnthropic = "anthropic"
-	CompatCustom    = "custom"
-)
-
-const (
-	ChatRoleAssistant string = "assistant"
-	ChatRoleFunction  string = "function"
-	ChatRoleSystem    string = "system"
-	ChatRoleTool      string = "tool"
-	ChatRoleUser      string = "user"
-)
-
-func customLLM(logger commons.Logger, credential *integration_api.Credential) CustomLLM {
-	_credential := credential.GetValue().AsMap()
-	return CustomLLM{
-		logger: logger,
-		credential: func() map[string]interface{} {
-			return _credential
-		},
+func New(
+	logger commons.Logger,
+	credential *integration_api.Credential,
+) (*CustomLLM, error) {
+	config, err := internal_custom_llm_common.ParseClientConfig(logger, credential)
+	if err != nil {
+		logger.Errorf("custom-llm: failed to parse credential config: %v", err)
+		return nil, err
 	}
+
+	openAIClient := internal_custom_llm_common.NewOpenAIClient(config)
+	dependencies := internal_custom_llm_common.AdapterDependencies{
+		Logger:       logger,
+		Config:       config,
+		OpenAIClient: &openAIClient,
+		HTTPClient:   internal_custom_llm_common.NewHTTPClient(config),
+	}
+	adapter, err := newAdapter(config.Compatibility, dependencies)
+	if err != nil {
+		logger.Errorf("custom-llm: failed to initialize compatibility adapter %q: %v", config.Compatibility, err)
+		return nil, err
+	}
+
+	return &CustomLLM{
+		compatibility: config.Compatibility,
+		adapter:       adapter,
+	}, nil
 }
 
-func (cl *CustomLLM) GetClient() (*openai.Client, error) {
-	credentials := cl.credential()
-
-	compat := strings.ToLower(strings.TrimSpace(stringValue(credentials, CRED_API_COMPATIBILITY)))
-	if compat == "" {
-		compat = CompatOpenAI
+func (cl *CustomLLM) GetAdapter() (internal_custom_llm_common.Adapter, error) {
+	if cl.adapter == nil {
+		return nil, fmt.Errorf("custom-llm: adapter not initialized for compatibility %q", cl.compatibility)
 	}
-	if compat != CompatOpenAI {
-		return nil, fmt.Errorf("custom-llm: api compatibility %q is not implemented", compat)
-	}
-
-	baseURL := strings.TrimSpace(stringValue(credentials, CRED_BASE_URL))
-	if baseURL == "" {
-		cl.logger.Errorf("custom-llm: missing base url")
-		return nil, errors.New("custom-llm: base url must be a non-empty string")
-	}
-
-	opts := []option.RequestOption{
-		option.WithBaseURL(baseURL),
-	}
-	for k, v := range parseHeaders(credentials[CRED_HEADERS]) {
-		opts = append(opts, option.WithHeader(k, v))
-	}
-
-	client := openai.NewClient(opts...)
-	return &client, nil
+	return cl.adapter, nil
 }
 
-func (cl *CustomLLM) GetCompletionUsages(usages openai.CompletionUsage) []*integration_api.Metric {
-	metrics := make([]*integration_api.Metric, 0)
-	metrics = append(metrics, &integration_api.Metric{
-		Name:        type_enums.OUTPUT_TOKEN.String(),
-		Value:       fmt.Sprintf("%d", usages.CompletionTokens),
-		Description: "LLM Output token",
-	})
-
-	metrics = append(metrics, &integration_api.Metric{
-		Name:        type_enums.INPUT_TOKEN.String(),
-		Value:       fmt.Sprintf("%d", usages.PromptTokens),
-		Description: "LLM Input Token",
-	})
-
-	metrics = append(metrics, &integration_api.Metric{
-		Name:        type_enums.TOTAL_TOKEN.String(),
-		Value:       fmt.Sprintf("%d", usages.TotalTokens),
-		Description: "Total Token",
-	})
-	return metrics
-}
-
-func stringValue(m map[string]interface{}, key string) string {
-	v, ok := m[key]
-	if !ok {
-		return ""
-	}
-	s, ok := v.(string)
-	if !ok {
-		return ""
-	}
-	return s
-}
-
-func parseHeaders(raw interface{}) map[string]string {
-	out := map[string]string{}
-	if raw == nil {
-		return out
-	}
-	switch v := raw.(type) {
-	case string:
-		trimmed := strings.TrimSpace(v)
-		if trimmed == "" {
-			return out
-		}
-		var decoded map[string]interface{}
-		if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
-			return out
-		}
-		for k, val := range decoded {
-			if s, ok := val.(string); ok {
-				out[k] = s
-			} else {
-				out[k] = fmt.Sprintf("%v", val)
-			}
-		}
-	case map[string]interface{}:
-		for k, val := range v {
-			if s, ok := val.(string); ok {
-				out[k] = s
-			} else {
-				out[k] = fmt.Sprintf("%v", val)
-			}
+func newAdapter(
+	compatibility internal_custom_llm_common.Compatibility,
+	dependencies internal_custom_llm_common.AdapterDependencies,
+) (internal_custom_llm_common.Adapter, error) {
+	switch compatibility {
+	case internal_custom_llm_common.CompatibilityOpenAIChatCompletions:
+		return internal_openai_chat_completions.New(dependencies)
+	case internal_custom_llm_common.CompatibilityOpenAIResponses:
+		return internal_openai_responses.New(dependencies)
+	case internal_custom_llm_common.CompatibilityOpenAICompatible:
+		return internal_openai_compatible.New(dependencies)
+	case internal_custom_llm_common.CompatibilityAnthropicMessages:
+		return internal_anthropic_messages.New(dependencies)
+	case internal_custom_llm_common.CompatibilityGeminiGenerateContent:
+		return internal_gemini_generate_content.New(dependencies)
+	default:
+		return nil, internal_custom_llm_common.UnsupportedCompatibilityError{
+			Compatibility: compatibility,
 		}
 	}
-	return out
 }

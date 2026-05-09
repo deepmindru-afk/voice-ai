@@ -9,6 +9,7 @@ import (
 
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 	"github.com/rapidaai/pkg/commons"
+	"github.com/rapidaai/pkg/utils"
 	"github.com/rapidaai/protos"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
@@ -109,7 +110,7 @@ func TestModel_Close_ThenLatePackets_NoCrash(t *testing.T) {
 
 	require.NoError(t, e.Close(context.Background()))
 
-	e.handleResponse(context.Background(), comm, &protos.ChatStreamResponse{
+	e.handleResponse(context.Background(), comm, &protos.StreamChatOutput{
 		RequestId: "ctx-close2",
 		Data: &protos.Message{
 			Role: "assistant",
@@ -124,6 +125,23 @@ func TestModel_Close_ThenLatePackets_NoCrash(t *testing.T) {
 	}))
 
 	require.Empty(t, findPackets[internal_type.LLMResponseDonePacket](comm.pkts))
+}
+
+func TestModel_SendStreamConfiguration_IncludesConnectionOptions(t *testing.T) {
+	e, comm, stream, _ := newModelTestEnv(t)
+	comm.options = utils.Option{
+		"connection.transport": "websocket",
+		"model.temperature":    "0.4",
+	}
+
+	require.NoError(t, e.sendStreamConfiguration(context.Background(), stream, comm))
+	require.Len(t, stream.sendCalls, 1)
+
+	cfg := stream.sendCalls[0].GetConfiguration()
+	require.NotNil(t, cfg)
+	require.Equal(t, "websocket", cfg.GetConnectionOptions()["connection.transport"])
+	_, hasModelKey := cfg.GetConnectionOptions()["model.temperature"]
+	require.False(t, hasModelKey)
 }
 
 type listenErrorStream struct {

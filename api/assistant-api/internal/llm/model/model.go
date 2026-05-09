@@ -84,25 +84,22 @@ func (e *modelAssistantExecutor) Initialize(ctx context.Context, communication i
 	}
 
 	e.providerCredential = providerCredential
-	stream, err := communication.IntegrationCaller().StreamChat(
-		ctx, communication.Auth(),
-		communication.Assistant().AssistantProviderModel.ModelProviderName,
-	)
+	// Keep integration stream lifecycle independent from the short init deadline.
+	// Initialization still respects ctx via open/send gating below.
+	runtimeCtx, runtimeCancel := context.WithCancel(context.Background())
+	stream, err := e.openStream(ctx, runtimeCtx, communication)
 	if err != nil {
+		runtimeCancel()
 		return fmt.Errorf("failed to open stream: %w", err)
 	}
-	if err := stream.Send(&protos.StreamChatRequest{
-		Request: &protos.StreamChatRequest_Configuration{
-			Configuration: &protos.StreamChatConfiguration{
-				Credential:   &protos.Credential{Id: e.providerCredential.GetId(), Value: e.providerCredential.GetValue()},
-				ProviderName: strings.ToLower(communication.Assistant().AssistantProviderModel.ModelProviderName),
-			},
-		},
-	}); err != nil {
+	if err := e.sendStreamConfiguration(ctx, stream, communication); err != nil {
+		runtimeCancel()
+		_ = stream.CloseSend()
 		return err
 	}
 	e.stream = stream
-	e.ctx, e.ctxCancel = context.WithCancel(ctx)
+	e.ctx = runtimeCtx
+	e.ctxCancel = runtimeCancel
 	utils.Go(e.ctx, func() { e.listen(e.ctx, communication) })
 
 	llmData := communication.Assistant().AssistantProviderModel.GetOptions().ToStringMap()
@@ -111,6 +108,68 @@ func (e *modelAssistantExecutor) Initialize(ctx context.Context, communication i
 	llmData["init_ms"] = fmt.Sprintf("%d", time.Since(start).Milliseconds())
 	communication.OnPacket(ctx, internal_type.ConversationEventPacket{Name: "llm", Data: llmData, Time: time.Now()})
 	return nil
+}
+
+func (e *modelAssistantExecutor) openStream(
+	initCtx context.Context,
+	runtimeCtx context.Context,
+	communication internal_type.Communication,
+) (grpc.BidiStreamingClient[protos.StreamChatRequest, protos.StreamChatResponse], error) {
+	type result struct {
+		stream grpc.BidiStreamingClient[protos.StreamChatRequest, protos.StreamChatResponse]
+		err    error
+	}
+	done := make(chan result, 1)
+	go func() {
+		stream, err := communication.IntegrationCaller().StreamChat(
+			runtimeCtx, communication.Auth(),
+			communication.Assistant().AssistantProviderModel.ModelProviderName,
+		)
+		done <- result{stream: stream, err: err}
+	}()
+	select {
+	case <-initCtx.Done():
+		return nil, initCtx.Err()
+	case res := <-done:
+		return res.stream, res.err
+	}
+}
+
+func (e *modelAssistantExecutor) sendStreamConfiguration(
+	initCtx context.Context,
+	stream grpc.BidiStreamingClient[protos.StreamChatRequest, protos.StreamChatResponse],
+	communication internal_type.Communication,
+) error {
+	mergedOptions := utils.MergeMaps(
+		communication.Assistant().AssistantProviderModel.GetOptions(),
+		communication.GetOptions(),
+	)
+	connectionOptions := make(map[string]string)
+	for key, value := range mergedOptions {
+		if !strings.HasPrefix(key, "connection.") || value == nil {
+			continue
+		}
+		connectionOptions[key] = fmt.Sprintf("%v", value)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- stream.Send(&protos.StreamChatRequest{
+			Request: &protos.StreamChatRequest_Configuration{
+				Configuration: &protos.StreamChatConfiguration{
+					Credential:        &protos.Credential{Id: e.providerCredential.GetId(), Value: e.providerCredential.GetValue()},
+					ProviderName:      strings.ToLower(communication.Assistant().AssistantProviderModel.ModelProviderName),
+					ConnectionOptions: connectionOptions,
+				},
+			},
+		})
+	}()
+	select {
+	case <-initCtx.Done():
+		return initCtx.Err()
+	case err := <-done:
+		return err
+	}
 }
 
 func (e *modelAssistantExecutor) Close(ctx context.Context) error {
@@ -267,7 +326,7 @@ func (e *modelAssistantExecutor) handleInterruption() {
 	e.history.SupersedePending()
 }
 
-func (e *modelAssistantExecutor) handleResponse(ctx context.Context, communication internal_type.Communication, resp *protos.ChatStreamResponse) {
+func (e *modelAssistantExecutor) handleResponse(ctx context.Context, communication internal_type.Communication, resp *protos.StreamChatOutput) {
 	if e.isStaleResponse(resp.GetRequestId()) {
 		return
 	}
@@ -486,31 +545,61 @@ func (e *modelAssistantExecutor) buildBasePromptArgs(communication internal_type
 // Chat request builder
 // =============================================================================
 
-func (e *modelAssistantExecutor) chatStreamRequest(communication internal_type.Communication, contextID string, promptArgs map[string]interface{}, messages ...*protos.Message) *protos.ChatStreamRequest {
+func (e *modelAssistantExecutor) chatStreamRequest(communication internal_type.Communication, contextID string, promptArgs map[string]interface{}, messages ...*protos.Message) *protos.StreamChatInput {
 	assistant := communication.Assistant()
 	template := assistant.AssistantProviderModel.Template.GetTextChatCompleteTemplate()
 	defaultArgs := parsers.CanonicalizePromptArguments(e.inputBuilder.PromptArguments(template.Variables))
 	runtimeArgs := parsers.CanonicalizePromptArguments(promptArgs)
 	systemMessages := e.inputBuilder.Message(template.Prompt, utils.MergeMaps(defaultArgs, runtimeArgs))
-	src := e.inputBuilder.Chat(
-		contextID,
-		&protos.Credential{Id: e.providerCredential.GetId(), Value: e.providerCredential.GetValue()},
-		e.inputBuilder.Options(utils.MergeMaps(assistant.AssistantProviderModel.GetOptions(), communication.GetOptions()), nil),
-		e.toolExecutor.GetFunctionDefinitions(),
-		map[string]string{
-			"assistant_id":                fmt.Sprintf("%d", assistant.Id),
-			"message_id":                  contextID,
-			"assistant_provider_model_id": fmt.Sprintf("%d", assistant.AssistantProviderModel.Id),
-		},
-		append(systemMessages, messages...)...,
-	)
-	return &protos.ChatStreamRequest{
+	src := e.buildStreamChatInput(communication, contextID, append(systemMessages, messages...)...)
+	return &protos.StreamChatInput{
 		RequestId:       src.GetRequestId(),
 		ProviderName:    strings.ToLower(assistant.AssistantProviderModel.ModelProviderName),
 		Conversations:   src.GetConversations(),
 		AdditionalData:  src.GetAdditionalData(),
 		ModelParameters: src.GetModelParameters(),
 		ToolDefinitions: src.GetToolDefinitions(),
+	}
+}
+
+func (e *modelAssistantExecutor) buildStreamChatInput(
+	communication internal_type.Communication,
+	contextID string,
+	conversations ...*protos.Message,
+) *protos.StreamChatInput {
+	assistant := communication.Assistant()
+	mergedOptions := utils.MergeMaps(
+		assistant.AssistantProviderModel.GetOptions(),
+		communication.GetOptions(),
+	)
+	modelOptions := make(map[string]interface{}, len(mergedOptions))
+	for key, value := range mergedOptions {
+		if key == "rapida.credential_id" || strings.HasPrefix(key, "connection.") {
+			continue
+		}
+		modelOptions[key] = value
+	}
+
+	functionDefinitions := e.toolExecutor.GetFunctionDefinitions()
+	toolDefinitions := make([]*protos.ToolDefinition, 0, len(functionDefinitions))
+	for _, definition := range functionDefinitions {
+		toolDefinitions = append(toolDefinitions, &protos.ToolDefinition{
+			Type:               "function",
+			FunctionDefinition: definition,
+		})
+	}
+
+	return &protos.StreamChatInput{
+		RequestId:     contextID,
+		ProviderName:  strings.ToLower(assistant.AssistantProviderModel.ModelProviderName),
+		Conversations: conversations,
+		AdditionalData: map[string]string{
+			"assistant_id":                fmt.Sprintf("%d", assistant.Id),
+			"message_id":                  contextID,
+			"assistant_provider_model_id": fmt.Sprintf("%d", assistant.AssistantProviderModel.Id),
+		},
+		ModelParameters: e.inputBuilder.Options(modelOptions, nil),
+		ToolDefinitions: toolDefinitions,
 	}
 }
 

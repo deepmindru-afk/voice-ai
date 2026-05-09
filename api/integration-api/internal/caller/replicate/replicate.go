@@ -3,7 +3,6 @@ package internal_replicate_callers
 import (
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	replicate_go "github.com/replicate/replicate-go"
@@ -18,8 +17,6 @@ import (
 type Replicate struct {
 	logger     commons.Logger
 	credential internal_callers.CredentialResolver
-	mu         sync.Mutex
-	client     *replicate_go.Client
 }
 
 var (
@@ -39,23 +36,13 @@ func replicate(logger commons.Logger, credential *integration_api.Credential) Re
 }
 
 func (replicate *Replicate) GetClient() (*replicate_go.Client, error) {
-	replicate.mu.Lock()
-	defer replicate.mu.Unlock()
-	if replicate.client != nil {
-		return replicate.client, nil
-	}
 	credentials := replicate.credential()
 	cx, ok := credentials[API_KEY]
 	if !ok {
 		replicate.logger.Errorf("Unable to get client for replicate")
 		return nil, errors.New("unable to resolve the credential")
 	}
-	client, err := replicate_go.NewClient(replicate_go.WithToken(cx.(string)))
-	if err != nil {
-		return nil, err
-	}
-	replicate.client = client
-	return replicate.client, nil
+	return replicate_go.NewClient(replicate_go.WithToken(cx.(string)))
 }
 
 func (replicate *Replicate) UsageMetrics(usages *replicate_go.PredictionMetrics) []*protos.Metric {

@@ -3,7 +3,6 @@ package internal_anthropic_callers
 import (
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -18,8 +17,6 @@ import (
 type Anthropic struct {
 	logger     commons.Logger
 	credential internal_callers.CredentialResolver
-	mu         sync.Mutex
-	client     *anthropic.Client
 }
 
 var (
@@ -43,11 +40,6 @@ func anthropicAI(logger commons.Logger, credential *protos.Credential) Anthropic
 }
 
 func (aicaller *Anthropic) GetClient() (*anthropic.Client, error) {
-	aicaller.mu.Lock()
-	defer aicaller.mu.Unlock()
-	if aicaller.client != nil {
-		return aicaller.client, nil
-	}
 	credentials := aicaller.credential()
 	cx, ok := credentials[API_KEY]
 	if !ok {
@@ -57,8 +49,7 @@ func (aicaller *Anthropic) GetClient() (*anthropic.Client, error) {
 	clt := anthropic.NewClient(
 		option.WithAPIKey(cx.(string)),
 	)
-	aicaller.client = &clt
-	return aicaller.client, nil
+	return &clt, nil
 }
 
 func (anthropicC *Anthropic) UsageMetrics(usages anthropic.Usage) []*protos.Metric {

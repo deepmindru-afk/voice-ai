@@ -14,6 +14,8 @@ import (
 	internal_huggingface_callers "github.com/rapidaai/api/integration-api/internal/caller/huggingface"
 	internal_mistral_callers "github.com/rapidaai/api/integration-api/internal/caller/mistral"
 	internal_openai_callers "github.com/rapidaai/api/integration-api/internal/caller/openai"
+	internal_openai_text_embedding "github.com/rapidaai/api/integration-api/internal/caller/openai/text_embedding"
+	internal_openai_verify_credential "github.com/rapidaai/api/integration-api/internal/caller/openai/verify_credential"
 	internal_replicate_callers "github.com/rapidaai/api/integration-api/internal/caller/replicate"
 	internal_vertexai_callers "github.com/rapidaai/api/integration-api/internal/caller/vertexai"
 	internal_voyageai_callers "github.com/rapidaai/api/integration-api/internal/caller/voyageai"
@@ -25,25 +27,25 @@ import (
 type IntegrationProvider string
 
 const (
-	OPENAI     IntegrationProvider = "openai"
-	CUSTOM_LLM IntegrationProvider = "custom-llm"
-	ANTHROPIC         IntegrationProvider = "anthropic"
-	GEMINI            IntegrationProvider = "gemini"
-	VERTEXAI          IntegrationProvider = "vertexai"
-	AZURE             IntegrationProvider = "azure-foundry"
-	COHERE            IntegrationProvider = "cohere"
-	MISTRAL           IntegrationProvider = "mistral"
-	REPLICATE         IntegrationProvider = "replicate"
-	HUGGINGFACE       IntegrationProvider = "huggingface"
-	VOYAGEAI          IntegrationProvider = "voyageai"
+	OPENAI      IntegrationProvider = "openai"
+	CUSTOM_LLM  IntegrationProvider = "custom-llm"
+	ANTHROPIC   IntegrationProvider = "anthropic"
+	GEMINI      IntegrationProvider = "gemini"
+	VERTEXAI    IntegrationProvider = "vertexai"
+	AZURE       IntegrationProvider = "azure-foundry"
+	COHERE      IntegrationProvider = "cohere"
+	MISTRAL     IntegrationProvider = "mistral"
+	REPLICATE   IntegrationProvider = "replicate"
+	HUGGINGFACE IntegrationProvider = "huggingface"
+	VOYAGEAI    IntegrationProvider = "voyageai"
 )
 
 func GetLargeLanguageCaller(logger commons.Logger, provider string, credential *protos.Credential) (internal_types.LargeLanguageCaller, error) {
 	switch IntegrationProvider(provider) {
 	case OPENAI:
-		return internal_openai_callers.NewLargeLanguageCaller(logger, credential), nil
+		return nil, fmt.Errorf("openai large language caller is removed; use chat/chat_stream openai factory")
 	case CUSTOM_LLM:
-		return internal_custom_llm_callers.NewLargeLanguageCaller(logger, credential), nil
+		return internal_custom_llm_callers.NewLargeLanguageCaller(logger, credential)
 	case ANTHROPIC:
 		return internal_anthropic_callers.NewLargeLanguageCaller(logger, credential), nil
 	case GEMINI:
@@ -65,10 +67,38 @@ func GetLargeLanguageCaller(logger commons.Logger, provider string, credential *
 	}
 }
 
+func GetChat(
+	logger commons.Logger,
+	provider string,
+	credential *protos.Credential,
+	connectionOptions map[string]string,
+) (internal_types.Chat, error) {
+	switch IntegrationProvider(provider) {
+	case OPENAI:
+		return internal_openai_callers.NewChat(logger, credential, connectionOptions)
+	default:
+		return nil, fmt.Errorf("unsupported chat provider: %s (only openai is enabled)", provider)
+	}
+}
+
+func GetChatStream(
+	logger commons.Logger,
+	provider string,
+	credential *protos.Credential,
+	connectionOptions map[string]string,
+) (internal_types.ChatStream, error) {
+	switch IntegrationProvider(provider) {
+	case OPENAI:
+		return internal_openai_callers.NewChatStream(logger, credential, connectionOptions)
+	default:
+		return nil, fmt.Errorf("unsupported stream provider: %s (only openai is enabled)", provider)
+	}
+}
+
 func GetEmbeddingCaller(logger commons.Logger, provider string, credential *protos.Credential) (internal_types.EmbeddingCaller, error) {
 	switch IntegrationProvider(provider) {
 	case OPENAI:
-		return internal_openai_callers.NewEmbeddingCaller(logger, credential), nil
+		return internal_openai_text_embedding.New(logger, credential), nil
 	case GEMINI:
 		return internal_gemini_callers.NewEmbeddingCaller(logger, credential), nil
 	case VERTEXAI:
@@ -102,7 +132,7 @@ func GetRerankingCaller(logger commons.Logger, provider string, credential *prot
 func GetVerifier(logger commons.Logger, provider string, credential *protos.Credential) (internal_types.Verifier, error) {
 	switch IntegrationProvider(provider) {
 	case OPENAI:
-		return internal_openai_callers.NewVerifyCredentialCaller(logger, credential), nil
+		return internal_openai_verify_credential.New(logger, credential), nil
 	case CUSTOM_LLM:
 		return internal_custom_llm_callers.NewVerifyCredentialCaller(logger, credential), nil
 	case ANTHROPIC:
