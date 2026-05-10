@@ -332,37 +332,56 @@ func (assistantGRPCApi *webAssistantGRPCApi) GetAllAssistantWebhook(ctx context.
 		tls)
 }
 
-// GetAllAssistantWebhookLog implements protos.AssistantServiceServer.
-func (assistantGRPCApi *webAssistantGRPCApi) GetAllAssistantWebhookLog(ctx context.Context, iRequest *protos.GetAllAssistantWebhookLogRequest) (*protos.GetAllAssistantWebhookLogResponse, error) {
+// GetAllAssistantHTTPLog implements protos.AssistantServiceServer.
+func (assistantGRPCApi *webAssistantGRPCApi) GetAllAssistantHTTPLog(ctx context.Context, iRequest *protos.GetAllAssistantHTTPLogRequest) (*protos.GetAllAssistantHTTPLogResponse, error) {
 	iAuth, isAuthenticated := types.GetAuthPrincipleGPRC(ctx)
 	if !isAuthenticated {
 		assistantGRPCApi.logger.Errorf("unauthenticated request to create assistant tag")
 		return nil, errors.New("unauthenticated request")
 	}
 
-	page, tls, err := assistantGRPCApi.assistantClient.GetAllAssistantWebhookLog(ctx, iAuth,
+	page, tls, err := assistantGRPCApi.assistantClient.GetAllAssistantHTTPLog(ctx, iAuth,
 		iRequest.GetProjectId(),
 		iRequest.GetCriterias(), iRequest.GetPaginate(), iRequest.GetOrder())
 	if err != nil {
-		return utils.Error[protos.GetAllAssistantWebhookLogResponse](
+		return utils.Error[protos.GetAllAssistantHTTPLogResponse](
 			err,
-			"Unable to get all the webhook logs, please try again later.",
+			"Unable to get all the HTTP logs, please try again later.",
 		)
 	}
+	if page == nil {
+		return utils.Error[protos.GetAllAssistantHTTPLogResponse](
+			errors.New("assistant api returned empty pagination for http logs"),
+			"Unable to get all the HTTP logs, please try again later.",
+		)
+	}
+	if tls == nil {
+		tls = make([]*protos.AssistantHTTPLog, 0)
+	}
 
-	return utils.PaginatedSuccess[protos.GetAllAssistantWebhookLogResponse, []*protos.AssistantWebhookLog](
+	return utils.PaginatedSuccess[protos.GetAllAssistantHTTPLogResponse, []*protos.AssistantHTTPLog](
 		page.GetTotalItem(), page.GetCurrentPage(),
 		tls)
 }
 
-func (assistantGRPCApi *webAssistantGRPCApi) GetAssistantWebhookLog(ctx context.Context, iRequest *protos.GetAssistantWebhookLogRequest) (*protos.GetAssistantWebhookLogResponse, error) {
+func (assistantGRPCApi *webAssistantGRPCApi) GetAssistantHTTPLog(ctx context.Context, iRequest *protos.GetAssistantHTTPLogRequest) (*protos.GetAssistantHTTPLogResponse, error) {
 	iAuth, isAuthenticated := types.GetAuthPrincipleGPRC(ctx)
 	if !isAuthenticated {
 		assistantGRPCApi.logger.Errorf("unauthenticated request to create assistant tag")
 		return nil, errors.New("unauthenticated request")
 	}
 
-	return assistantGRPCApi.assistantClient.GetAssistantWebhookLog(ctx, iAuth, iRequest)
+	return assistantGRPCApi.assistantClient.GetAssistantHTTPLog(ctx, iAuth, iRequest)
+}
+
+func (assistantGRPCApi *webAssistantGRPCApi) RetryAssistantHTTPLog(ctx context.Context, iRequest *protos.RetryAssistantHTTPLogRequest) (*protos.GetAssistantHTTPLogResponse, error) {
+	iAuth, isAuthenticated := types.GetAuthPrincipleGPRC(ctx)
+	if !isAuthenticated {
+		assistantGRPCApi.logger.Errorf("unauthenticated request to create assistant tag")
+		return nil, errors.New("unauthenticated request")
+	}
+
+	return assistantGRPCApi.assistantClient.RetryAssistantHTTPLog(ctx, iAuth, iRequest)
 }
 
 // GetAssistantWebhook implements protos.AssistantServiceServer.

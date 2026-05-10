@@ -193,7 +193,6 @@ func (h requestorDispatchHandler) HandleUserInput(ctx context.Context, p interna
 
 	if h.r.assistantExecutor != nil {
 		utils.Go(ctx, func() {
-			h.r.logger.Debugf("HandleEndOfSpeech esneding execution to assistant executor for contextID == 2 %s", contextID)
 			if err := h.r.assistantExecutor.Execute(ctx, h.r, p); err != nil {
 				h.r.OnPacket(ctx, internal_type.LLMErrorPacket{ContextID: contextID, Error: err})
 			}
@@ -431,11 +430,14 @@ func (h requestorDispatchHandler) HandleError(ctx context.Context, p internal_ty
 		})
 	}
 	if !p.IsRecoverable() {
-		h.r.RunError(ctx, p.ContextId())
 		var conversationId uint64
 		if h.r.Conversation() != nil {
 			conversationId = h.r.Conversation().Id
 		}
+		h.r.OnPacket(ctx, internal_type.WebhookStartPacket{
+			ContextID: p.ContextId(),
+			Event:     utils.ConversationFailed,
+		})
 		h.r.Notify(ctx,
 			&protos.ConversationError{
 				AssistantConversationId: conversationId,
@@ -819,21 +821,24 @@ func (h requestorDispatchHandler) HandleToolLogUpdate(ctx context.Context, p int
 		h.r.logger.Errorf("error logging tool call result: %v", err)
 	}
 }
-func (h requestorDispatchHandler) HandleWebhookLogCreate(ctx context.Context, p internal_type.WebhookLogCreatePacket) {
-	if err := h.r.CreateWebhookLog(
+func (h requestorDispatchHandler) HandleHTTPLogCreate(ctx context.Context, p internal_type.HTTPLogCreatePacket) {
+	if err := h.r.CreateHTTPLog(
 		ctx,
-		p.WebhookID,
+		p.Source,
+		p.SourceRefID,
+		p.SourceEvent,
+		p.ContextID,
 		p.HTTPURL,
 		p.HTTPMethod,
-		p.Event,
 		p.ResponseStatus,
 		p.TimeTaken,
 		p.RetryCount,
 		p.Status,
+		p.ErrorMessage,
 		p.RequestPayload,
 		p.ResponsePayload,
 	); err != nil {
-		h.r.logger.Errorf("error logging webhook execution: %v", err)
+		h.r.logger.Errorf("error logging http execution: %v", err)
 	}
 }
 func (h requestorDispatchHandler) HandleConversationEvent(ctx context.Context, p internal_type.ConversationEventPacket) {
@@ -1010,6 +1015,15 @@ func (h requestorDispatchHandler) HandleInitializeSessionRuntime(ctx context.Con
 }
 func (h requestorDispatchHandler) HandleInitializeAuthentication(ctx context.Context, p internal_type.InitializeAuthenticationPacket) {
 	if h.r.assistant.AssistantAuthentication == nil {
+		h.r.OnPacket(ctx, internal_type.SessionAuthenticationSucceededPacket{
+			ContextID:      p.ContextID,
+			Authenticated:  false,
+			Initialization: p.Config,
+		})
+		return
+	}
+
+	if !h.r.isConditionAllowed(h.r.assistant.AssistantAuthentication.GetOptions(), "authentication.condition") {
 		h.r.OnPacket(ctx, internal_type.SessionAuthenticationSucceededPacket{
 			ContextID:      p.ContextID,
 			Authenticated:  false,
@@ -1281,7 +1295,6 @@ func (h requestorDispatchHandler) HandleInitializeEndOfSpeech(ctx context.Contex
 		h.r.OnPacket,
 		options)
 	if err != nil {
-		h.r.logger.Warnf("unable to initialize text analyzer %+v", err)
 		return
 	}
 	h.r.endOfSpeech = endOfSpeech
@@ -1808,9 +1821,8 @@ func (h requestorDispatchHandler) HandleFinalizationCompleted(ctx context.Contex
 func (h requestorDispatchHandler) HandleAnalysisStart(ctx context.Context, p internal_type.AnalysisStartPacket) {
 	source := variable.NewCommunicationSource(h.r)
 	registry := internal_namespace.NewDefaultRegistry().With("event", &internal_namespace.EventNamespace{})
-	direction := h.r.Conversation().Direction.String()
 	for _, analysis := range h.r.assistant.AssistantAnalyses {
-		if !h.r.isConditionAllowed(analysis.GetOptions(), "analysis.condition", direction) {
+		if !h.r.isConditionAllowed(analysis.GetOptions(), "analysis.condition") {
 			continue
 		}
 		h.r.OnPacket(ctx, internal_type.ExecuteAnalysisPacket{
@@ -1848,12 +1860,11 @@ func (h requestorDispatchHandler) HandleAnalysisDone(ctx context.Context, p inte
 func (h requestorDispatchHandler) HandleWebhookStart(ctx context.Context, p internal_type.WebhookStartPacket) {
 	source := variable.NewCommunicationSource(h.r)
 	registry := internal_namespace.NewDefaultRegistry().With("event", &internal_namespace.EventNamespace{})
-	direction := h.r.Conversation().Direction.String()
 	for _, webhook := range h.r.assistant.AssistantWebhooks {
 		if !slices.Contains(webhook.GetAssistantEvents(), p.Event.Get()) {
 			continue
 		}
-		if !h.r.isConditionAllowed(webhook.GetOptions(), "webhook.condition", direction) {
+		if !h.r.isConditionAllowed(webhook.GetOptions(), "webhook.condition") {
 			continue
 		}
 		h.r.OnPacket(ctx, internal_type.ExecuteWebhookPacket{
@@ -1981,17 +1992,7 @@ func (r *genericRequestor) extractClientInformation(ctx context.Context) []*prot
 	return metadata
 }
 
-// RunError fires ConversationFailed webhooks with a nil Done channel, making
-// them fire-and-forget. No further finalization chain steps are triggered — the
-// session cleanup happens when the stream closes and Disconnect is called normally.
-func (r *genericRequestor) RunError(ctx context.Context, contextID string) {
-	r.OnPacket(ctx, internal_type.WebhookStartPacket{
-		ContextID: contextID,
-		Event:     utils.ConversationFailed,
-	})
-}
-
-func (r *genericRequestor) isConditionAllowed(opts utils.Option, key string, direction string) bool {
+func (r *genericRequestor) isConditionAllowed(opts utils.Option, key string) bool {
 	raw, err := opts.GetString(key)
 	if err != nil {
 		return true
@@ -2004,7 +2005,7 @@ func (r *genericRequestor) isConditionAllowed(opts utils.Option, key string, dir
 	allowed, evalErr := parsed.Run(
 		internal_condition.ConditionValue{RuleType: internal_condition.RuleTypeSource, Value: r.GetSource().Get()},
 		internal_condition.ConditionValue{RuleType: internal_condition.RuleTypeMode, Value: r.GetMode().String()},
-		internal_condition.ConditionValue{RuleType: internal_condition.RuleTypeDirection, Value: direction},
+		internal_condition.ConditionValue{RuleType: internal_condition.RuleTypeDirection, Value: r.Conversation().Direction.String()},
 	)
 	if evalErr != nil {
 		r.logger.Warnf("condition eval failed for %s: %v", key, evalErr)

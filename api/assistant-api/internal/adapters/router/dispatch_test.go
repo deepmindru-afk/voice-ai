@@ -75,7 +75,7 @@ func (s *dispatchHandlerStub) HandleToolLogCreate(context.Context, internal_type
 }
 func (s *dispatchHandlerStub) HandleToolLogUpdate(context.Context, internal_type.ToolLogUpdatePacket) {
 }
-func (s *dispatchHandlerStub) HandleWebhookLogCreate(context.Context, internal_type.WebhookLogCreatePacket) {
+func (s *dispatchHandlerStub) HandleHTTPLogCreate(context.Context, internal_type.HTTPLogCreatePacket) {
 }
 func (s *dispatchHandlerStub) HandleConversationEvent(context.Context, internal_type.ConversationEventPacket) {
 }

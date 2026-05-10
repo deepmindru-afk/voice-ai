@@ -32,10 +32,6 @@ type InternalCaller interface {
 	DeploymentCaller() endpoint_client.DeploymentServiceClient
 }
 
-type Logger interface {
-	CreateWebhookLog(ctx context.Context, webhookID uint64, httpUrl, httpMethod, event string, responseStatus int64, timeTaken int64, retryCount uint32, status type_enums.RecordState, request, response []byte) error
-}
-
 type Communication interface {
 
 	// llm callback
@@ -43,9 +39,6 @@ type Communication interface {
 
 	//caller
 	InternalCaller
-
-	// logging everything
-	Logger
 
 	// authentication
 	Auth() types.SimplePrinciple

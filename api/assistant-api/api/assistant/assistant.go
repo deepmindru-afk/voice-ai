@@ -27,6 +27,7 @@ type assistantApi struct {
 	knowledgeDocumentService  internal_services.KnowledgeDocumentService
 	conversactionService      internal_services.AssistantConversationService
 	assistantWebhookService   internal_services.AssistantWebhookService
+	assistantHTTPLogService   internal_services.AssistantHTTPLogService
 	assistantAuthService      internal_services.AssistantAuthenticationService
 	assistantTelemetryService internal_services.AssistantTelemetryProviderService
 	assistantAnalysisService  internal_services.AssistantAnalysisService
@@ -62,6 +63,7 @@ func NewAssistantGRPCApi(config *config.AssistantConfig, logger commons.Logger,
 			knowledgeDocumentService:  knowledgeDocSvc,
 			conversactionService:      internal_assistant_service.NewAssistantConversationService(logger, postgres, storage_files.NewStorage(config.AssetStoreConfig, logger)),
 			assistantWebhookService:   internal_assistant_service.NewAssistantWebhookService(logger, postgres, storage_files.NewStorage(config.AssetStoreConfig, logger)),
+			assistantHTTPLogService:   internal_assistant_service.NewAssistantHTTPLogService(logger, postgres, storage_files.NewStorage(config.AssetStoreConfig, logger)),
 			assistantAuthService:      internal_assistant_service.NewAssistantAuthenticationService(logger, postgres),
 			assistantTelemetryService: internal_assistant_service.NewAssistantTelemetryProviderService(logger, postgres),
 			assistantAnalysisService:  internal_assistant_service.NewAssistantAnalysisService(logger, postgres),

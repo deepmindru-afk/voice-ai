@@ -8,12 +8,15 @@ package internal_authentication_http
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 	"github.com/rapidaai/pkg/clients/rest"
 	"github.com/rapidaai/pkg/commons"
+	type_enums "github.com/rapidaai/pkg/types/enums"
 )
 
 const (
@@ -49,7 +52,6 @@ func NewExecutor(logger commons.Logger, _ context.Context, callback internal_typ
 // Execute runs authentication against the configured endpoint and emits packetized outcome.
 func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.ExecuteSessionAuthenticationPacket) error {
 	auth := packet.Authentication
-
 	url, err := auth.GetOptions().GetString(OptionHTTPURLKey)
 	if err != nil || url == "" {
 		e.callback.OnPacket(ctx, internal_type.SessionAuthenticationFailedPacket{
@@ -59,11 +61,11 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.Exec
 		})
 		return nil
 	}
-
 	method := "POST"
 	if m, err := auth.GetOptions().GetString(OptionHTTPMethodKey); err == nil && m != "" {
 		method = m
 	}
+	method = strings.ToUpper(method)
 
 	headers := map[string]string{}
 	if h, err := auth.GetOptions().GetStringMap(OptionHTTPHeadersKey); err == nil {
@@ -76,12 +78,15 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.Exec
 	}
 
 	client := rest.NewRestClientWithConfig(url, headers, uint32(timeout/1000))
-
 	callCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Millisecond)
 	defer cancel()
-
+	startTime := time.Now()
+	requestPayload := e.createRequestPayload(url, method, headers, uint32(timeout), packet.Arguments)
+	sourceRefID := auth.Id
 	response, err := e.send(callCtx, client, method, packet.Arguments, headers)
 	if err != nil {
+		errMsg := err.Error()
+		e.onCreateLog(ctx, packet.ContextID, url, method, sourceRefID, startTime, type_enums.RECORD_FAILED, 0, &errMsg, requestPayload, nil)
 		if auth.FailBehavior == FailBehaviorAllow {
 			e.logger.Warnw("authentication failed, allowing due to fail_behavior=allow", "url", url, "error", err)
 			e.callback.OnPacket(ctx, internal_type.SessionAuthenticationSucceededPacket{
@@ -98,8 +103,11 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.Exec
 		})
 		return nil
 	}
-
+	responsePayload, _ := response.ToJSON()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		errMsg := fmt.Sprintf("authentication: endpoint returned status %d", response.StatusCode)
+		e.onCreateLog(ctx, packet.ContextID, url, method, sourceRefID, startTime, type_enums.RECORD_FAILED, int64(response.StatusCode), &errMsg, requestPayload, responsePayload)
+
 		if auth.FailBehavior == FailBehaviorAllow {
 			e.logger.Warnw("authentication returned non-2xx, allowing due to fail_behavior=allow",
 				"url", url, "status", response.StatusCode)
@@ -117,7 +125,7 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.Exec
 		})
 		return nil
 	}
-
+	e.onCreateLog(ctx, packet.ContextID, url, method, sourceRefID, startTime, type_enums.RECORD_COMPLETE, int64(response.StatusCode), nil, requestPayload, responsePayload)
 	result := &Result{Authenticated: true}
 	if parsed, err := response.ToMap(); err == nil {
 		if args, ok := parsed["args"].(map[string]interface{}); ok {
@@ -142,6 +150,22 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.Exec
 	return nil
 }
 
+func (e *runtimeExecutor) createRequestPayload(url, method string, headers map[string]string, timeoutMs uint32, body map[string]interface{}) []byte {
+	payload := map[string]interface{}{
+		"url":        url,
+		"method":     method,
+		"headers":    headers,
+		"timeout_ms": timeoutMs,
+		"body":       body,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		e.logger.Warnw("Failed to serialize authentication request payload snapshot", "error", err)
+		return nil
+	}
+	return data
+}
+
 // Close releases executor dependencies.
 func (e *runtimeExecutor) Close(_ context.Context) error {
 	e.callback = nil
@@ -158,5 +182,37 @@ func (e *runtimeExecutor) send(ctx context.Context, client *rest.RestClient, met
 		return client.Patch(ctx, "", body, headers)
 	default:
 		return client.Get(ctx, "", body, headers)
+	}
+}
+
+func (e *runtimeExecutor) onCreateLog(
+	ctx context.Context,
+	contextID string,
+	url string,
+	method string,
+	sourceRefID uint64,
+	startTime time.Time,
+	status type_enums.RecordState,
+	responseStatus int64,
+	errorMessage *string,
+	requestPayload []byte,
+	responsePayload []byte,
+) {
+	if err := e.callback.OnPacket(ctx, internal_type.HTTPLogCreatePacket{
+		ContextID:       contextID,
+		Source:          "authentication",
+		SourceRefID:     sourceRefID,
+		SourceEvent:     "session_authentication",
+		HTTPURL:         url,
+		HTTPMethod:      method,
+		ResponseStatus:  responseStatus,
+		TimeTaken:       int64(time.Since(startTime)),
+		RetryCount:      0,
+		Status:          status,
+		ErrorMessage:    errorMessage,
+		RequestPayload:  requestPayload,
+		ResponsePayload: responsePayload,
+	}); err != nil {
+		e.logger.Warnw("Failed to enqueue authentication http log", "error", err)
 	}
 }

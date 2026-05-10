@@ -459,7 +459,12 @@ describe('Assistant webhook flows', () => {
           {
             getKey: () => 'http_headers',
             getValue: () =>
-              '{"Authorization":"Bearer token","webhook.condition":"[{\\"key\\":\\"source\\",\\"condition\\":\\"=\\",\\"value\\":\\"phone\\"}]"}',
+              '{"Authorization":"Bearer token"}',
+          },
+          {
+            getKey: () => 'webhook.condition',
+            getValue: () =>
+              '[{"key":"source","condition":"=","value":"phone"}]',
           },
           {
             getKey: () => 'http_body',
@@ -590,8 +595,8 @@ describe('Assistant webhook flows', () => {
     expect(optionMap.get('max_retry_count')).toBe('2');
     expect(optionMap.get('timeout_seconds')).toBe('220');
     const headers = JSON.parse(optionMap.get('http_headers'));
-    expect(headers['webhook.condition']).toBeDefined();
-    expect(JSON.parse(headers['webhook.condition'])).toEqual(
+    expect(headers['webhook.condition']).toBeUndefined();
+    expect(JSON.parse(optionMap.get('webhook.condition'))).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           key: 'source',
@@ -664,8 +669,7 @@ describe('Assistant webhook flows', () => {
         .getOptionsList()
         .map((option: any) => [option.getKey(), option.getValue()]),
     );
-    const headers = JSON.parse(optionMap.get('http_headers'));
-    expect(JSON.parse(headers['webhook.condition'])).toEqual(
+    expect(JSON.parse(optionMap.get('webhook.condition'))).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           key: 'source',

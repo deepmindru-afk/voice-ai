@@ -52,7 +52,7 @@ type DispatchHandler interface {
 	HandleAssistantMessageMetadata(context.Context, internal_type.AssistantMessageMetadataPacket)
 	HandleToolLogCreate(context.Context, internal_type.ToolLogCreatePacket)
 	HandleToolLogUpdate(context.Context, internal_type.ToolLogUpdatePacket)
-	HandleWebhookLogCreate(context.Context, internal_type.WebhookLogCreatePacket)
+	HandleHTTPLogCreate(context.Context, internal_type.HTTPLogCreatePacket)
 	HandleConversationEvent(context.Context, internal_type.ConversationEventPacket)
 	HandleInitializeAssistant(context.Context, internal_type.InitializeAssistantPacket)
 	HandleInitializeConversation(context.Context, internal_type.InitializeConversationPacket)
@@ -181,8 +181,8 @@ func DispatchPacket(ctx context.Context, p internal_type.Packet, handler Dispatc
 		handler.HandleToolLogCreate(ctx, vl)
 	case internal_type.ToolLogUpdatePacket:
 		handler.HandleToolLogUpdate(ctx, vl)
-	case internal_type.WebhookLogCreatePacket:
-		handler.HandleWebhookLogCreate(ctx, vl)
+	case internal_type.HTTPLogCreatePacket:
+		handler.HandleHTTPLogCreate(ctx, vl)
 	case internal_type.ConversationEventPacket:
 		handler.HandleConversationEvent(ctx, vl)
 	case internal_type.InitializeAssistantPacket:

@@ -188,11 +188,14 @@ jest.mock('@carbon/react', () => ({
 }));
 
 describe('ConfigureAssistantAuthenticationPage', () => {
-  const getSuccessLoadResponse = (status = 'inactive') => ({
+  const getSuccessLoadResponse = (
+    status = 'inactive',
+    failBehavior = 'BLOCK',
+  ) => ({
     getSuccess: () => true,
     getData: () => ({
       getStatus: () => status,
-      getFailbehavior: () => 'block',
+      getFailbehavior: () => failBehavior,
       getTimeoutms: () => '5000',
       getOptionsList: () => [],
     }),
@@ -251,13 +254,19 @@ describe('ConfigureAssistantAuthenticationPage', () => {
       target: { value: 'https://auth.example.com/resolve' },
     });
 
+    const beforeCount = screen.getAllByTestId(/param-val-/).length;
     fireEvent.click(screen.getByRole('button', { name: 'Add parameter' }));
-    fireEvent.change(screen.getByTestId('param-val-2'), {
+    await waitFor(() =>
+      expect(screen.getAllByTestId(/param-val-/).length).toBe(beforeCount + 1),
+    );
+    const fields = screen.getAllByTestId(/param-val-/);
+    const lastField = fields[fields.length - 1];
+    fireEvent.change(lastField, {
       target: { value: 'assistantPrompt' },
     });
 
-    expect(screen.getByText('Mapping (3)')).toBeInTheDocument();
-    expect(screen.getByTestId('param-val-2')).toHaveValue('assistantPrompt');
+    expect(screen.getByText(/Mapping \(\d+\)/)).toBeInTheDocument();
+    expect(lastField).toHaveValue('assistantPrompt');
   });
 
   it('creates authentication when enabled and valid', async () => {
@@ -282,8 +291,50 @@ describe('ConfigureAssistantAuthenticationPage', () => {
     const createRequest = (CreateAssistantAuthentication as jest.Mock).mock
       .calls[0][1] as {
       status: string;
+      failBehavior: string;
+      optionsList: Array<{
+        getKey: () => string;
+        getValue: () => string;
+      }>;
     };
     expect(createRequest.status).toBe('ACTIVE');
+    expect(createRequest.failBehavior).toBe('BLOCK');
+    const optionMap = new Map(
+      createRequest.optionsList.map(option => [option.getKey(), option.getValue()]),
+    );
+    expect(optionMap.get('http_method')).toBe('POST');
+    expect(optionMap.get('http_url')).toBe('https://auth.example.com/resolve');
+    expect(optionMap.get('http_headers')).toBe('{}');
+    expect(optionMap.get('http_body')).toBe(
+      '{"assistant.id":"assistantId","client.phone":"clientPhone"}',
+    );
+    expect(optionMap.get('authentication.condition')).toBeDefined();
+  });
+
+  it('sends DO_NOTHING when on error is set to do nothing', async () => {
+    (GetAssistantAuthentication as jest.Mock).mockResolvedValueOnce(
+      getSuccessLoadResponse('active'),
+    );
+    render(<ConfigureAssistantAuthenticationPage />);
+    await waitFor(() => expect(GetAssistantAuthentication).toHaveBeenCalled());
+    await waitUntilReady();
+
+    fireEvent.change(screen.getByTestId('assistant-auth-endpoint'), {
+      target: { value: 'https://auth.example.com/resolve' },
+    });
+    fireEvent.change(screen.getByTestId('assistant-auth-fail-behavior'), {
+      target: { value: 'do_nothing' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save authentication' }));
+
+    await waitFor(() =>
+      expect(CreateAssistantAuthentication).toHaveBeenCalledTimes(1),
+    );
+    const createRequest = (CreateAssistantAuthentication as jest.Mock).mock
+      .calls[0][1] as {
+      failBehavior: string;
+    };
+    expect(createRequest.failBehavior).toBe('DO_NOTHING');
   });
 
   it('disables authentication when toggled off and saved', async () => {
@@ -313,6 +364,58 @@ describe('ConfigureAssistantAuthenticationPage', () => {
     expect(
       screen.getByRole('button', { name: 'Save authentication' }),
     ).not.toBeDisabled();
+  });
+
+  it('maps DO_NOTHING from API to do nothing option in UI', async () => {
+    (GetAssistantAuthentication as jest.Mock).mockResolvedValueOnce(
+      getSuccessLoadResponse('active', 'DO_NOTHING'),
+    );
+
+    render(<ConfigureAssistantAuthenticationPage />);
+    await waitFor(() => expect(GetAssistantAuthentication).toHaveBeenCalled());
+    await waitUntilReady();
+
+    expect(screen.getByTestId('assistant-auth-fail-behavior')).toHaveValue(
+      'do_nothing',
+    );
+  });
+
+  it('maps legacy none from API to do nothing option in UI', async () => {
+    (GetAssistantAuthentication as jest.Mock).mockResolvedValueOnce(
+      getSuccessLoadResponse('active', 'none'),
+    );
+
+    render(<ConfigureAssistantAuthenticationPage />);
+    await waitFor(() => expect(GetAssistantAuthentication).toHaveBeenCalled());
+    await waitUntilReady();
+
+    expect(screen.getByTestId('assistant-auth-fail-behavior')).toHaveValue(
+      'do_nothing',
+    );
+  });
+
+  it('saves DO_NOTHING when loaded legacy none without changing selection', async () => {
+    (GetAssistantAuthentication as jest.Mock).mockResolvedValueOnce(
+      getSuccessLoadResponse('active', 'none'),
+    );
+
+    render(<ConfigureAssistantAuthenticationPage />);
+    await waitFor(() => expect(GetAssistantAuthentication).toHaveBeenCalled());
+    await waitUntilReady();
+
+    fireEvent.change(screen.getByTestId('assistant-auth-endpoint'), {
+      target: { value: 'https://auth.example.com/resolve' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save authentication' }));
+
+    await waitFor(() =>
+      expect(CreateAssistantAuthentication).toHaveBeenCalledTimes(1),
+    );
+    const createRequest = (CreateAssistantAuthentication as jest.Mock).mock
+      .calls[0][1] as {
+      failBehavior: string;
+    };
+    expect(createRequest.failBehavior).toBe('DO_NOTHING');
   });
 
   it('shows load error and blocks save when initial load fails', async () => {

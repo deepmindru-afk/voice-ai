@@ -104,7 +104,7 @@ func Classify(p internal_type.Packet) Route {
 		internal_type.AssistantMessageMetadataPacket,
 		internal_type.ToolLogCreatePacket,
 		internal_type.ToolLogUpdatePacket,
-		internal_type.WebhookLogCreatePacket,
+		internal_type.HTTPLogCreatePacket,
 		internal_type.FinalizeBehaviorPacket,
 		internal_type.FinalizeEndOfSpeechPacket,
 		internal_type.FinalizeVoiceActivityDetectionPacket,

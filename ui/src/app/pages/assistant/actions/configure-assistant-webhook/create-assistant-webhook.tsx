@@ -128,11 +128,11 @@ const WEBHOOK_OPTION_KEYS = {
   url: 'http_url',
   headers: 'http_headers',
   body: 'http_body',
+  condition: 'webhook.condition',
   retryStatusCodes: 'retry_status_codes',
   maxRetryCount: 'max_retry_count',
   timeoutSeconds: 'timeout_seconds',
 };
-const WEBHOOK_CONDITION_HEADER = 'webhook.condition';
 const DEFAULT_SOURCE_CONDITIONS = [
   {
     key: 'source',
@@ -176,22 +176,17 @@ const buildWebhookOptions = ({
     value: string;
   }>;
 }): Metadata[] => {
-  const headerRows = [
-    ...headers.filter(
-      header => header.key.trim().toLowerCase() !== WEBHOOK_CONDITION_HEADER,
-    ),
-    {
-      key: WEBHOOK_CONDITION_HEADER,
-      value: JSON.stringify(sourceConditions),
-    },
-  ];
   return [
     { key: WEBHOOK_OPTION_KEYS.method, value: method || 'POST' },
     { key: WEBHOOK_OPTION_KEYS.url, value: endpoint || '' },
-    { key: WEBHOOK_OPTION_KEYS.headers, value: toJsonMap(headerRows) },
+    { key: WEBHOOK_OPTION_KEYS.headers, value: toJsonMap(headers) },
     {
       key: WEBHOOK_OPTION_KEYS.body,
       value: toJsonMap(parameterKeyValuePairs),
+    },
+    {
+      key: WEBHOOK_OPTION_KEYS.condition,
+      value: JSON.stringify(sourceConditions),
     },
     {
       key: WEBHOOK_OPTION_KEYS.retryStatusCodes,

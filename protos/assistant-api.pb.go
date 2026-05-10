@@ -3187,7 +3187,7 @@ var file_assistant_api_proto_rawDesc = []byte{
 	0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x76, 0x65, 0x72, 0x73, 0x61, 0x74,
 	0x69, 0x6f, 0x6e, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x12, 0x1c, 0x0a, 0x05, 0x65, 0x72, 0x72,
 	0x6f, 0x72, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x06, 0x2e, 0x45, 0x72, 0x72, 0x6f, 0x72,
-	0x52, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x32, 0xaa, 0x2b, 0x0a, 0x10, 0x41, 0x73, 0x73, 0x69,
+	0x52, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x32, 0x8a, 0x2c, 0x0a, 0x10, 0x41, 0x73, 0x73, 0x69,
 	0x73, 0x74, 0x61, 0x6e, 0x74, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x57, 0x0a, 0x0c,
 	0x47, 0x65, 0x74, 0x41, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x12, 0x22, 0x2e, 0x61,
 	0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x5f, 0x61, 0x70, 0x69, 0x2e, 0x47, 0x65, 0x74,
@@ -3360,21 +3360,27 @@ var file_assistant_api_proto_rawDesc = []byte{
 	0x65, 0x73, 0x74, 0x1a, 0x2f, 0x2e, 0x61, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x5f,
 	0x61, 0x70, 0x69, 0x2e, 0x47, 0x65, 0x74, 0x41, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74,
 	0x43, 0x6f, 0x6e, 0x76, 0x65, 0x72, 0x73, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x75, 0x0a, 0x16, 0x47, 0x65, 0x74, 0x41, 0x73, 0x73, 0x69, 0x73,
-	0x74, 0x61, 0x6e, 0x74, 0x57, 0x65, 0x62, 0x68, 0x6f, 0x6f, 0x6b, 0x4c, 0x6f, 0x67, 0x12, 0x2c,
-	0x2e, 0x61, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x5f, 0x61, 0x70, 0x69, 0x2e, 0x47,
-	0x65, 0x74, 0x41, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x57, 0x65, 0x62, 0x68, 0x6f,
-	0x6f, 0x6b, 0x4c, 0x6f, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2d, 0x2e, 0x61,
+	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x6c, 0x0a, 0x13, 0x47, 0x65, 0x74, 0x41, 0x73, 0x73, 0x69, 0x73,
+	0x74, 0x61, 0x6e, 0x74, 0x48, 0x54, 0x54, 0x50, 0x4c, 0x6f, 0x67, 0x12, 0x29, 0x2e, 0x61, 0x73,
+	0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x5f, 0x61, 0x70, 0x69, 0x2e, 0x47, 0x65, 0x74, 0x41,
+	0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x48, 0x54, 0x54, 0x50, 0x4c, 0x6f, 0x67, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2a, 0x2e, 0x61, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61,
+	0x6e, 0x74, 0x5f, 0x61, 0x70, 0x69, 0x2e, 0x47, 0x65, 0x74, 0x41, 0x73, 0x73, 0x69, 0x73, 0x74,
+	0x61, 0x6e, 0x74, 0x48, 0x54, 0x54, 0x50, 0x4c, 0x6f, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x12, 0x75, 0x0a, 0x16, 0x47, 0x65, 0x74, 0x41, 0x6c, 0x6c, 0x41, 0x73, 0x73, 0x69,
+	0x73, 0x74, 0x61, 0x6e, 0x74, 0x48, 0x54, 0x54, 0x50, 0x4c, 0x6f, 0x67, 0x12, 0x2c, 0x2e, 0x61,
 	0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x5f, 0x61, 0x70, 0x69, 0x2e, 0x47, 0x65, 0x74,
-	0x41, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x57, 0x65, 0x62, 0x68, 0x6f, 0x6f, 0x6b,
-	0x4c, 0x6f, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x7e, 0x0a, 0x19, 0x47,
-	0x65, 0x74, 0x41, 0x6c, 0x6c, 0x41, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x57, 0x65,
-	0x62, 0x68, 0x6f, 0x6f, 0x6b, 0x4c, 0x6f, 0x67, 0x12, 0x2f, 0x2e, 0x61, 0x73, 0x73, 0x69, 0x73,
-	0x74, 0x61, 0x6e, 0x74, 0x5f, 0x61, 0x70, 0x69, 0x2e, 0x47, 0x65, 0x74, 0x41, 0x6c, 0x6c, 0x41,
-	0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x57, 0x65, 0x62, 0x68, 0x6f, 0x6f, 0x6b, 0x4c,
-	0x6f, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x30, 0x2e, 0x61, 0x73, 0x73, 0x69,
-	0x73, 0x74, 0x61, 0x6e, 0x74, 0x5f, 0x61, 0x70, 0x69, 0x2e, 0x47, 0x65, 0x74, 0x41, 0x6c, 0x6c,
-	0x41, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x57, 0x65, 0x62, 0x68, 0x6f, 0x6f, 0x6b,
+	0x41, 0x6c, 0x6c, 0x41, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x48, 0x54, 0x54, 0x50,
+	0x4c, 0x6f, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2d, 0x2e, 0x61, 0x73, 0x73,
+	0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x5f, 0x61, 0x70, 0x69, 0x2e, 0x47, 0x65, 0x74, 0x41, 0x6c,
+	0x6c, 0x41, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x48, 0x54, 0x54, 0x50, 0x4c, 0x6f,
+	0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x70, 0x0a, 0x15, 0x52, 0x65, 0x74,
+	0x72, 0x79, 0x41, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x48, 0x54, 0x54, 0x50, 0x4c,
+	0x6f, 0x67, 0x12, 0x2b, 0x2e, 0x61, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x5f, 0x61,
+	0x70, 0x69, 0x2e, 0x52, 0x65, 0x74, 0x72, 0x79, 0x41, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e,
+	0x74, 0x48, 0x54, 0x54, 0x50, 0x4c, 0x6f, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x2a, 0x2e, 0x61, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x5f, 0x61, 0x70, 0x69, 0x2e,
+	0x47, 0x65, 0x74, 0x41, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x48, 0x54, 0x54, 0x50,
 	0x4c, 0x6f, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x75, 0x0a, 0x16, 0x47,
 	0x65, 0x74, 0x41, 0x6c, 0x6c, 0x41, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x57, 0x65,
 	0x62, 0x68, 0x6f, 0x6f, 0x6b, 0x12, 0x2c, 0x2e, 0x61, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e,
@@ -3618,44 +3624,45 @@ var file_assistant_api_proto_goTypes = []any{
 	(*UpdateAssistantVersionRequest)(nil),            // 62: assistant_api.UpdateAssistantVersionRequest
 	(*GetAllConversationMessageRequest)(nil),         // 63: GetAllConversationMessageRequest
 	(*GetAllAssistantConversationRequest)(nil),       // 64: GetAllAssistantConversationRequest
-	(*GetAssistantWebhookLogRequest)(nil),            // 65: assistant_api.GetAssistantWebhookLogRequest
-	(*GetAllAssistantWebhookLogRequest)(nil),         // 66: assistant_api.GetAllAssistantWebhookLogRequest
-	(*GetAllAssistantWebhookRequest)(nil),            // 67: assistant_api.GetAllAssistantWebhookRequest
-	(*GetAssistantWebhookRequest)(nil),               // 68: assistant_api.GetAssistantWebhookRequest
-	(*CreateAssistantWebhookRequest)(nil),            // 69: assistant_api.CreateAssistantWebhookRequest
-	(*UpdateAssistantWebhookRequest)(nil),            // 70: assistant_api.UpdateAssistantWebhookRequest
-	(*DeleteAssistantWebhookRequest)(nil),            // 71: assistant_api.DeleteAssistantWebhookRequest
-	(*GetAssistantToolLogRequest)(nil),               // 72: assistant_api.GetAssistantToolLogRequest
-	(*GetAllAssistantToolLogRequest)(nil),            // 73: assistant_api.GetAllAssistantToolLogRequest
-	(*GetAssistantAnalysisRequest)(nil),              // 74: assistant_api.GetAssistantAnalysisRequest
-	(*UpdateAssistantAnalysisRequest)(nil),           // 75: assistant_api.UpdateAssistantAnalysisRequest
-	(*CreateAssistantAnalysisRequest)(nil),           // 76: assistant_api.CreateAssistantAnalysisRequest
-	(*DeleteAssistantAnalysisRequest)(nil),           // 77: assistant_api.DeleteAssistantAnalysisRequest
-	(*GetAllAssistantAnalysisRequest)(nil),           // 78: assistant_api.GetAllAssistantAnalysisRequest
-	(*GetAssistantToolRequest)(nil),                  // 79: assistant_api.GetAssistantToolRequest
-	(*GetAllAssistantToolRequest)(nil),               // 80: assistant_api.GetAllAssistantToolRequest
-	(*DeleteAssistantToolRequest)(nil),               // 81: assistant_api.DeleteAssistantToolRequest
-	(*UpdateAssistantToolRequest)(nil),               // 82: assistant_api.UpdateAssistantToolRequest
-	(*GetAssistantKnowledgeRequest)(nil),             // 83: assistant_api.GetAssistantKnowledgeRequest
-	(*GetAllAssistantKnowledgeRequest)(nil),          // 84: assistant_api.GetAllAssistantKnowledgeRequest
-	(*DeleteAssistantKnowledgeRequest)(nil),          // 85: assistant_api.DeleteAssistantKnowledgeRequest
-	(*UpdateAssistantKnowledgeRequest)(nil),          // 86: assistant_api.UpdateAssistantKnowledgeRequest
-	(*GetAllAssistantProviderResponse)(nil),          // 87: assistant_api.GetAllAssistantProviderResponse
-	(*GetAssistantProviderResponse)(nil),             // 88: assistant_api.GetAssistantProviderResponse
-	(*GetAllConversationMessageResponse)(nil),        // 89: GetAllConversationMessageResponse
-	(*GetAllAssistantConversationResponse)(nil),      // 90: GetAllAssistantConversationResponse
-	(*GetAssistantWebhookLogResponse)(nil),           // 91: assistant_api.GetAssistantWebhookLogResponse
-	(*GetAllAssistantWebhookLogResponse)(nil),        // 92: assistant_api.GetAllAssistantWebhookLogResponse
-	(*GetAllAssistantWebhookResponse)(nil),           // 93: assistant_api.GetAllAssistantWebhookResponse
-	(*GetAssistantWebhookResponse)(nil),              // 94: assistant_api.GetAssistantWebhookResponse
-	(*GetAssistantToolLogResponse)(nil),              // 95: assistant_api.GetAssistantToolLogResponse
-	(*GetAllAssistantToolLogResponse)(nil),           // 96: assistant_api.GetAllAssistantToolLogResponse
-	(*GetAssistantAnalysisResponse)(nil),             // 97: assistant_api.GetAssistantAnalysisResponse
-	(*GetAllAssistantAnalysisResponse)(nil),          // 98: assistant_api.GetAllAssistantAnalysisResponse
-	(*GetAssistantToolResponse)(nil),                 // 99: assistant_api.GetAssistantToolResponse
-	(*GetAllAssistantToolResponse)(nil),              // 100: assistant_api.GetAllAssistantToolResponse
-	(*GetAssistantKnowledgeResponse)(nil),            // 101: assistant_api.GetAssistantKnowledgeResponse
-	(*GetAllAssistantKnowledgeResponse)(nil),         // 102: assistant_api.GetAllAssistantKnowledgeResponse
+	(*GetAssistantHTTPLogRequest)(nil),               // 65: assistant_api.GetAssistantHTTPLogRequest
+	(*GetAllAssistantHTTPLogRequest)(nil),            // 66: assistant_api.GetAllAssistantHTTPLogRequest
+	(*RetryAssistantHTTPLogRequest)(nil),             // 67: assistant_api.RetryAssistantHTTPLogRequest
+	(*GetAllAssistantWebhookRequest)(nil),            // 68: assistant_api.GetAllAssistantWebhookRequest
+	(*GetAssistantWebhookRequest)(nil),               // 69: assistant_api.GetAssistantWebhookRequest
+	(*CreateAssistantWebhookRequest)(nil),            // 70: assistant_api.CreateAssistantWebhookRequest
+	(*UpdateAssistantWebhookRequest)(nil),            // 71: assistant_api.UpdateAssistantWebhookRequest
+	(*DeleteAssistantWebhookRequest)(nil),            // 72: assistant_api.DeleteAssistantWebhookRequest
+	(*GetAssistantToolLogRequest)(nil),               // 73: assistant_api.GetAssistantToolLogRequest
+	(*GetAllAssistantToolLogRequest)(nil),            // 74: assistant_api.GetAllAssistantToolLogRequest
+	(*GetAssistantAnalysisRequest)(nil),              // 75: assistant_api.GetAssistantAnalysisRequest
+	(*UpdateAssistantAnalysisRequest)(nil),           // 76: assistant_api.UpdateAssistantAnalysisRequest
+	(*CreateAssistantAnalysisRequest)(nil),           // 77: assistant_api.CreateAssistantAnalysisRequest
+	(*DeleteAssistantAnalysisRequest)(nil),           // 78: assistant_api.DeleteAssistantAnalysisRequest
+	(*GetAllAssistantAnalysisRequest)(nil),           // 79: assistant_api.GetAllAssistantAnalysisRequest
+	(*GetAssistantToolRequest)(nil),                  // 80: assistant_api.GetAssistantToolRequest
+	(*GetAllAssistantToolRequest)(nil),               // 81: assistant_api.GetAllAssistantToolRequest
+	(*DeleteAssistantToolRequest)(nil),               // 82: assistant_api.DeleteAssistantToolRequest
+	(*UpdateAssistantToolRequest)(nil),               // 83: assistant_api.UpdateAssistantToolRequest
+	(*GetAssistantKnowledgeRequest)(nil),             // 84: assistant_api.GetAssistantKnowledgeRequest
+	(*GetAllAssistantKnowledgeRequest)(nil),          // 85: assistant_api.GetAllAssistantKnowledgeRequest
+	(*DeleteAssistantKnowledgeRequest)(nil),          // 86: assistant_api.DeleteAssistantKnowledgeRequest
+	(*UpdateAssistantKnowledgeRequest)(nil),          // 87: assistant_api.UpdateAssistantKnowledgeRequest
+	(*GetAllAssistantProviderResponse)(nil),          // 88: assistant_api.GetAllAssistantProviderResponse
+	(*GetAssistantProviderResponse)(nil),             // 89: assistant_api.GetAssistantProviderResponse
+	(*GetAllConversationMessageResponse)(nil),        // 90: GetAllConversationMessageResponse
+	(*GetAllAssistantConversationResponse)(nil),      // 91: GetAllAssistantConversationResponse
+	(*GetAssistantHTTPLogResponse)(nil),              // 92: assistant_api.GetAssistantHTTPLogResponse
+	(*GetAllAssistantHTTPLogResponse)(nil),           // 93: assistant_api.GetAllAssistantHTTPLogResponse
+	(*GetAllAssistantWebhookResponse)(nil),           // 94: assistant_api.GetAllAssistantWebhookResponse
+	(*GetAssistantWebhookResponse)(nil),              // 95: assistant_api.GetAssistantWebhookResponse
+	(*GetAssistantToolLogResponse)(nil),              // 96: assistant_api.GetAssistantToolLogResponse
+	(*GetAllAssistantToolLogResponse)(nil),           // 97: assistant_api.GetAllAssistantToolLogResponse
+	(*GetAssistantAnalysisResponse)(nil),             // 98: assistant_api.GetAssistantAnalysisResponse
+	(*GetAllAssistantAnalysisResponse)(nil),          // 99: assistant_api.GetAllAssistantAnalysisResponse
+	(*GetAssistantToolResponse)(nil),                 // 100: assistant_api.GetAssistantToolResponse
+	(*GetAllAssistantToolResponse)(nil),              // 101: assistant_api.GetAllAssistantToolResponse
+	(*GetAssistantKnowledgeResponse)(nil),            // 102: assistant_api.GetAssistantKnowledgeResponse
+	(*GetAllAssistantKnowledgeResponse)(nil),         // 103: assistant_api.GetAllAssistantKnowledgeResponse
 }
 var file_assistant_api_proto_depIdxs = []int32{
 	34,  // 0: assistant_api.Assistant.assistantProviderModel:type_name -> assistant_api.AssistantProviderModel
@@ -3757,79 +3764,81 @@ var file_assistant_api_proto_depIdxs = []int32{
 	23,  // 96: assistant_api.AssistantService.DisableAssistantAuthentication:input_type -> assistant_api.DisableAssistantAuthenticationRequest
 	64,  // 97: assistant_api.AssistantService.GetAllAssistantConversation:input_type -> GetAllAssistantConversationRequest
 	31,  // 98: assistant_api.AssistantService.GetAssistantConversation:input_type -> assistant_api.GetAssistantConversationRequest
-	65,  // 99: assistant_api.AssistantService.GetAssistantWebhookLog:input_type -> assistant_api.GetAssistantWebhookLogRequest
-	66,  // 100: assistant_api.AssistantService.GetAllAssistantWebhookLog:input_type -> assistant_api.GetAllAssistantWebhookLogRequest
-	67,  // 101: assistant_api.AssistantService.GetAllAssistantWebhook:input_type -> assistant_api.GetAllAssistantWebhookRequest
-	68,  // 102: assistant_api.AssistantService.GetAssistantWebhook:input_type -> assistant_api.GetAssistantWebhookRequest
-	69,  // 103: assistant_api.AssistantService.CreateAssistantWebhook:input_type -> assistant_api.CreateAssistantWebhookRequest
-	70,  // 104: assistant_api.AssistantService.UpdateAssistantWebhook:input_type -> assistant_api.UpdateAssistantWebhookRequest
-	71,  // 105: assistant_api.AssistantService.DeleteAssistantWebhook:input_type -> assistant_api.DeleteAssistantWebhookRequest
-	72,  // 106: assistant_api.AssistantService.GetAssistantToolLog:input_type -> assistant_api.GetAssistantToolLogRequest
-	73,  // 107: assistant_api.AssistantService.GetAllAssistantToolLog:input_type -> assistant_api.GetAllAssistantToolLogRequest
-	74,  // 108: assistant_api.AssistantService.GetAssistantAnalysis:input_type -> assistant_api.GetAssistantAnalysisRequest
-	75,  // 109: assistant_api.AssistantService.UpdateAssistantAnalysis:input_type -> assistant_api.UpdateAssistantAnalysisRequest
-	76,  // 110: assistant_api.AssistantService.CreateAssistantAnalysis:input_type -> assistant_api.CreateAssistantAnalysisRequest
-	77,  // 111: assistant_api.AssistantService.DeleteAssistantAnalysis:input_type -> assistant_api.DeleteAssistantAnalysisRequest
-	78,  // 112: assistant_api.AssistantService.GetAllAssistantAnalysis:input_type -> assistant_api.GetAllAssistantAnalysisRequest
-	50,  // 113: assistant_api.AssistantService.CreateAssistantTool:input_type -> assistant_api.CreateAssistantToolRequest
-	79,  // 114: assistant_api.AssistantService.GetAssistantTool:input_type -> assistant_api.GetAssistantToolRequest
-	80,  // 115: assistant_api.AssistantService.GetAllAssistantTool:input_type -> assistant_api.GetAllAssistantToolRequest
-	81,  // 116: assistant_api.AssistantService.DeleteAssistantTool:input_type -> assistant_api.DeleteAssistantToolRequest
-	82,  // 117: assistant_api.AssistantService.UpdateAssistantTool:input_type -> assistant_api.UpdateAssistantToolRequest
-	49,  // 118: assistant_api.AssistantService.CreateAssistantKnowledge:input_type -> assistant_api.CreateAssistantKnowledgeRequest
-	83,  // 119: assistant_api.AssistantService.GetAssistantKnowledge:input_type -> assistant_api.GetAssistantKnowledgeRequest
-	84,  // 120: assistant_api.AssistantService.GetAllAssistantKnowledge:input_type -> assistant_api.GetAllAssistantKnowledgeRequest
-	85,  // 121: assistant_api.AssistantService.DeleteAssistantKnowledge:input_type -> assistant_api.DeleteAssistantKnowledgeRequest
-	86,  // 122: assistant_api.AssistantService.UpdateAssistantKnowledge:input_type -> assistant_api.UpdateAssistantKnowledgeRequest
-	5,   // 123: assistant_api.AssistantService.GetAssistant:output_type -> assistant_api.GetAssistantResponse
-	25,  // 124: assistant_api.AssistantService.GetAllAssistant:output_type -> assistant_api.GetAllAssistantResponse
-	5,   // 125: assistant_api.AssistantService.CreateAssistant:output_type -> assistant_api.GetAssistantResponse
-	5,   // 126: assistant_api.AssistantService.DeleteAssistant:output_type -> assistant_api.GetAssistantResponse
-	87,  // 127: assistant_api.AssistantService.GetAllAssistantProvider:output_type -> assistant_api.GetAllAssistantProviderResponse
-	88,  // 128: assistant_api.AssistantService.CreateAssistantProvider:output_type -> assistant_api.GetAssistantProviderResponse
-	5,   // 129: assistant_api.AssistantService.CreateAssistantTag:output_type -> assistant_api.GetAssistantResponse
-	5,   // 130: assistant_api.AssistantService.UpdateAssistantVersion:output_type -> assistant_api.GetAssistantResponse
-	5,   // 131: assistant_api.AssistantService.UpdateAssistantDetail:output_type -> assistant_api.GetAssistantResponse
-	27,  // 132: assistant_api.AssistantService.GetAllAssistantMessage:output_type -> assistant_api.GetAllAssistantMessageResponse
-	89,  // 133: assistant_api.AssistantService.GetAllConversationMessage:output_type -> GetAllConversationMessageResponse
-	29,  // 134: assistant_api.AssistantService.GetAllMessage:output_type -> assistant_api.GetAllMessageResponse
-	11,  // 135: assistant_api.AssistantService.GetAllAssistantTelemetry:output_type -> assistant_api.GetAllAssistantTelemetryResponse
-	14,  // 136: assistant_api.AssistantService.GetAssistantTelemetryProvider:output_type -> assistant_api.GetAssistantTelemetryProviderResponse
-	16,  // 137: assistant_api.AssistantService.GetAllAssistantTelemetryProvider:output_type -> assistant_api.GetAllAssistantTelemetryProviderResponse
-	14,  // 138: assistant_api.AssistantService.CreateAssistantTelemetryProvider:output_type -> assistant_api.GetAssistantTelemetryProviderResponse
-	14,  // 139: assistant_api.AssistantService.UpdateAssistantTelemetryProvider:output_type -> assistant_api.GetAssistantTelemetryProviderResponse
-	14,  // 140: assistant_api.AssistantService.DeleteAssistantTelemetryProvider:output_type -> assistant_api.GetAssistantTelemetryProviderResponse
-	24,  // 141: assistant_api.AssistantService.CreateAssistantAuthentication:output_type -> assistant_api.GetAssistantAuthenticationResponse
-	24,  // 142: assistant_api.AssistantService.GetAssistantAuthentication:output_type -> assistant_api.GetAssistantAuthenticationResponse
-	24,  // 143: assistant_api.AssistantService.DisableAssistantAuthentication:output_type -> assistant_api.GetAssistantAuthenticationResponse
-	90,  // 144: assistant_api.AssistantService.GetAllAssistantConversation:output_type -> GetAllAssistantConversationResponse
-	32,  // 145: assistant_api.AssistantService.GetAssistantConversation:output_type -> assistant_api.GetAssistantConversationResponse
-	91,  // 146: assistant_api.AssistantService.GetAssistantWebhookLog:output_type -> assistant_api.GetAssistantWebhookLogResponse
-	92,  // 147: assistant_api.AssistantService.GetAllAssistantWebhookLog:output_type -> assistant_api.GetAllAssistantWebhookLogResponse
-	93,  // 148: assistant_api.AssistantService.GetAllAssistantWebhook:output_type -> assistant_api.GetAllAssistantWebhookResponse
-	94,  // 149: assistant_api.AssistantService.GetAssistantWebhook:output_type -> assistant_api.GetAssistantWebhookResponse
-	94,  // 150: assistant_api.AssistantService.CreateAssistantWebhook:output_type -> assistant_api.GetAssistantWebhookResponse
-	94,  // 151: assistant_api.AssistantService.UpdateAssistantWebhook:output_type -> assistant_api.GetAssistantWebhookResponse
-	94,  // 152: assistant_api.AssistantService.DeleteAssistantWebhook:output_type -> assistant_api.GetAssistantWebhookResponse
-	95,  // 153: assistant_api.AssistantService.GetAssistantToolLog:output_type -> assistant_api.GetAssistantToolLogResponse
-	96,  // 154: assistant_api.AssistantService.GetAllAssistantToolLog:output_type -> assistant_api.GetAllAssistantToolLogResponse
-	97,  // 155: assistant_api.AssistantService.GetAssistantAnalysis:output_type -> assistant_api.GetAssistantAnalysisResponse
-	97,  // 156: assistant_api.AssistantService.UpdateAssistantAnalysis:output_type -> assistant_api.GetAssistantAnalysisResponse
-	97,  // 157: assistant_api.AssistantService.CreateAssistantAnalysis:output_type -> assistant_api.GetAssistantAnalysisResponse
-	97,  // 158: assistant_api.AssistantService.DeleteAssistantAnalysis:output_type -> assistant_api.GetAssistantAnalysisResponse
-	98,  // 159: assistant_api.AssistantService.GetAllAssistantAnalysis:output_type -> assistant_api.GetAllAssistantAnalysisResponse
-	99,  // 160: assistant_api.AssistantService.CreateAssistantTool:output_type -> assistant_api.GetAssistantToolResponse
-	99,  // 161: assistant_api.AssistantService.GetAssistantTool:output_type -> assistant_api.GetAssistantToolResponse
-	100, // 162: assistant_api.AssistantService.GetAllAssistantTool:output_type -> assistant_api.GetAllAssistantToolResponse
-	99,  // 163: assistant_api.AssistantService.DeleteAssistantTool:output_type -> assistant_api.GetAssistantToolResponse
-	99,  // 164: assistant_api.AssistantService.UpdateAssistantTool:output_type -> assistant_api.GetAssistantToolResponse
-	101, // 165: assistant_api.AssistantService.CreateAssistantKnowledge:output_type -> assistant_api.GetAssistantKnowledgeResponse
-	101, // 166: assistant_api.AssistantService.GetAssistantKnowledge:output_type -> assistant_api.GetAssistantKnowledgeResponse
-	102, // 167: assistant_api.AssistantService.GetAllAssistantKnowledge:output_type -> assistant_api.GetAllAssistantKnowledgeResponse
-	101, // 168: assistant_api.AssistantService.DeleteAssistantKnowledge:output_type -> assistant_api.GetAssistantKnowledgeResponse
-	101, // 169: assistant_api.AssistantService.UpdateAssistantKnowledge:output_type -> assistant_api.GetAssistantKnowledgeResponse
-	123, // [123:170] is the sub-list for method output_type
-	76,  // [76:123] is the sub-list for method input_type
+	65,  // 99: assistant_api.AssistantService.GetAssistantHTTPLog:input_type -> assistant_api.GetAssistantHTTPLogRequest
+	66,  // 100: assistant_api.AssistantService.GetAllAssistantHTTPLog:input_type -> assistant_api.GetAllAssistantHTTPLogRequest
+	67,  // 101: assistant_api.AssistantService.RetryAssistantHTTPLog:input_type -> assistant_api.RetryAssistantHTTPLogRequest
+	68,  // 102: assistant_api.AssistantService.GetAllAssistantWebhook:input_type -> assistant_api.GetAllAssistantWebhookRequest
+	69,  // 103: assistant_api.AssistantService.GetAssistantWebhook:input_type -> assistant_api.GetAssistantWebhookRequest
+	70,  // 104: assistant_api.AssistantService.CreateAssistantWebhook:input_type -> assistant_api.CreateAssistantWebhookRequest
+	71,  // 105: assistant_api.AssistantService.UpdateAssistantWebhook:input_type -> assistant_api.UpdateAssistantWebhookRequest
+	72,  // 106: assistant_api.AssistantService.DeleteAssistantWebhook:input_type -> assistant_api.DeleteAssistantWebhookRequest
+	73,  // 107: assistant_api.AssistantService.GetAssistantToolLog:input_type -> assistant_api.GetAssistantToolLogRequest
+	74,  // 108: assistant_api.AssistantService.GetAllAssistantToolLog:input_type -> assistant_api.GetAllAssistantToolLogRequest
+	75,  // 109: assistant_api.AssistantService.GetAssistantAnalysis:input_type -> assistant_api.GetAssistantAnalysisRequest
+	76,  // 110: assistant_api.AssistantService.UpdateAssistantAnalysis:input_type -> assistant_api.UpdateAssistantAnalysisRequest
+	77,  // 111: assistant_api.AssistantService.CreateAssistantAnalysis:input_type -> assistant_api.CreateAssistantAnalysisRequest
+	78,  // 112: assistant_api.AssistantService.DeleteAssistantAnalysis:input_type -> assistant_api.DeleteAssistantAnalysisRequest
+	79,  // 113: assistant_api.AssistantService.GetAllAssistantAnalysis:input_type -> assistant_api.GetAllAssistantAnalysisRequest
+	50,  // 114: assistant_api.AssistantService.CreateAssistantTool:input_type -> assistant_api.CreateAssistantToolRequest
+	80,  // 115: assistant_api.AssistantService.GetAssistantTool:input_type -> assistant_api.GetAssistantToolRequest
+	81,  // 116: assistant_api.AssistantService.GetAllAssistantTool:input_type -> assistant_api.GetAllAssistantToolRequest
+	82,  // 117: assistant_api.AssistantService.DeleteAssistantTool:input_type -> assistant_api.DeleteAssistantToolRequest
+	83,  // 118: assistant_api.AssistantService.UpdateAssistantTool:input_type -> assistant_api.UpdateAssistantToolRequest
+	49,  // 119: assistant_api.AssistantService.CreateAssistantKnowledge:input_type -> assistant_api.CreateAssistantKnowledgeRequest
+	84,  // 120: assistant_api.AssistantService.GetAssistantKnowledge:input_type -> assistant_api.GetAssistantKnowledgeRequest
+	85,  // 121: assistant_api.AssistantService.GetAllAssistantKnowledge:input_type -> assistant_api.GetAllAssistantKnowledgeRequest
+	86,  // 122: assistant_api.AssistantService.DeleteAssistantKnowledge:input_type -> assistant_api.DeleteAssistantKnowledgeRequest
+	87,  // 123: assistant_api.AssistantService.UpdateAssistantKnowledge:input_type -> assistant_api.UpdateAssistantKnowledgeRequest
+	5,   // 124: assistant_api.AssistantService.GetAssistant:output_type -> assistant_api.GetAssistantResponse
+	25,  // 125: assistant_api.AssistantService.GetAllAssistant:output_type -> assistant_api.GetAllAssistantResponse
+	5,   // 126: assistant_api.AssistantService.CreateAssistant:output_type -> assistant_api.GetAssistantResponse
+	5,   // 127: assistant_api.AssistantService.DeleteAssistant:output_type -> assistant_api.GetAssistantResponse
+	88,  // 128: assistant_api.AssistantService.GetAllAssistantProvider:output_type -> assistant_api.GetAllAssistantProviderResponse
+	89,  // 129: assistant_api.AssistantService.CreateAssistantProvider:output_type -> assistant_api.GetAssistantProviderResponse
+	5,   // 130: assistant_api.AssistantService.CreateAssistantTag:output_type -> assistant_api.GetAssistantResponse
+	5,   // 131: assistant_api.AssistantService.UpdateAssistantVersion:output_type -> assistant_api.GetAssistantResponse
+	5,   // 132: assistant_api.AssistantService.UpdateAssistantDetail:output_type -> assistant_api.GetAssistantResponse
+	27,  // 133: assistant_api.AssistantService.GetAllAssistantMessage:output_type -> assistant_api.GetAllAssistantMessageResponse
+	90,  // 134: assistant_api.AssistantService.GetAllConversationMessage:output_type -> GetAllConversationMessageResponse
+	29,  // 135: assistant_api.AssistantService.GetAllMessage:output_type -> assistant_api.GetAllMessageResponse
+	11,  // 136: assistant_api.AssistantService.GetAllAssistantTelemetry:output_type -> assistant_api.GetAllAssistantTelemetryResponse
+	14,  // 137: assistant_api.AssistantService.GetAssistantTelemetryProvider:output_type -> assistant_api.GetAssistantTelemetryProviderResponse
+	16,  // 138: assistant_api.AssistantService.GetAllAssistantTelemetryProvider:output_type -> assistant_api.GetAllAssistantTelemetryProviderResponse
+	14,  // 139: assistant_api.AssistantService.CreateAssistantTelemetryProvider:output_type -> assistant_api.GetAssistantTelemetryProviderResponse
+	14,  // 140: assistant_api.AssistantService.UpdateAssistantTelemetryProvider:output_type -> assistant_api.GetAssistantTelemetryProviderResponse
+	14,  // 141: assistant_api.AssistantService.DeleteAssistantTelemetryProvider:output_type -> assistant_api.GetAssistantTelemetryProviderResponse
+	24,  // 142: assistant_api.AssistantService.CreateAssistantAuthentication:output_type -> assistant_api.GetAssistantAuthenticationResponse
+	24,  // 143: assistant_api.AssistantService.GetAssistantAuthentication:output_type -> assistant_api.GetAssistantAuthenticationResponse
+	24,  // 144: assistant_api.AssistantService.DisableAssistantAuthentication:output_type -> assistant_api.GetAssistantAuthenticationResponse
+	91,  // 145: assistant_api.AssistantService.GetAllAssistantConversation:output_type -> GetAllAssistantConversationResponse
+	32,  // 146: assistant_api.AssistantService.GetAssistantConversation:output_type -> assistant_api.GetAssistantConversationResponse
+	92,  // 147: assistant_api.AssistantService.GetAssistantHTTPLog:output_type -> assistant_api.GetAssistantHTTPLogResponse
+	93,  // 148: assistant_api.AssistantService.GetAllAssistantHTTPLog:output_type -> assistant_api.GetAllAssistantHTTPLogResponse
+	92,  // 149: assistant_api.AssistantService.RetryAssistantHTTPLog:output_type -> assistant_api.GetAssistantHTTPLogResponse
+	94,  // 150: assistant_api.AssistantService.GetAllAssistantWebhook:output_type -> assistant_api.GetAllAssistantWebhookResponse
+	95,  // 151: assistant_api.AssistantService.GetAssistantWebhook:output_type -> assistant_api.GetAssistantWebhookResponse
+	95,  // 152: assistant_api.AssistantService.CreateAssistantWebhook:output_type -> assistant_api.GetAssistantWebhookResponse
+	95,  // 153: assistant_api.AssistantService.UpdateAssistantWebhook:output_type -> assistant_api.GetAssistantWebhookResponse
+	95,  // 154: assistant_api.AssistantService.DeleteAssistantWebhook:output_type -> assistant_api.GetAssistantWebhookResponse
+	96,  // 155: assistant_api.AssistantService.GetAssistantToolLog:output_type -> assistant_api.GetAssistantToolLogResponse
+	97,  // 156: assistant_api.AssistantService.GetAllAssistantToolLog:output_type -> assistant_api.GetAllAssistantToolLogResponse
+	98,  // 157: assistant_api.AssistantService.GetAssistantAnalysis:output_type -> assistant_api.GetAssistantAnalysisResponse
+	98,  // 158: assistant_api.AssistantService.UpdateAssistantAnalysis:output_type -> assistant_api.GetAssistantAnalysisResponse
+	98,  // 159: assistant_api.AssistantService.CreateAssistantAnalysis:output_type -> assistant_api.GetAssistantAnalysisResponse
+	98,  // 160: assistant_api.AssistantService.DeleteAssistantAnalysis:output_type -> assistant_api.GetAssistantAnalysisResponse
+	99,  // 161: assistant_api.AssistantService.GetAllAssistantAnalysis:output_type -> assistant_api.GetAllAssistantAnalysisResponse
+	100, // 162: assistant_api.AssistantService.CreateAssistantTool:output_type -> assistant_api.GetAssistantToolResponse
+	100, // 163: assistant_api.AssistantService.GetAssistantTool:output_type -> assistant_api.GetAssistantToolResponse
+	101, // 164: assistant_api.AssistantService.GetAllAssistantTool:output_type -> assistant_api.GetAllAssistantToolResponse
+	100, // 165: assistant_api.AssistantService.DeleteAssistantTool:output_type -> assistant_api.GetAssistantToolResponse
+	100, // 166: assistant_api.AssistantService.UpdateAssistantTool:output_type -> assistant_api.GetAssistantToolResponse
+	102, // 167: assistant_api.AssistantService.CreateAssistantKnowledge:output_type -> assistant_api.GetAssistantKnowledgeResponse
+	102, // 168: assistant_api.AssistantService.GetAssistantKnowledge:output_type -> assistant_api.GetAssistantKnowledgeResponse
+	103, // 169: assistant_api.AssistantService.GetAllAssistantKnowledge:output_type -> assistant_api.GetAllAssistantKnowledgeResponse
+	102, // 170: assistant_api.AssistantService.DeleteAssistantKnowledge:output_type -> assistant_api.GetAssistantKnowledgeResponse
+	102, // 171: assistant_api.AssistantService.UpdateAssistantKnowledge:output_type -> assistant_api.GetAssistantKnowledgeResponse
+	124, // [124:172] is the sub-list for method output_type
+	76,  // [76:124] is the sub-list for method input_type
 	76,  // [76:76] is the sub-list for extension type_name
 	76,  // [76:76] is the sub-list for extension extendee
 	0,   // [0:76] is the sub-list for field type_name

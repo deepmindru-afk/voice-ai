@@ -60,7 +60,7 @@ func TestClassify(t *testing.T) {
 		{
 			name:      "background-finalize",
 			pkt:       internal_type.FinalizeBehaviorPacket{ContextID: "c"},
-			wantRoute: RouteBackground,
+			wantRoute: RouteData,
 			wantOK:    true,
 		},
 		{

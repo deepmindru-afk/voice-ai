@@ -42,8 +42,9 @@ const (
 	AssistantService_DisableAssistantAuthentication_FullMethodName   = "/assistant_api.AssistantService/DisableAssistantAuthentication"
 	AssistantService_GetAllAssistantConversation_FullMethodName      = "/assistant_api.AssistantService/GetAllAssistantConversation"
 	AssistantService_GetAssistantConversation_FullMethodName         = "/assistant_api.AssistantService/GetAssistantConversation"
-	AssistantService_GetAssistantWebhookLog_FullMethodName           = "/assistant_api.AssistantService/GetAssistantWebhookLog"
-	AssistantService_GetAllAssistantWebhookLog_FullMethodName        = "/assistant_api.AssistantService/GetAllAssistantWebhookLog"
+	AssistantService_GetAssistantHTTPLog_FullMethodName              = "/assistant_api.AssistantService/GetAssistantHTTPLog"
+	AssistantService_GetAllAssistantHTTPLog_FullMethodName           = "/assistant_api.AssistantService/GetAllAssistantHTTPLog"
+	AssistantService_RetryAssistantHTTPLog_FullMethodName            = "/assistant_api.AssistantService/RetryAssistantHTTPLog"
 	AssistantService_GetAllAssistantWebhook_FullMethodName           = "/assistant_api.AssistantService/GetAllAssistantWebhook"
 	AssistantService_GetAssistantWebhook_FullMethodName              = "/assistant_api.AssistantService/GetAssistantWebhook"
 	AssistantService_CreateAssistantWebhook_FullMethodName           = "/assistant_api.AssistantService/CreateAssistantWebhook"
@@ -95,9 +96,10 @@ type AssistantServiceClient interface {
 	DisableAssistantAuthentication(ctx context.Context, in *DisableAssistantAuthenticationRequest, opts ...grpc.CallOption) (*GetAssistantAuthenticationResponse, error)
 	GetAllAssistantConversation(ctx context.Context, in *GetAllAssistantConversationRequest, opts ...grpc.CallOption) (*GetAllAssistantConversationResponse, error)
 	GetAssistantConversation(ctx context.Context, in *GetAssistantConversationRequest, opts ...grpc.CallOption) (*GetAssistantConversationResponse, error)
-	// webhook log
-	GetAssistantWebhookLog(ctx context.Context, in *GetAssistantWebhookLogRequest, opts ...grpc.CallOption) (*GetAssistantWebhookLogResponse, error)
-	GetAllAssistantWebhookLog(ctx context.Context, in *GetAllAssistantWebhookLogRequest, opts ...grpc.CallOption) (*GetAllAssistantWebhookLogResponse, error)
+	// http log
+	GetAssistantHTTPLog(ctx context.Context, in *GetAssistantHTTPLogRequest, opts ...grpc.CallOption) (*GetAssistantHTTPLogResponse, error)
+	GetAllAssistantHTTPLog(ctx context.Context, in *GetAllAssistantHTTPLogRequest, opts ...grpc.CallOption) (*GetAllAssistantHTTPLogResponse, error)
+	RetryAssistantHTTPLog(ctx context.Context, in *RetryAssistantHTTPLogRequest, opts ...grpc.CallOption) (*GetAssistantHTTPLogResponse, error)
 	GetAllAssistantWebhook(ctx context.Context, in *GetAllAssistantWebhookRequest, opts ...grpc.CallOption) (*GetAllAssistantWebhookResponse, error)
 	GetAssistantWebhook(ctx context.Context, in *GetAssistantWebhookRequest, opts ...grpc.CallOption) (*GetAssistantWebhookResponse, error)
 	CreateAssistantWebhook(ctx context.Context, in *CreateAssistantWebhookRequest, opts ...grpc.CallOption) (*GetAssistantWebhookResponse, error)
@@ -364,20 +366,30 @@ func (c *assistantServiceClient) GetAssistantConversation(ctx context.Context, i
 	return out, nil
 }
 
-func (c *assistantServiceClient) GetAssistantWebhookLog(ctx context.Context, in *GetAssistantWebhookLogRequest, opts ...grpc.CallOption) (*GetAssistantWebhookLogResponse, error) {
+func (c *assistantServiceClient) GetAssistantHTTPLog(ctx context.Context, in *GetAssistantHTTPLogRequest, opts ...grpc.CallOption) (*GetAssistantHTTPLogResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetAssistantWebhookLogResponse)
-	err := c.cc.Invoke(ctx, AssistantService_GetAssistantWebhookLog_FullMethodName, in, out, cOpts...)
+	out := new(GetAssistantHTTPLogResponse)
+	err := c.cc.Invoke(ctx, AssistantService_GetAssistantHTTPLog_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *assistantServiceClient) GetAllAssistantWebhookLog(ctx context.Context, in *GetAllAssistantWebhookLogRequest, opts ...grpc.CallOption) (*GetAllAssistantWebhookLogResponse, error) {
+func (c *assistantServiceClient) GetAllAssistantHTTPLog(ctx context.Context, in *GetAllAssistantHTTPLogRequest, opts ...grpc.CallOption) (*GetAllAssistantHTTPLogResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetAllAssistantWebhookLogResponse)
-	err := c.cc.Invoke(ctx, AssistantService_GetAllAssistantWebhookLog_FullMethodName, in, out, cOpts...)
+	out := new(GetAllAssistantHTTPLogResponse)
+	err := c.cc.Invoke(ctx, AssistantService_GetAllAssistantHTTPLog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *assistantServiceClient) RetryAssistantHTTPLog(ctx context.Context, in *RetryAssistantHTTPLogRequest, opts ...grpc.CallOption) (*GetAssistantHTTPLogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAssistantHTTPLogResponse)
+	err := c.cc.Invoke(ctx, AssistantService_RetryAssistantHTTPLog_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -631,9 +643,10 @@ type AssistantServiceServer interface {
 	DisableAssistantAuthentication(context.Context, *DisableAssistantAuthenticationRequest) (*GetAssistantAuthenticationResponse, error)
 	GetAllAssistantConversation(context.Context, *GetAllAssistantConversationRequest) (*GetAllAssistantConversationResponse, error)
 	GetAssistantConversation(context.Context, *GetAssistantConversationRequest) (*GetAssistantConversationResponse, error)
-	// webhook log
-	GetAssistantWebhookLog(context.Context, *GetAssistantWebhookLogRequest) (*GetAssistantWebhookLogResponse, error)
-	GetAllAssistantWebhookLog(context.Context, *GetAllAssistantWebhookLogRequest) (*GetAllAssistantWebhookLogResponse, error)
+	// http log
+	GetAssistantHTTPLog(context.Context, *GetAssistantHTTPLogRequest) (*GetAssistantHTTPLogResponse, error)
+	GetAllAssistantHTTPLog(context.Context, *GetAllAssistantHTTPLogRequest) (*GetAllAssistantHTTPLogResponse, error)
+	RetryAssistantHTTPLog(context.Context, *RetryAssistantHTTPLogRequest) (*GetAssistantHTTPLogResponse, error)
 	GetAllAssistantWebhook(context.Context, *GetAllAssistantWebhookRequest) (*GetAllAssistantWebhookResponse, error)
 	GetAssistantWebhook(context.Context, *GetAssistantWebhookRequest) (*GetAssistantWebhookResponse, error)
 	CreateAssistantWebhook(context.Context, *CreateAssistantWebhookRequest) (*GetAssistantWebhookResponse, error)
@@ -738,11 +751,14 @@ func (UnimplementedAssistantServiceServer) GetAllAssistantConversation(context.C
 func (UnimplementedAssistantServiceServer) GetAssistantConversation(context.Context, *GetAssistantConversationRequest) (*GetAssistantConversationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAssistantConversation not implemented")
 }
-func (UnimplementedAssistantServiceServer) GetAssistantWebhookLog(context.Context, *GetAssistantWebhookLogRequest) (*GetAssistantWebhookLogResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetAssistantWebhookLog not implemented")
+func (UnimplementedAssistantServiceServer) GetAssistantHTTPLog(context.Context, *GetAssistantHTTPLogRequest) (*GetAssistantHTTPLogResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAssistantHTTPLog not implemented")
 }
-func (UnimplementedAssistantServiceServer) GetAllAssistantWebhookLog(context.Context, *GetAllAssistantWebhookLogRequest) (*GetAllAssistantWebhookLogResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetAllAssistantWebhookLog not implemented")
+func (UnimplementedAssistantServiceServer) GetAllAssistantHTTPLog(context.Context, *GetAllAssistantHTTPLogRequest) (*GetAllAssistantHTTPLogResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAllAssistantHTTPLog not implemented")
+}
+func (UnimplementedAssistantServiceServer) RetryAssistantHTTPLog(context.Context, *RetryAssistantHTTPLogRequest) (*GetAssistantHTTPLogResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RetryAssistantHTTPLog not implemented")
 }
 func (UnimplementedAssistantServiceServer) GetAllAssistantWebhook(context.Context, *GetAllAssistantWebhookRequest) (*GetAllAssistantWebhookResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAllAssistantWebhook not implemented")
@@ -1244,38 +1260,56 @@ func _AssistantService_GetAssistantConversation_Handler(srv interface{}, ctx con
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AssistantService_GetAssistantWebhookLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetAssistantWebhookLogRequest)
+func _AssistantService_GetAssistantHTTPLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAssistantHTTPLogRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AssistantServiceServer).GetAssistantWebhookLog(ctx, in)
+		return srv.(AssistantServiceServer).GetAssistantHTTPLog(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: AssistantService_GetAssistantWebhookLog_FullMethodName,
+		FullMethod: AssistantService_GetAssistantHTTPLog_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AssistantServiceServer).GetAssistantWebhookLog(ctx, req.(*GetAssistantWebhookLogRequest))
+		return srv.(AssistantServiceServer).GetAssistantHTTPLog(ctx, req.(*GetAssistantHTTPLogRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AssistantService_GetAllAssistantWebhookLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetAllAssistantWebhookLogRequest)
+func _AssistantService_GetAllAssistantHTTPLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAllAssistantHTTPLogRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AssistantServiceServer).GetAllAssistantWebhookLog(ctx, in)
+		return srv.(AssistantServiceServer).GetAllAssistantHTTPLog(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: AssistantService_GetAllAssistantWebhookLog_FullMethodName,
+		FullMethod: AssistantService_GetAllAssistantHTTPLog_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AssistantServiceServer).GetAllAssistantWebhookLog(ctx, req.(*GetAllAssistantWebhookLogRequest))
+		return srv.(AssistantServiceServer).GetAllAssistantHTTPLog(ctx, req.(*GetAllAssistantHTTPLogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AssistantService_RetryAssistantHTTPLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RetryAssistantHTTPLogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AssistantServiceServer).RetryAssistantHTTPLog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AssistantService_RetryAssistantHTTPLog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AssistantServiceServer).RetryAssistantHTTPLog(ctx, req.(*RetryAssistantHTTPLogRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1776,12 +1810,16 @@ var AssistantService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AssistantService_GetAssistantConversation_Handler,
 		},
 		{
-			MethodName: "GetAssistantWebhookLog",
-			Handler:    _AssistantService_GetAssistantWebhookLog_Handler,
+			MethodName: "GetAssistantHTTPLog",
+			Handler:    _AssistantService_GetAssistantHTTPLog_Handler,
 		},
 		{
-			MethodName: "GetAllAssistantWebhookLog",
-			Handler:    _AssistantService_GetAllAssistantWebhookLog_Handler,
+			MethodName: "GetAllAssistantHTTPLog",
+			Handler:    _AssistantService_GetAllAssistantHTTPLog_Handler,
+		},
+		{
+			MethodName: "RetryAssistantHTTPLog",
+			Handler:    _AssistantService_RetryAssistantHTTPLog_Handler,
 		},
 		{
 			MethodName: "GetAllAssistantWebhook",

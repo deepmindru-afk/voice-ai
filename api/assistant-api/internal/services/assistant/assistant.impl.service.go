@@ -224,7 +224,7 @@ func (eService *assistantService) Get(ctx context.Context,
 			func() {
 				defer wg.Done()
 				var authentication *internal_assistant_entity.AssistantAuthentication
-				tx := db.Preload("AuthOptions", "status = ?", type_enums.RECORD_ACTIVE).
+				tx := db.Preload("AssistantAuthenticationOption", "status = ?", type_enums.RECORD_ACTIVE).
 					Where("assistant_id = ? AND status IN ?", assistantId, []type_enums.RecordState{
 						type_enums.RECORD_ACTIVE,
 						type_enums.RECORD_INACTIVE,

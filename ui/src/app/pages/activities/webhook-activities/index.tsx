@@ -12,8 +12,14 @@ import {
 import { HttpStatusSpanIndicator } from '@/app/components/indicators/http-status';
 import { PageTitleWithCount } from '@/app/components/blocks/page-title-with-count';
 import { useWebhookLogPage } from '@/hooks/use-webhook-log-page-store';
-import { WebhookLogDialog } from '@/app/components/base/modal/webhook-log-modal';
+import { RequestLogDialog } from '@/app/components/base/modal/webhook-log-modal';
 import { PageHeaderBlock } from '@/app/components/blocks/page-header-block';
+import { useConfirmDialog } from '@/app/pages/assistant/actions/hooks/use-confirmation';
+import {
+  RetryAssistantHTTPLogRequest,
+  RetryHTTPLog,
+} from '@rapidaai/react';
+import { connectionConfig } from '@/configs';
 
 import {
   Table,
@@ -39,6 +45,11 @@ export function ListingPage() {
   const [userId, token, projectId] = useCredential();
   const [currentActivityId, setCurrentActivityId] = useState('');
   const [showLogModal, setShowLogModal] = useState(false);
+  const { showDialog, ConfirmDialogComponent } = useConfirmDialog({
+    title: 'Retry request?',
+    content:
+      'This will re-run the selected HTTP request. Do you want to continue?',
+  });
 
   const {
     getActivities,
@@ -84,28 +95,57 @@ export function ListingPage() {
     );
   };
 
+  const retryRequestLog = async (requestLogId: string) => {
+    showLoader();
+    const request = new RetryAssistantHTTPLogRequest();
+    request.setProjectid(projectId);
+    request.setId(requestLogId);
+
+    try {
+      const response = await RetryHTTPLog(connectionConfig, request, {
+        authorization: token,
+        'x-project-id': projectId,
+        'x-auth-id': userId,
+      });
+
+      if (response?.getSuccess()) {
+        toast.success('Request retried successfully.');
+        onGetActivities();
+        return;
+      }
+
+      const message = response?.getError()?.getHumanmessage();
+      toast.error(message || 'Unable to retry the request, please try again.');
+    } catch {
+      toast.error('Unable to retry the request, please try again.');
+    } finally {
+      hideLoader();
+    }
+  };
+
   const visibleColumns = columns.filter(c => c.visible);
 
   return (
     <>
+      <ConfirmDialogComponent />
       {currentActivityId && (
-        <WebhookLogDialog
+        <RequestLogDialog
           modalOpen={showLogModal}
           setModalOpen={setShowLogModal}
-          currentWebhookId={currentActivityId}
+          currentRequestLogId={currentActivityId}
         />
       )}
 
-      <Helmet title="Webhook Logs" />
+      <Helmet title="Request Logs" />
       <PageHeaderBlock>
         <PageTitleWithCount count={webhookLogs.length} total={totalCount}>
-          Webhook Logs
+          Request Logs
         </PageTitleWithCount>
       </PageHeaderBlock>
 
       <TableToolbar>
         <TableToolbarContent>
-          <TableToolbarSearch placeholder="Search webhook logs" />
+          <TableToolbarSearch placeholder="Search request logs" />
           <DateFilter
             onApply={(from, to) => onDateSelect(to, from)}
             onReset={() => addCriterias([])}
@@ -138,14 +178,12 @@ export function ListingPage() {
             <TableBody>
               {webhookLogs.map((at, idx) => (
                 <TableRow key={idx}>
-                  {visibleColumn('webhookid') && (
-                    <TableCell>
-                      <TableLink
-                        href={`/deployment/assistant/${at.getAssistantid()}/manage/configure-webhook`}
-                      >
-                        {at.getWebhookid()}
-                      </TableLink>
-                    </TableCell>
+                  {visibleColumn('sourcerefid') && (
+                  <TableCell>
+                      <span className="font-mono text-xs">
+                        {at.getSourcerefid()}
+                      </span>
+                  </TableCell>
                   )}
                   {visibleColumn('sessionid') && (
                     <TableCell>
@@ -159,7 +197,7 @@ export function ListingPage() {
                   {visibleColumn('event') && (
                     <TableCell>
                       <Tag size="sm" type="blue">
-                        {at.getEvent()}
+                        {at.getSourceevent()}
                       </Tag>
                     </TableCell>
                   )}
@@ -195,6 +233,15 @@ export function ListingPage() {
                     <IconOnlyButton
                       kind="ghost"
                       size="md"
+                      renderIcon={Renew}
+                      iconDescription="Retry request"
+                      onClick={() =>
+                        showDialog(() => retryRequestLog(at.getId()))
+                      }
+                    />
+                    <IconOnlyButton
+                      kind="ghost"
+                      size="md"
                       renderIcon={View}
                       iconDescription="View detail"
                       onClick={() => {
@@ -211,8 +258,8 @@ export function ListingPage() {
       ) : (
         <EmptyState
           icon={EventSchedule}
-          title="No webhook logs found"
-          subtitle="Webhook activities triggered by your assistant conversations will appear here once webhooks are configured and events are fired."
+          title="No request logs found"
+          subtitle="HTTP request logs will appear here once requests are triggered by assistant workflows."
         />
       )}
 

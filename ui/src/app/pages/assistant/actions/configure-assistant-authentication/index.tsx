@@ -41,14 +41,16 @@ import {
 
 type AuthProvider = 'api';
 type HttpMethod = 'POST' | 'GET';
-type FailBehavior = 'block' | 'none';
+type FailBehavior = 'block' | 'do_nothing';
 type LoadState = 'loading' | 'ready' | 'error';
 const AUTH_OPTION_PROVIDER = 'auth.provider';
-const AUTH_OPTION_METHOD = 'auth.method';
-const AUTH_OPTION_ENDPOINT = 'auth.endpoint';
-const AUTH_OPTION_HEADERS = 'auth.headers';
-const AUTH_OPTION_BODY = 'auth.body';
-const AUTH_OPTION_CONDITION = 'auth.condition';
+const AUTH_OPTION_METHOD = 'http_method';
+const AUTH_OPTION_ENDPOINT = 'http_url';
+const AUTH_OPTION_HEADERS = 'http_headers';
+const AUTH_OPTION_BODY = 'http_body';
+const AUTH_OPTION_CONDITION = 'authentication.condition';
+const FAIL_BEHAVIOR_BLOCK = 'BLOCK';
+const FAIL_BEHAVIOR_DO_NOTHING = 'DO_NOTHING';
 const AUTH_PARAMETER_TYPE_OPTIONS = [
   { value: 'client', name: 'Client' },
   { value: 'assistant', name: 'Assistant' },
@@ -58,6 +60,39 @@ const AUTH_PARAMETER_TYPE_OPTIONS = [
   { value: 'option', name: 'Option' },
   { value: 'custom', name: 'Custom' },
 ];
+const AUTH_KEY_OPTIONS_BY_TYPE = {
+  assistant: [
+    { value: 'id', name: 'ID' },
+    { value: 'name', name: 'Name' },
+    { value: 'prompt', name: 'Prompt' },
+  ],
+  client: [
+    { value: 'phone', name: 'Phone' },
+    { value: 'assistantPhone', name: 'Assistant Phone' },
+    { value: 'direction', name: 'Direction' },
+    { value: 'provider', name: 'Provider' },
+    { value: 'providerCallId', name: 'Provider Call ID' },
+  ],
+  conversation: [
+    { value: 'messages', name: 'Messages' },
+    { value: 'id', name: 'ID' },
+  ],
+};
+
+const fromApiFailBehavior = (value?: string): FailBehavior => {
+  const normalized = (value || '').trim().toLowerCase();
+  if (
+    normalized === 'do_nothing' ||
+    normalized === 'do-nothing' ||
+    normalized === 'none'
+  ) {
+    return 'do_nothing';
+  }
+  return 'block';
+};
+
+const toApiFailBehavior = (value: FailBehavior): string =>
+  value === 'do_nothing' ? FAIL_BEHAVIOR_DO_NOTHING : FAIL_BEHAVIOR_BLOCK;
 
 export function ConfigureAssistantAuthenticationPage() {
   const { assistantId } = useParams();
@@ -128,10 +163,7 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
         const status = (data.getStatus() || '').toLowerCase();
         setEnabled(status === 'active');
 
-        const persistedFailBehavior = (
-          data.getFailbehavior() || 'block'
-        ).toLowerCase();
-        setFailBehavior(persistedFailBehavior === 'none' ? 'none' : 'block');
+        setFailBehavior(fromApiFailBehavior(data.getFailbehavior()));
 
         const persistedTimeout = Number(data.getTimeoutms());
         setTimeoutValue(
@@ -311,7 +343,7 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
     const request = new CreateAssistantAuthenticationRequest();
     request.setAssistantid(assistantId);
     request.setStatus('ACTIVE');
-    request.setFailbehavior(failBehavior);
+    request.setFailbehavior(toApiFailBehavior(failBehavior));
     request.setTimeoutms(String(timeout));
 
     const options: Metadata[] = [];
@@ -467,7 +499,7 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
                         disabled={provider !== 'api'}
                       >
                         <SelectItem value="block" text="Block" />
-                        <SelectItem value="none" text="Do nothing" />
+                        <SelectItem value="do_nothing" text="Do nothing" />
                       </CarbonSelect>
                     </div>
                     <div className="relative w-full">
@@ -509,6 +541,7 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
                       setErrorMessage('');
                     }}
                     typeOptions={AUTH_PARAMETER_TYPE_OPTIONS}
+                    keyOptionsByType={AUTH_KEY_OPTIONS_BY_TYPE}
                     includeEmptyKeyOption
                   />
                 </Stack>

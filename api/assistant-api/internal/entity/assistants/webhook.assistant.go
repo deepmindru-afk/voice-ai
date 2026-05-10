@@ -147,19 +147,3 @@ func (aa *AssistantWebhook) getStringSliceOption(key string) []string {
 
 	return []string{trimmed}
 }
-
-type AssistantWebhookLog struct {
-	gorm_model.Audited
-	gorm_model.Mutable
-	gorm_model.Organizational
-	WebhookId               uint64 `json:"webhookId" gorm:"type:bigint"`
-	HttpMethod              string `json:"httpMethod" gorm:"type:string;size:200;not null"`
-	HttpUrl                 string `json:"httpUrl" gorm:"type:string;size:400;not null"`
-	AssistantId             uint64 `json:"assistantId" gorm:"type:bigint"`
-	AssistantConversationId uint64 `json:"assistantConversationId" gorm:"type:bigint"`
-	Event                   string `json:"event" gorm:"type:string;size:200;not null"`
-	AssetPrefix             string `json:"assetPrefix" gorm:"type:string;size:200;not null"`
-	ResponseStatus          int64  `json:"responseStatus" gorm:"type:bigint;size:10"`
-	TimeTaken               int64  `json:"timeTaken" gorm:"type:bigint;size:20"`
-	RetryCount              uint32 `json:"retryCount" gorm:"type:bigint;size:20"`
-}

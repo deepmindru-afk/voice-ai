@@ -155,15 +155,20 @@ class AssistantServiceStub(object):
                 request_serializer=assistant__api__pb2.GetAssistantConversationRequest.SerializeToString,
                 response_deserializer=assistant__api__pb2.GetAssistantConversationResponse.FromString,
                 _registered_method=True)
-        self.GetAssistantWebhookLog = channel.unary_unary(
-                '/assistant_api.AssistantService/GetAssistantWebhookLog',
-                request_serializer=assistant__webhook__pb2.GetAssistantWebhookLogRequest.SerializeToString,
-                response_deserializer=assistant__webhook__pb2.GetAssistantWebhookLogResponse.FromString,
+        self.GetAssistantHTTPLog = channel.unary_unary(
+                '/assistant_api.AssistantService/GetAssistantHTTPLog',
+                request_serializer=assistant__webhook__pb2.GetAssistantHTTPLogRequest.SerializeToString,
+                response_deserializer=assistant__webhook__pb2.GetAssistantHTTPLogResponse.FromString,
                 _registered_method=True)
-        self.GetAllAssistantWebhookLog = channel.unary_unary(
-                '/assistant_api.AssistantService/GetAllAssistantWebhookLog',
-                request_serializer=assistant__webhook__pb2.GetAllAssistantWebhookLogRequest.SerializeToString,
-                response_deserializer=assistant__webhook__pb2.GetAllAssistantWebhookLogResponse.FromString,
+        self.GetAllAssistantHTTPLog = channel.unary_unary(
+                '/assistant_api.AssistantService/GetAllAssistantHTTPLog',
+                request_serializer=assistant__webhook__pb2.GetAllAssistantHTTPLogRequest.SerializeToString,
+                response_deserializer=assistant__webhook__pb2.GetAllAssistantHTTPLogResponse.FromString,
+                _registered_method=True)
+        self.RetryAssistantHTTPLog = channel.unary_unary(
+                '/assistant_api.AssistantService/RetryAssistantHTTPLog',
+                request_serializer=assistant__webhook__pb2.RetryAssistantHTTPLogRequest.SerializeToString,
+                response_deserializer=assistant__webhook__pb2.GetAssistantHTTPLogResponse.FromString,
                 _registered_method=True)
         self.GetAllAssistantWebhook = channel.unary_unary(
                 '/assistant_api.AssistantService/GetAllAssistantWebhook',
@@ -418,14 +423,20 @@ class AssistantServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetAssistantWebhookLog(self, request, context):
-        """webhook log
+    def GetAssistantHTTPLog(self, request, context):
+        """http log
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetAllAssistantWebhookLog(self, request, context):
+    def GetAllAssistantHTTPLog(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RetryAssistantHTTPLog(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -685,15 +696,20 @@ def add_AssistantServiceServicer_to_server(servicer, server):
                     request_deserializer=assistant__api__pb2.GetAssistantConversationRequest.FromString,
                     response_serializer=assistant__api__pb2.GetAssistantConversationResponse.SerializeToString,
             ),
-            'GetAssistantWebhookLog': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetAssistantWebhookLog,
-                    request_deserializer=assistant__webhook__pb2.GetAssistantWebhookLogRequest.FromString,
-                    response_serializer=assistant__webhook__pb2.GetAssistantWebhookLogResponse.SerializeToString,
+            'GetAssistantHTTPLog': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAssistantHTTPLog,
+                    request_deserializer=assistant__webhook__pb2.GetAssistantHTTPLogRequest.FromString,
+                    response_serializer=assistant__webhook__pb2.GetAssistantHTTPLogResponse.SerializeToString,
             ),
-            'GetAllAssistantWebhookLog': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetAllAssistantWebhookLog,
-                    request_deserializer=assistant__webhook__pb2.GetAllAssistantWebhookLogRequest.FromString,
-                    response_serializer=assistant__webhook__pb2.GetAllAssistantWebhookLogResponse.SerializeToString,
+            'GetAllAssistantHTTPLog': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAllAssistantHTTPLog,
+                    request_deserializer=assistant__webhook__pb2.GetAllAssistantHTTPLogRequest.FromString,
+                    response_serializer=assistant__webhook__pb2.GetAllAssistantHTTPLogResponse.SerializeToString,
+            ),
+            'RetryAssistantHTTPLog': grpc.unary_unary_rpc_method_handler(
+                    servicer.RetryAssistantHTTPLog,
+                    request_deserializer=assistant__webhook__pb2.RetryAssistantHTTPLogRequest.FromString,
+                    response_serializer=assistant__webhook__pb2.GetAssistantHTTPLogResponse.SerializeToString,
             ),
             'GetAllAssistantWebhook': grpc.unary_unary_rpc_method_handler(
                     servicer.GetAllAssistantWebhook,
@@ -1438,7 +1454,7 @@ class AssistantService(object):
             _registered_method=True)
 
     @staticmethod
-    def GetAssistantWebhookLog(request,
+    def GetAssistantHTTPLog(request,
             target,
             options=(),
             channel_credentials=None,
@@ -1451,9 +1467,9 @@ class AssistantService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/assistant_api.AssistantService/GetAssistantWebhookLog',
-            assistant__webhook__pb2.GetAssistantWebhookLogRequest.SerializeToString,
-            assistant__webhook__pb2.GetAssistantWebhookLogResponse.FromString,
+            '/assistant_api.AssistantService/GetAssistantHTTPLog',
+            assistant__webhook__pb2.GetAssistantHTTPLogRequest.SerializeToString,
+            assistant__webhook__pb2.GetAssistantHTTPLogResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1465,7 +1481,7 @@ class AssistantService(object):
             _registered_method=True)
 
     @staticmethod
-    def GetAllAssistantWebhookLog(request,
+    def GetAllAssistantHTTPLog(request,
             target,
             options=(),
             channel_credentials=None,
@@ -1478,9 +1494,36 @@ class AssistantService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/assistant_api.AssistantService/GetAllAssistantWebhookLog',
-            assistant__webhook__pb2.GetAllAssistantWebhookLogRequest.SerializeToString,
-            assistant__webhook__pb2.GetAllAssistantWebhookLogResponse.FromString,
+            '/assistant_api.AssistantService/GetAllAssistantHTTPLog',
+            assistant__webhook__pb2.GetAllAssistantHTTPLogRequest.SerializeToString,
+            assistant__webhook__pb2.GetAllAssistantHTTPLogResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RetryAssistantHTTPLog(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/assistant_api.AssistantService/RetryAssistantHTTPLog',
+            assistant__webhook__pb2.RetryAssistantHTTPLogRequest.SerializeToString,
+            assistant__webhook__pb2.GetAssistantHTTPLogResponse.FromString,
             options,
             channel_credentials,
             insecure,

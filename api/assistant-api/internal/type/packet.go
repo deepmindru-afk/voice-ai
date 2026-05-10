@@ -1050,22 +1050,25 @@ type ToolLogUpdatePacket struct {
 
 func (f ToolLogUpdatePacket) ContextId() string { return f.ContextID }
 
-// WebhookLogCreatePacket persists webhook execution log to the database.
-type WebhookLogCreatePacket struct {
+// HTTPLogCreatePacket persists generic HTTP execution logs (webhook, authentication, analysis).
+type HTTPLogCreatePacket struct {
 	ContextID       string
-	WebhookID       uint64
+	Source          string
+	SourceRefID     uint64
+	SourceEvent     string
 	HTTPURL         string
 	HTTPMethod      string
-	Event           string
 	ResponseStatus  int64
 	TimeTaken       int64
 	RetryCount      uint32
 	Status          type_enums.RecordState
+	ErrorMessage    *string
 	RequestPayload  []byte
 	ResponsePayload []byte
 }
 
-func (f WebhookLogCreatePacket) ContextId() string { return f.ContextID }
+func (f HTTPLogCreatePacket) ContextId() string { return f.ContextID }
+func (f HTTPLogCreatePacket) IsAsync() bool     { return true }
 
 // =============================================================================
 // Metrics & Metadata
