@@ -594,7 +594,9 @@ func (e *modelAssistantExecutor) buildStreamChatInput(
 		ProviderName:  strings.ToLower(assistant.AssistantProviderModel.ModelProviderName),
 		Conversations: conversations,
 		AdditionalData: map[string]string{
-			"assistant_id":                fmt.Sprintf("%d", assistant.Id),
+			"assistant_id":                fmt.Sprintf("%d", communication.Conversation().AssistantId),
+			"conversation_id":             fmt.Sprintf("%d", communication.Conversation().Id),
+			"user_identifier":             fmt.Sprintf("%s", communication.Conversation().Identifier),
 			"message_id":                  contextID,
 			"assistant_provider_model_id": fmt.Sprintf("%d", assistant.AssistantProviderModel.Id),
 		},

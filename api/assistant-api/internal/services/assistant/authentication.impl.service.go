@@ -77,6 +77,7 @@ func (s *assistantAuthenticationService) Create(
 	ctx context.Context,
 	auth types.SimplePrinciple,
 	assistantId uint64,
+	provider string,
 	status string,
 	failBehavior string,
 	timeoutMs uint64,
@@ -91,6 +92,7 @@ func (s *assistantAuthenticationService) Create(
 	if timeoutMs == 0 {
 		timeoutMs = 5000
 	}
+	provider = internal_assistant_entity.NormalizeAssistantAuthenticationProvider(provider)
 
 	recordStatus := type_enums.ToRecordState(status)
 
@@ -112,6 +114,7 @@ func (s *assistantAuthenticationService) Create(
 
 		created := &internal_assistant_entity.AssistantAuthentication{
 			AssistantId:  assistantId,
+			Provider:     provider,
 			FailBehavior: failBehavior,
 			TimeoutMs:    timeoutMs,
 			Organizational: gorm_models.Organizational{
@@ -188,8 +191,10 @@ func (s *assistantAuthenticationService) Disable(
 
 		failBehavior := "block"
 		timeoutMs := uint64(5000)
+		provider := internal_assistant_entity.AssistantAuthenticationProviderHTTP
 		var options []*protos.Metadata
 		if current != nil {
+			provider = internal_assistant_entity.NormalizeAssistantAuthenticationProvider(current.Provider)
 			if current.FailBehavior != "" {
 				failBehavior = current.FailBehavior
 			}
@@ -207,6 +212,7 @@ func (s *assistantAuthenticationService) Disable(
 
 		created := &internal_assistant_entity.AssistantAuthentication{
 			AssistantId:  assistantId,
+			Provider:     provider,
 			FailBehavior: failBehavior,
 			TimeoutMs:    timeoutMs,
 			Organizational: gorm_models.Organizational{

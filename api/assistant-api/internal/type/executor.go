@@ -5,13 +5,19 @@
 // See LICENSE.md or contact sales@rapida.ai for commercial usage.
 package internal_type
 
-import "context"
+import (
+	"context"
+
+	"github.com/rapidaai/pkg/utils"
+)
 
 // Executor is the generic contract for session-scoped executors.
 // P is the specific packet type the executor handles in Execute.
 // Construction (with full dependency wiring) happens in each implementation's
 // New<X>Executor function — there is no separate Initialize phase.
 type Executor[P Packet] interface {
+	Name() string
+	Options() utils.Option
 	Execute(ctx context.Context, packet P) error
 	Close(ctx context.Context) error
 }

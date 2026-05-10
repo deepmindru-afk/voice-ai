@@ -3004,6 +3004,9 @@
   .min-w-\[240px\] {
     min-width: 240px;
   }
+  .min-w-max {
+    min-width: max-content;
+  }
   .\!flex-1 {
     flex: 1 !important;
   }
@@ -4423,6 +4426,10 @@
     font-size: var(--text-2xl) !important;
     line-height: var(--tw-leading, var(--text-2xl--line-height)) !important;
   }
+  .\!text-sm {
+    font-size: var(--text-sm) !important;
+    line-height: var(--tw-leading, var(--text-sm--line-height)) !important;
+  }
   .\!text-xs {
     font-size: var(--text-xs) !important;
     line-height: var(--tw-leading, var(--text-xs--line-height)) !important;
@@ -4509,6 +4516,9 @@
   }
   .text-\[12px\] {
     font-size: 12px;
+  }
+  .text-\[13px\] {
+    font-size: 13px;
   }
   .text-\[14px\] {
     font-size: 14px;

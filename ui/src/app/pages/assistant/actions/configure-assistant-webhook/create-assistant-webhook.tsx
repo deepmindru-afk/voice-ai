@@ -310,6 +310,7 @@ export const CreateAssistantWebhook: FC<{ assistantId: string }> = ({
     }));
     const request = new CreateAssistantWebhookRequest();
     request.setAssistantid(assistantId);
+    request.setProvider('http');
     request.setAssistanteventsList(events);
     request.setExecutionpriority(priority);
     request.setDescription(description);

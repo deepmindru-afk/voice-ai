@@ -116,10 +116,10 @@ type genericRequestor struct {
 	recorder internal_type.Recorder
 
 	// executor
-	assistantExecutor      internal_llm.AssistantExecutor
-	analysisExecutor       internal_type.AnalysisExecutor
-	webhookExecutor        internal_type.WebhookExecutor
+	assistantAnalyses      []internal_type.AnalysisExecutor
+	assistantWebhooks      []internal_type.WebhookExecutor
 	authenticationExecutor internal_type.AuthenticationExecutor
+	assistantExecutor      internal_llm.AssistantExecutor
 
 	// states
 	assistant             *internal_assistant_entity.Assistant
@@ -188,13 +188,15 @@ func NewGenericRequestor(
 		outputNormalizer: internal_output_normalizer.NewOutputNormalizer(logger),
 
 		//
-		histories:     make([]internal_type.MessagePacket, 0),
-		metadata:      make(map[string]interface{}),
-		args:          make(map[string]interface{}),
-		options:       make(map[string]interface{}),
-		sessionCtx:    sessionCtx,
-		cancelSession: cancelSession,
-		channels:      adapter_channel.NewRequestorChannels(),
+		histories:         make([]internal_type.MessagePacket, 0),
+		metadata:          make(map[string]interface{}),
+		args:              make(map[string]interface{}),
+		options:           make(map[string]interface{}),
+		assistantAnalyses: make([]internal_type.AnalysisExecutor, 0),
+		assistantWebhooks: make([]internal_type.WebhookExecutor, 0),
+		sessionCtx:        sessionCtx,
+		cancelSession:     cancelSession,
+		channels:          adapter_channel.NewRequestorChannels(),
 	}
 
 	go gr.runBootstrapDispatcher(sessionCtx)
@@ -500,14 +502,19 @@ func (r *genericRequestor) shutdownCollectors(ctx context.Context) {
 		defer cancel()
 		r.observer.Shutdown(shutdownCtx)
 	}
-	if r.analysisExecutor != nil {
-		if err := r.analysisExecutor.Close(ctx); err != nil {
+	for _, analysis := range r.assistantAnalyses {
+		if err := analysis.Close(ctx); err != nil {
 			r.logger.Errorf("close analysis executor: %v", err)
 		}
 	}
-	if r.webhookExecutor != nil {
-		if err := r.webhookExecutor.Close(ctx); err != nil {
+	for _, webhook := range r.assistantWebhooks {
+		if err := webhook.Close(ctx); err != nil {
 			r.logger.Errorf("close webhook executor: %v", err)
+		}
+	}
+	if r.authenticationExecutor != nil {
+		if err := r.authenticationExecutor.Close(ctx); err != nil {
+			r.logger.Errorf("close authentication executor: %v", err)
 		}
 	}
 }

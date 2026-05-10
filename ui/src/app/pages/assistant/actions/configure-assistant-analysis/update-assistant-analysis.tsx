@@ -235,6 +235,7 @@ export const UpdateAssistantAnalysis: FC<{ assistantId: string }> = ({
     const request = new UpdateAssistantAnalysisRequest();
     request.setAssistantid(assistantId);
     request.setId(analysisId!);
+    request.setProvider('endpoint');
     request.setName(name);
     request.setDescription(description);
     request.setExecutionpriority(priority);

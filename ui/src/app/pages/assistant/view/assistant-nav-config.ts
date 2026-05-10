@@ -86,6 +86,18 @@ export const assistantNavSections: AssistantNavSection[] = [
         label: 'Authentication',
         icon: DigitalIdentity,
         path: 'configure-authentication',
+        children: [
+          {
+            key: 'authentication-list',
+            label: 'View all',
+            path: 'configure-authentication',
+          },
+          {
+            key: 'authentication-create',
+            label: 'Add authentication',
+            path: 'configure-authentication/create',
+          },
+        ],
       },
       {
         key: 'deployment',

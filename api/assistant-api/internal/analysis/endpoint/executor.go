@@ -11,10 +11,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	internal_assistant_entity "github.com/rapidaai/api/assistant-api/internal/entity/assistants"
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 	endpoint_client_builders "github.com/rapidaai/pkg/clients/endpoint/builders"
 	"github.com/rapidaai/pkg/commons"
 	rapida_types "github.com/rapidaai/pkg/types"
+	"github.com/rapidaai/pkg/utils"
 	"github.com/rapidaai/protos"
 )
 
@@ -22,6 +24,7 @@ type runtimeExecutor struct {
 	logger       commons.Logger
 	callback     internal_type.Callback
 	caller       internal_type.InternalCaller
+	analysis     *internal_assistant_entity.AssistantAnalysis
 	inputBuilder endpoint_client_builders.InputInvokeBuilder
 }
 
@@ -29,6 +32,7 @@ type runtimeExecutor struct {
 func NewExecutor(
 	logger commons.Logger,
 	_ context.Context,
+	analysis *internal_assistant_entity.AssistantAnalysis,
 	callback internal_type.Callback,
 	caller internal_type.InternalCaller,
 ) (internal_type.AnalysisExecutor, error) {
@@ -36,8 +40,17 @@ func NewExecutor(
 		logger:       logger,
 		callback:     callback,
 		caller:       caller,
+		analysis:     analysis,
 		inputBuilder: endpoint_client_builders.NewInputInvokeBuilder(logger),
 	}, nil
+}
+
+func (e *runtimeExecutor) Name() string {
+	return fmt.Sprintf("endpoint-analysis-%s", e.analysis.GetName())
+}
+
+func (e *runtimeExecutor) Options() utils.Option {
+	return e.analysis.GetOptions()
 }
 
 // Execute runs one analysis and pushes metadata via callback packet.
@@ -47,8 +60,8 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.Exec
 		packet.Auth,
 		e.inputBuilder.Invoke(
 			&protos.EndpointDefinition{
-				EndpointId: packet.Analysis.GetEndpointId(),
-				Version:    packet.Analysis.GetEndpointVersion(),
+				EndpointId: e.analysis.GetEndpointId(),
+				Version:    e.analysis.GetEndpointVersion(),
 			},
 			e.inputBuilder.Arguments(packet.Arguments, nil),
 			nil,
@@ -68,7 +81,7 @@ func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.Exec
 	}
 
 	metadata := map[string]interface{}{
-		fmt.Sprintf("analysis.%s", packet.Analysis.GetName()): parsed,
+		fmt.Sprintf("analysis.%s", e.analysis.GetName()): parsed,
 	}
 	metadataList := rapida_types.NewMetadataList(metadata)
 	protoMetadata := make([]*protos.Metadata, 0, len(metadataList))

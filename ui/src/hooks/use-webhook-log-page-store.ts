@@ -179,6 +179,7 @@ export const useWebhookLogPage = create<WebhookLogType>((set, get) => ({
     { name: 'Session ID', key: 'sessionid', visible: true },
     { name: 'Event', key: 'event', visible: true },
     { name: 'Endpoint', key: 'endpoint', visible: true },
+    { name: 'Actions', key: 'action', visible: true },
     { name: 'Http status', key: 'responsestatus', visible: true },
     { name: 'Time Taken', key: 'timetaken', visible: true },
     { name: 'Retry Count', key: 'retrycount', visible: true },

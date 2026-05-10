@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Breadcrumb,
@@ -8,6 +8,14 @@ import {
   Slider,
   Select as CarbonSelect,
   SelectItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableToolbar,
+  TableToolbarContent,
 } from '@carbon/react';
 import { TextInput, Stack } from '@/app/components/carbon/form';
 import { Notification } from '@/app/components/carbon/notification';
@@ -38,12 +46,23 @@ import {
   GetAssistantAuthenticationRequest,
   Metadata,
 } from '@rapidaai/react';
+import { Renew, Add } from '@carbon/icons-react';
+import { EmptyState } from '@/app/components/carbon/empty-state';
+import { IconOnlyButton } from '@/app/components/carbon/button';
+import { SectionLoader } from '@/app/components/loader/section-loader';
+import { TableSection } from '@/app/components/sections/table-section';
+import { CarbonStatusIndicator } from '@/app/components/carbon/status-indicator';
+import { toHumanReadableDateTime } from '@/utils/date';
+import {
+  OverflowMenu,
+  OverflowMenuItem,
+} from '@/app/components/carbon/overflow-menu';
 
-type AuthProvider = 'api';
 type HttpMethod = 'POST' | 'GET';
 type FailBehavior = 'block' | 'do_nothing';
 type LoadState = 'loading' | 'ready' | 'error';
-const AUTH_OPTION_PROVIDER = 'auth.provider';
+type FormMode = 'create' | 'edit';
+
 const AUTH_OPTION_METHOD = 'http_method';
 const AUTH_OPTION_ENDPOINT = 'http_url';
 const AUTH_OPTION_HEADERS = 'http_headers';
@@ -51,6 +70,7 @@ const AUTH_OPTION_BODY = 'http_body';
 const AUTH_OPTION_CONDITION = 'authentication.condition';
 const FAIL_BEHAVIOR_BLOCK = 'BLOCK';
 const FAIL_BEHAVIOR_DO_NOTHING = 'DO_NOTHING';
+
 const AUTH_PARAMETER_TYPE_OPTIONS = [
   { value: 'client', name: 'Client' },
   { value: 'assistant', name: 'Assistant' },
@@ -60,6 +80,7 @@ const AUTH_PARAMETER_TYPE_OPTIONS = [
   { value: 'option', name: 'Option' },
   { value: 'custom', name: 'Custom' },
 ];
+
 const AUTH_KEY_OPTIONS_BY_TYPE = {
   assistant: [
     { value: 'id', name: 'ID' },
@@ -94,13 +115,47 @@ const fromApiFailBehavior = (value?: string): FailBehavior => {
 const toApiFailBehavior = (value: FailBehavior): string =>
   value === 'do_nothing' ? FAIL_BEHAVIOR_DO_NOTHING : FAIL_BEHAVIOR_BLOCK;
 
+const toOptionMap = (options: Metadata[] = []) =>
+  options.reduce(
+    (acc, opt) => {
+      acc[opt.getKey()] = opt.getValue();
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
+
+const getStatus = (data: any) => (data?.getStatus?.() || '').toLowerCase();
+
+const getDateLabel = (data: any) => {
+  const updated = data?.getUpdateddate?.();
+  const created = data?.getCreateddate?.();
+  const ts = updated || created;
+  return ts ? toHumanReadableDateTime(ts) : '-';
+};
+
 export function ConfigureAssistantAuthenticationPage() {
   const { assistantId } = useParams();
   return (
     <>
-      {assistantId && (
-        <ConfigureAssistantAuthentication assistantId={assistantId} />
-      )}
+      {assistantId && <ConfigureAssistantAuthentication assistantId={assistantId} />}
+    </>
+  );
+}
+
+export function CreateAssistantAuthenticationPage() {
+  const { assistantId } = useParams();
+  return (
+    <>
+      {assistantId && <AuthenticationForm assistantId={assistantId} mode="create" />}
+    </>
+  );
+}
+
+export function UpdateAssistantAuthenticationPage() {
+  const { assistantId } = useParams();
+  return (
+    <>
+      {assistantId && <AuthenticationForm assistantId={assistantId} mode="edit" />}
     </>
   );
 }
@@ -109,11 +164,227 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
   assistantId,
 }) => {
   const navigator = useGlobalNavigation();
+  const { authId, token, projectId } = useCurrentCredential();
+  const { showDialog, ConfirmDialogComponent } = useConfirmDialog({
+    title: 'Disable authentication?',
+    content: 'Authentication will be inactive for this assistant.',
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [authentication, setAuthentication] = useState<any | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    setErrorMessage('');
+
+    const request = new GetAssistantAuthenticationRequest();
+    request.setAssistantid(assistantId);
+
+    GetAssistantAuthentication(connectionConfig, request, {
+      'x-auth-id': authId,
+      authorization: token,
+      'x-project-id': projectId,
+    })
+      .then(response => {
+        if (!response?.getSuccess()) {
+          setAuthentication(null);
+          setLoading(false);
+          return;
+        }
+        const data = response.getData();
+        setAuthentication(data || null);
+        setLoading(false);
+      })
+      .catch(() => {
+        setErrorMessage(
+          'Unable to load assistant authentication. Please try again.',
+        );
+        setAuthentication(null);
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    load();
+  }, [assistantId, authId, token, projectId]);
+
+  const optionMap = useMemo(
+    () => toOptionMap(authentication?.getOptionsList?.() || []),
+    [authentication],
+  );
+
+  const onDisable = () => {
+    if (!authentication) return;
+    const request = new DisableAssistantAuthenticationRequest();
+    request.setAssistantid(assistantId);
+    DisableAssistantAuthentication(connectionConfig, request, {
+      'x-auth-id': authId,
+      authorization: token,
+      'x-project-id': projectId,
+    })
+      .then(response => {
+        if (response?.getSuccess()) {
+          toast.success('Assistant authentication disabled successfully.');
+          load();
+          return;
+        }
+        toast.error(
+          response?.getError?.()?.getHumanmessage?.() ||
+            'Unable to disable assistant authentication.',
+        );
+      })
+      .catch(err => {
+        toast.error(
+          err?.message || 'Unable to disable assistant authentication.',
+        );
+      });
+  };
+
+  if (loading) {
+    return (
+      <div className="h-full w-full flex flex-col items-center justify-center">
+        <SectionLoader />
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col flex-1">
+      <ConfirmDialogComponent />
+      <div className="px-4 pt-4 pb-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <div>
+          <Breadcrumb noTrailingSlash className="mb-2">
+            <BreadcrumbItem href={`/deployment/assistant/${assistantId}/overview`}>
+              Assistant
+            </BreadcrumbItem>
+          </Breadcrumb>
+          <h1 className="text-2xl font-light tracking-tight">Authentication</h1>
+        </div>
+      </div>
+
+      <TableToolbar>
+        <TableToolbarContent>
+          <IconOnlyButton
+            kind="ghost"
+            size="lg"
+            renderIcon={Renew}
+            iconDescription="Refresh"
+            onClick={load}
+          />
+          <PrimaryButton
+            size="md"
+            renderIcon={Add}
+            onClick={() =>
+              navigator.goTo(
+                `/deployment/assistant/${assistantId}/configure-authentication/${
+                  authentication ? 'edit' : 'create'
+                }`,
+              )
+            }
+          >
+            {authentication ? 'Configure authentication' : 'Create authentication'}
+          </PrimaryButton>
+        </TableToolbarContent>
+      </TableToolbar>
+
+      <TableSection>
+        {errorMessage && (
+          <Notification kind="error" title="Error" subtitle={errorMessage} />
+        )}
+        {authentication ? (
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableHeader>Provider Type</TableHeader>
+                <TableHeader>Method</TableHeader>
+                <TableHeader>URL</TableHeader>
+                <TableHeader>Status</TableHeader>
+                <TableHeader>Date</TableHeader>
+                <TableHeader>Actions</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              <TableRow>
+                <TableCell className="text-sm whitespace-nowrap">HTTP</TableCell>
+                <TableCell className="text-sm whitespace-nowrap">
+                  {optionMap[AUTH_OPTION_METHOD] || '-'}
+                </TableCell>
+                <TableCell className="text-sm max-w-[360px] truncate">
+                  {optionMap[AUTH_OPTION_ENDPOINT] || '-'}
+                </TableCell>
+                <TableCell className="text-sm whitespace-nowrap">
+                  <CarbonStatusIndicator
+                    state={authentication.getStatus() || 'INACTIVE'}
+                  />
+                </TableCell>
+                <TableCell className="text-[13px] whitespace-nowrap">
+                  {getDateLabel(authentication)}
+                </TableCell>
+                <TableCell
+                  className="text-sm whitespace-nowrap"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <OverflowMenu
+                    size="md"
+                    flipped
+                    iconDescription="Authentication actions"
+                    open={menuOpen}
+                    onOpen={() => setMenuOpen(true)}
+                    onClose={() => setMenuOpen(false)}
+                  >
+                    <OverflowMenuItem
+                      itemText="Configure"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        navigator.goTo(
+                          `/deployment/assistant/${assistantId}/configure-authentication/edit`,
+                        );
+                      }}
+                    />
+                    <OverflowMenuItem
+                      itemText="Disable"
+                      isDelete
+                      hasDivider
+                      disabled={getStatus(authentication) !== 'active'}
+                      onClick={() => {
+                        setMenuOpen(false);
+                        showDialog(onDisable);
+                      }}
+                    />
+                  </OverflowMenu>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        ) : (
+          <EmptyState
+            icon={Add}
+            title="No authentication configured"
+            subtitle="Create authentication to verify sessions before initialization."
+            actionButtonText="Create authentication"
+            onActionButtonClick={() =>
+              navigator.goTo(
+                `/deployment/assistant/${assistantId}/configure-authentication/create`,
+              )
+            }
+          />
+        )}
+      </TableSection>
+    </div>
+  );
+};
+
+const AuthenticationForm: FC<{ assistantId: string; mode: FormMode }> = ({
+  assistantId,
+  mode,
+}) => {
+  const navigator = useGlobalNavigation();
   const { showDialog, ConfirmDialogComponent } = useConfirmDialog({});
   const { authId, token, projectId } = useCurrentCredential();
 
   const [enabled, setEnabled] = useState(false);
-  const [provider, setProvider] = useState<AuthProvider>('api');
   const [endpoint, setEndpoint] = useState('');
   const [method, setMethod] = useState<HttpMethod>('POST');
   const [timeout, setTimeoutValue] = useState(5000);
@@ -144,25 +415,32 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
     })
       .then(response => {
         if (!response?.getSuccess()) {
-          setLoadState('error');
-          setErrorMessage(
-            response?.getError?.()?.getHumanmessage?.() ||
-              'Unable to load assistant authentication. Please try again.',
-          );
+          if (mode === 'edit') {
+            setLoadState('error');
+            setErrorMessage(
+              response?.getError?.()?.getHumanmessage?.() ||
+                'Unable to load assistant authentication. Please try again.',
+            );
+            return;
+          }
+          setLoadState('ready');
           return;
         }
         const data = response.getData();
         if (!data) {
-          setLoadState('error');
-          setErrorMessage(
-            'Unable to load assistant authentication. Please try again.',
-          );
+          if (mode === 'edit') {
+            setLoadState('error');
+            setErrorMessage(
+              'Unable to load assistant authentication. Please try again.',
+            );
+            return;
+          }
+          setLoadState('ready');
           return;
         }
 
         const status = (data.getStatus() || '').toLowerCase();
         setEnabled(status === 'active');
-
         setFailBehavior(fromApiFailBehavior(data.getFailbehavior()));
 
         const persistedTimeout = Number(data.getTimeoutms());
@@ -172,19 +450,7 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
             : 5000,
         );
 
-        const options = data.getOptionsList() || [];
-        const optionMap = options.reduce(
-          (acc, opt) => {
-            acc[opt.getKey()] = opt.getValue();
-            return acc;
-          },
-          {} as Record<string, string>,
-        );
-
-        const persistedProvider = optionMap[AUTH_OPTION_PROVIDER];
-        if (persistedProvider === 'api') {
-          setProvider(persistedProvider);
-        }
+        const optionMap = toOptionMap(data.getOptionsList() || []);
 
         const persistedMethod = optionMap[AUTH_OPTION_METHOD];
         if (persistedMethod === 'POST' || persistedMethod === 'GET') {
@@ -221,7 +487,7 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
           'Unable to load assistant authentication. Please try again.',
         );
       });
-  }, [assistantId, authId, token, projectId]);
+  }, [assistantId, authId, token, projectId, mode]);
 
   const validateConfigure = (): boolean => {
     setErrorMessage('');
@@ -324,6 +590,9 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
         .then(response => {
           if (response?.getSuccess()) {
             toast.success('Assistant authentication disabled successfully.');
+            navigator.goTo(
+              `/deployment/assistant/${assistantId}/configure-authentication`,
+            );
             return;
           }
           setErrorMessage(
@@ -342,6 +611,7 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
 
     const request = new CreateAssistantAuthenticationRequest();
     request.setAssistantid(assistantId);
+    request.setProvider('http');
     request.setStatus('ACTIVE');
     request.setFailbehavior(toApiFailBehavior(failBehavior));
     request.setTimeoutms(String(timeout));
@@ -354,7 +624,6 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
       options.push(metadata);
     };
 
-    addOption(AUTH_OPTION_PROVIDER, provider);
     addOption(AUTH_OPTION_METHOD, method);
     addOption(AUTH_OPTION_ENDPOINT, endpoint.trim());
     addOption(AUTH_OPTION_HEADERS, headers || '{}');
@@ -370,6 +639,9 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
       .then(response => {
         if (response?.getSuccess()) {
           toast.success('Assistant authentication saved successfully.');
+          navigator.goTo(
+            `/deployment/assistant/${assistantId}/configure-authentication`,
+          );
           return;
         }
         setErrorMessage(
@@ -392,14 +664,12 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
         <div className="px-4 pt-4 pb-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
           <div>
             <Breadcrumb noTrailingSlash className="mb-2">
-              <BreadcrumbItem
-                href={`/deployment/assistant/${assistantId}/overview`}
-              >
+              <BreadcrumbItem href={`/deployment/assistant/${assistantId}/overview`}>
                 Assistant
               </BreadcrumbItem>
             </Breadcrumb>
             <h1 className="text-2xl font-light tracking-tight">
-              Authentication
+              {mode === 'create' ? 'Create Authentication' : 'Authentication'}
             </h1>
           </div>
         </div>
@@ -442,17 +712,6 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
                   keyTooltipText="The variable to evaluate for this condition."
                 />
               </InputGroup>
-              <InputGroup title="Provider">
-                <CarbonSelect
-                  id="assistant-auth-provider"
-                  labelText="Authentication Provider"
-                  value={provider}
-                  onChange={e => setProvider(e.target.value as AuthProvider)}
-                  disabled={!enabled}
-                >
-                  <SelectItem value="api" text="API" />
-                </CarbonSelect>
-              </InputGroup>
               <InputGroup title="Definition">
                 <Stack gap={7}>
                   <div className="flex space-x-2">
@@ -465,7 +724,6 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
                           setMethod(e.target.value as HttpMethod);
                           setErrorMessage('');
                         }}
-                        disabled={provider !== 'api'}
                       >
                         <SelectItem value="POST" text="POST" />
                         <SelectItem value="GET" text="GET" />
@@ -481,7 +739,6 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
                           setErrorMessage('');
                         }}
                         placeholder="https://auth.example.com/resolve"
-                        disabled={provider !== 'api'}
                       />
                     </div>
                   </div>
@@ -496,7 +753,6 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
                           setFailBehavior(e.target.value as FailBehavior);
                           setErrorMessage('');
                         }}
-                        disabled={provider !== 'api'}
                       >
                         <SelectItem value="block" text="Block" />
                         <SelectItem value="do_nothing" text="Do nothing" />
@@ -518,7 +774,6 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
                           );
                           setErrorMessage('');
                         }}
-                        disabled={provider !== 'api'}
                       />
                     </div>
                   </div>
@@ -557,7 +812,13 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
           <ButtonSet className="!w-full [&>button]:!flex-1 [&>button]:!max-w-none">
             <SecondaryButton
               size="lg"
-              onClick={() => showDialog(navigator.goBack)}
+              onClick={() =>
+                showDialog(() =>
+                  navigator.goTo(
+                    `/deployment/assistant/${assistantId}/configure-authentication`,
+                  ),
+                )
+              }
             >
               Cancel
             </SecondaryButton>

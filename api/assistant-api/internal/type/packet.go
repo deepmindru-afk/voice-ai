@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"time"
 
-	internal_assistant_entity "github.com/rapidaai/api/assistant-api/internal/entity/assistants"
 	"github.com/rapidaai/pkg/types"
 	type_enums "github.com/rapidaai/pkg/types/enums"
 	"github.com/rapidaai/pkg/utils"
@@ -304,7 +303,6 @@ func (f InitializeAuthenticationPacket) ContextId() string { return f.ContextID 
 // ExecuteSessionAuthenticationPacket triggers authentication against the configured endpoint.
 type ExecuteSessionAuthenticationPacket struct {
 	ContextID      string
-	Authentication *internal_assistant_entity.AssistantAuthentication
 	Arguments      map[string]interface{}
 	Initialization *protos.ConversationInitialization
 }
@@ -718,7 +716,6 @@ func (f AnalysisStartPacket) ContextId() string { return f.ContextID }
 // ExecuteAnalysisPacket triggers a single analysis execution.
 type ExecuteAnalysisPacket struct {
 	ContextID      string
-	Analysis       *internal_assistant_entity.AssistantAnalysis
 	Arguments      map[string]interface{}
 	ConversationID uint64
 	Auth           types.SimplePrinciple
@@ -753,7 +750,6 @@ func (f WebhookStartPacket) ContextId() string { return f.ContextID }
 type ExecuteWebhookPacket struct {
 	ContextID string
 	Event     utils.AssistantWebhookEvent
-	Webhook   *internal_assistant_entity.AssistantWebhook
 	Arguments map[string]interface{}
 }
 

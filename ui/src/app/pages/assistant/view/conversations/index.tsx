@@ -30,8 +30,8 @@ import {
   TableToolbarContent,
   TableToolbarSearch,
   Loading,
+  Link,
 } from '@carbon/react';
-import { TableLink } from '@/app/components/carbon/table-link';
 import { Pagination } from '@/app/components/carbon/pagination';
 import { IconOnlyButton } from '@/app/components/carbon/button';
 import { DateFilter } from '@/app/components/carbon/date-filter';
@@ -283,18 +283,20 @@ export function Conversations({ currentAssistant }: ConversationProps) {
                 (row, idx) => (
                   <TableRow key={idx}>
                     {assistantConversationListAction.visibleColumn('id') && (
-                      <TableCell className="!text-xs">
-                        <TableLink
+                      <TableCell className="text-sm">
+                        <Link
                           href={`/deployment/assistant/${row.getAssistantid()}/sessions/${row.getId()}`}
+                          className="!text-sm !inline-flex !items-center !gap-1"
                         >
-                          {row.getId()}
-                        </TableLink>
+                          <span>{row.getId()}</span>
+                          <Launch size={12} />
+                        </Link>
                       </TableCell>
                     )}
                     {assistantConversationListAction.visibleColumn(
                       'assistant_id',
                     ) && (
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         {row.getAssistantid()}
                       </TableCell>
                     )}
@@ -302,15 +304,15 @@ export function Conversations({ currentAssistant }: ConversationProps) {
                     {assistantConversationListAction.visibleColumn(
                       'assistant_provider_model_id',
                     ) && (
-                      <TableCell className="!text-xs">
-                        {`vrsn_${row.getAssistantprovidermodelid()}`}
+                      <TableCell className="font-mono text-[13px]">
+                        vrsn_{row.getAssistantprovidermodelid()}
                       </TableCell>
                     )}
 
                     {assistantConversationListAction.visibleColumn(
                       'direction',
                     ) && (
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         <ConversationDirectionIndicator
                           direction={row.getDirection() || 'inbound'}
                         />
@@ -319,14 +321,14 @@ export function Conversations({ currentAssistant }: ConversationProps) {
                     {assistantConversationListAction.visibleColumn(
                       'identifier',
                     ) && (
-                      <TableCell className="max-w-[160px] truncate !text-xs">
+                      <TableCell className="max-w-[160px] truncate text-sm">
                         {row.getIdentifier()}
                       </TableCell>
                     )}
                     {assistantConversationListAction.visibleColumn(
                       'source',
                     ) && (
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         <SourceIndicator source={row.getSource()} />
                       </TableCell>
                     )}
@@ -334,7 +336,7 @@ export function Conversations({ currentAssistant }: ConversationProps) {
                     {assistantConversationListAction.visibleColumn(
                       'duration',
                     ) && (
-                      <TableCell className="!text-xs tabular-nums">
+                      <TableCell className="text-sm tabular-nums">
                         {getConversationDuration(row.getMetricsList())}
                       </TableCell>
                     )}
@@ -342,7 +344,7 @@ export function Conversations({ currentAssistant }: ConversationProps) {
                     {assistantConversationListAction.visibleColumn(
                       'action',
                     ) && (
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         <div className="flex items-center gap-0">
                           {row.getTelephonyeventsList().length > 0 && (
                             <IconOnlyButton
@@ -392,7 +394,7 @@ export function Conversations({ currentAssistant }: ConversationProps) {
                     {assistantConversationListAction.visibleColumn(
                       'status',
                     ) && (
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         <CarbonStatusIndicator
                           state={getStatusMetric(row.getMetricsList())}
                         />
@@ -402,7 +404,7 @@ export function Conversations({ currentAssistant }: ConversationProps) {
                     {assistantConversationListAction.visibleColumn(
                       'created_date',
                     ) && (
-                      <TableCell className="!text-xs whitespace-nowrap">
+                      <TableCell className="text-[13px] whitespace-nowrap">
                         {row.getCreateddate()
                           ? toHumanReadableDateTime(row.getCreateddate()!)
                           : '—'}

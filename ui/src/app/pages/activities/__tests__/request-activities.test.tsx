@@ -28,6 +28,10 @@ const makeLog = () =>
   }) as any;
 
 jest.mock('@rapidaai/react', () => {
+  class ConnectionConfig {
+    constructor(_config: any) {}
+  }
+
   class RetryAssistantHTTPLogRequest {
     projectId = '';
     id = '';
@@ -46,6 +50,7 @@ jest.mock('@rapidaai/react', () => {
   }
 
   return {
+    ConnectionConfig,
     RetryAssistantHTTPLogRequest,
     RetryHTTPLog: jest.fn(),
   };
@@ -74,6 +79,7 @@ jest.mock('@/hooks/use-webhook-log-page-store', () => ({
       { name: 'Session ID', key: 'sessionid', visible: true },
       { name: 'Event', key: 'event', visible: true },
       { name: 'Endpoint', key: 'endpoint', visible: true },
+      { name: 'Actions', key: 'action', visible: true },
       { name: 'Http status', key: 'responsestatus', visible: true },
       { name: 'Time Taken', key: 'timetaken', visible: true },
       { name: 'Retry Count', key: 'retrycount', visible: true },
@@ -90,6 +96,7 @@ jest.mock('@/hooks/use-webhook-log-page-store', () => ({
         'sessionid',
         'event',
         'endpoint',
+        'action',
         'responsestatus',
         'timetaken',
         'retrycount',
@@ -196,6 +203,8 @@ jest.mock('@carbon/react', () => {
       React.createElement('input', { placeholder }),
     Loading: () => React.createElement('div', null, 'loading'),
     Tag: ({ children }: any) => React.createElement('span', null, children),
+    Link: ({ href, children, className }: any) =>
+      React.createElement('a', { href, className }, children),
   };
 });
 
@@ -240,4 +249,3 @@ describe('Request logs listing', () => {
     await waitFor(() => expect(mockGetActivities).toHaveBeenCalledTimes(2));
   });
 });
-

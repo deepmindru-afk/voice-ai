@@ -24,6 +24,7 @@ type AssistantAuthenticationService interface {
 		ctx context.Context,
 		auth types.SimplePrinciple,
 		assistantId uint64,
+		provider string,
 		status string,
 		failBehavior string,
 		timeoutMs uint64,

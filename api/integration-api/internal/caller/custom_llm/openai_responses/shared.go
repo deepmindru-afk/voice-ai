@@ -5,6 +5,7 @@ package internal_custom_llm_openai_responses
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	openai "github.com/openai/openai-go/v3"
@@ -27,6 +28,15 @@ func newClient(logger commons.Logger, credential *protos.Credential) (*openai.Cl
 	}
 	client := internal_custom_llm_common.NewOpenAIClient(config)
 	return &client, nil
+}
+
+func newStreamClient(logger commons.Logger, credential *protos.Credential) (*openai.Client, *http.Client, error) {
+	config, err := internal_custom_llm_common.ParseClientConfig(logger, credential)
+	if err != nil {
+		return nil, nil, err
+	}
+	client, httpClient := internal_custom_llm_common.NewOpenAIClientWithHTTPClient(config)
+	return &client, httpClient, nil
 }
 
 func buildResponseParams(

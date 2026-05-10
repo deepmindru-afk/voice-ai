@@ -9,9 +9,12 @@ package internal_azure_chat_complete
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
+	openai "github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/responses"
 
 	internal_azure_common "github.com/rapidaai/api/integration-api/internal/caller/azure/common"
@@ -26,6 +29,8 @@ import (
 type streamCaller struct {
 	logger     commons.Logger
 	credential *protos.Credential
+	client     *openai.Client
+	httpClient *http.Client
 }
 
 func NewStream(logger commons.Logger, credential *protos.Credential) (internal_callers.ChatStream, error) {
@@ -39,6 +44,30 @@ func NewStream(logger commons.Logger, credential *protos.Credential) (internal_c
 func (s *streamCaller) Connect(ctx context.Context, configuration *protos.StreamChatConfiguration) error {
 	_ = ctx
 	_ = configuration
+	if s.client != nil {
+		return nil
+	}
+	endpoint, subscriptionKey, err := internal_azure_common.ResolveCredential(s.logger, s.credential)
+	if err != nil {
+		s.logger.Errorf("Failed to create Azure chat_complete stream client: %v", err)
+		return err
+	}
+
+	transport := &http.Transport{
+		ForceAttemptHTTP2:   true,
+		MaxConnsPerHost:     internal_azure_common.StreamMaxConnsPerHost,
+		MaxIdleConnsPerHost: internal_azure_common.StreamMaxIdleConnsPerHost,
+		MaxIdleConns:        internal_azure_common.StreamMaxIdleConns,
+		IdleConnTimeout:     internal_azure_common.StreamIdleConnTimeout,
+	}
+	s.httpClient = &http.Client{Transport: transport}
+
+	client := openai.NewClient(
+		option.WithBaseURL(endpoint),
+		option.WithAPIKey(subscriptionKey),
+		option.WithHTTPClient(s.httpClient),
+	)
+	s.client = &client
 	return nil
 }
 
@@ -48,6 +77,11 @@ func (s *streamCaller) GetCredential() *protos.Credential {
 
 func (s *streamCaller) Close(ctx context.Context) error {
 	_ = ctx
+	if s.httpClient != nil {
+		s.httpClient.CloseIdleConnections()
+	}
+	s.client = nil
+	s.httpClient = nil
 	return nil
 }
 
@@ -64,9 +98,9 @@ func (s *streamCaller) Chat(
 		return err
 	}
 
-	client, err := internal_azure_common.NewClient(s.logger, s.credential)
-	if err != nil {
-		s.logger.Errorf("Failed to create Azure chat_complete stream client: %v", err)
+	client := s.client
+	if client == nil {
+		err := fmt.Errorf("stream client not connected")
 		onError(options.Request.GetRequestId(), err)
 		return err
 	}
@@ -76,8 +110,13 @@ func (s *streamCaller) Chat(
 	metrics.OnStart()
 	var firstTokenTime *time.Time
 
+	request := &protos.ChatRequest{}
+	if options.Request != nil {
+		request.AdditionalData = options.Request.GetAdditionalData()
+	}
 	streamOptions := buildResponseOptions(&internal_callers.ChatCompletionOptions{
 		AIOptions:       options.AIOptions,
+		Request:         request,
 		ToolDefinitions: options.ToolDefinitions,
 	})
 	streamOptions.Input = responses.ResponseNewParamsInputUnion{OfInputItemList: buildHistory(allMessages)}

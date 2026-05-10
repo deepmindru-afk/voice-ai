@@ -28,6 +28,7 @@ func (assistantApi *assistantGrpcApi) CreateAssistantAuthentication(
 		ctx,
 		iAuth,
 		req.GetAssistantId(),
+		req.GetProvider(),
 		req.GetStatus(),
 		req.GetFailBehavior(),
 		req.GetTimeoutMs(),

@@ -326,10 +326,11 @@ class DeleteAssistantTelemetryProviderRequest(_message.Message):
     def __init__(self, id: _Optional[int] = ..., assistantId: _Optional[int] = ...) -> None: ...
 
 class AssistantAuthentication(_message.Message):
-    __slots__ = ("id", "assistantId", "status", "failBehavior", "timeoutMs", "options", "createdBy", "updatedBy", "createdDate", "updatedDate")
+    __slots__ = ("id", "assistantId", "status", "provider", "failBehavior", "timeoutMs", "options", "createdBy", "updatedBy", "createdDate", "updatedDate")
     ID_FIELD_NUMBER: _ClassVar[int]
     ASSISTANTID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
     FAILBEHAVIOR_FIELD_NUMBER: _ClassVar[int]
     TIMEOUTMS_FIELD_NUMBER: _ClassVar[int]
     OPTIONS_FIELD_NUMBER: _ClassVar[int]
@@ -340,6 +341,7 @@ class AssistantAuthentication(_message.Message):
     id: int
     assistantId: int
     status: str
+    provider: str
     failBehavior: str
     timeoutMs: int
     options: _containers.RepeatedCompositeFieldContainer[_common_pb2.Metadata]
@@ -347,21 +349,23 @@ class AssistantAuthentication(_message.Message):
     updatedBy: int
     createdDate: _timestamp_pb2.Timestamp
     updatedDate: _timestamp_pb2.Timestamp
-    def __init__(self, id: _Optional[int] = ..., assistantId: _Optional[int] = ..., status: _Optional[str] = ..., failBehavior: _Optional[str] = ..., timeoutMs: _Optional[int] = ..., options: _Optional[_Iterable[_Union[_common_pb2.Metadata, _Mapping]]] = ..., createdBy: _Optional[int] = ..., updatedBy: _Optional[int] = ..., createdDate: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., updatedDate: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, id: _Optional[int] = ..., assistantId: _Optional[int] = ..., status: _Optional[str] = ..., provider: _Optional[str] = ..., failBehavior: _Optional[str] = ..., timeoutMs: _Optional[int] = ..., options: _Optional[_Iterable[_Union[_common_pb2.Metadata, _Mapping]]] = ..., createdBy: _Optional[int] = ..., updatedBy: _Optional[int] = ..., createdDate: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., updatedDate: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class CreateAssistantAuthenticationRequest(_message.Message):
-    __slots__ = ("assistantId", "status", "failBehavior", "timeoutMs", "options")
+    __slots__ = ("assistantId", "status", "failBehavior", "timeoutMs", "options", "provider")
     ASSISTANTID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     FAILBEHAVIOR_FIELD_NUMBER: _ClassVar[int]
     TIMEOUTMS_FIELD_NUMBER: _ClassVar[int]
     OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
     assistantId: int
     status: str
     failBehavior: str
     timeoutMs: int
     options: _containers.RepeatedCompositeFieldContainer[_common_pb2.Metadata]
-    def __init__(self, assistantId: _Optional[int] = ..., status: _Optional[str] = ..., failBehavior: _Optional[str] = ..., timeoutMs: _Optional[int] = ..., options: _Optional[_Iterable[_Union[_common_pb2.Metadata, _Mapping]]] = ...) -> None: ...
+    provider: str
+    def __init__(self, assistantId: _Optional[int] = ..., status: _Optional[str] = ..., failBehavior: _Optional[str] = ..., timeoutMs: _Optional[int] = ..., options: _Optional[_Iterable[_Union[_common_pb2.Metadata, _Mapping]]] = ..., provider: _Optional[str] = ...) -> None: ...
 
 class GetAssistantAuthenticationRequest(_message.Message):
     __slots__ = ("assistantId",)

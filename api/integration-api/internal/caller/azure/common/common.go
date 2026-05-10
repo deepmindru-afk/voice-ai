@@ -6,6 +6,7 @@ package internal_azure_common
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	openai "github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -20,6 +21,11 @@ const (
 	DefaultURL         = "https://api.openai.com/v1"
 	EndpointKey        = "endpoint"
 	SubscriptionKeyKey = "subscription_key"
+
+	StreamMaxConnsPerHost     = 100
+	StreamMaxIdleConnsPerHost = 20
+	StreamMaxIdleConns        = 100
+	StreamIdleConnTimeout     = 5 * time.Minute
 
 	ChatRoleAssistant = "assistant"
 	ChatRoleFunction  = "function"
@@ -93,7 +99,7 @@ func CompletionUsageMetrics(usages openai.CompletionUsage) []*protos.Metric {
 }
 
 func ResponseUsageMetrics(usages responses.ResponseUsage) []*protos.Metric {
-	metrics := make([]*protos.Metric, 0, 3)
+	metrics := make([]*protos.Metric, 0, 4)
 	metrics = append(metrics, &protos.Metric{
 		Name:        type_enums.OUTPUT_TOKEN.String(),
 		Value:       fmt.Sprintf("%d", usages.OutputTokens),
@@ -109,5 +115,12 @@ func ResponseUsageMetrics(usages responses.ResponseUsage) []*protos.Metric {
 		Value:       fmt.Sprintf("%d", usages.TotalTokens),
 		Description: "Total Token",
 	})
+	if usages.InputTokensDetails.CachedTokens > 0 {
+		metrics = append(metrics, &protos.Metric{
+			Name:        type_enums.CACHED_CONTENT_TOKEN.String(),
+			Value:       fmt.Sprintf("%d", usages.InputTokensDetails.CachedTokens),
+			Description: "Cached content tokens",
+		})
+	}
 	return metrics
 }

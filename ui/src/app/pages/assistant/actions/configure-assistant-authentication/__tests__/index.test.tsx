@@ -1,7 +1,10 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { ConfigureAssistantAuthenticationPage } from '../index';
+import {
+  CreateAssistantAuthenticationPage,
+  UpdateAssistantAuthenticationPage,
+} from '../index';
 import {
   CreateAssistantAuthentication,
   DisableAssistantAuthentication,
@@ -11,12 +14,16 @@ import {
 jest.mock('@rapidaai/react', () => {
   class CreateAssistantAuthenticationRequest {
     assistantId = '';
+    provider = '';
     status = '';
     failBehavior = '';
     timeoutMs = '';
     optionsList: unknown[] = [];
     setAssistantid(v: string) {
       this.assistantId = v;
+    }
+    setProvider(v: string) {
+      this.provider = v;
     }
     setStatus(v: string) {
       this.status = v;
@@ -123,6 +130,39 @@ jest.mock('@/app/components/carbon/notification', () => ({
   Notification: ({ subtitle }: any) => <div>{subtitle}</div>,
 }));
 
+jest.mock('@/app/components/carbon/status-indicator', () => ({
+  CarbonStatusIndicator: ({ state }: any) => <span>{state}</span>,
+}));
+
+jest.mock('@/app/components/carbon/overflow-menu', () => ({
+  OverflowMenu: ({ children }: any) => <div>{children}</div>,
+  OverflowMenuItem: ({ itemText, onClick, disabled }: any) => (
+    <button disabled={disabled} onClick={onClick}>
+      {itemText}
+    </button>
+  ),
+}));
+
+jest.mock('@/app/components/carbon/empty-state', () => ({
+  EmptyState: ({ title, subtitle, actionButtonText, onActionButtonClick }: any) => (
+    <div>
+      <div>{title}</div>
+      <div>{subtitle}</div>
+      {actionButtonText ? (
+        <button onClick={onActionButtonClick}>{actionButtonText}</button>
+      ) : null}
+    </div>
+  ),
+}));
+
+jest.mock('@/app/components/loader/section-loader', () => ({
+  SectionLoader: () => <div>loading</div>,
+}));
+
+jest.mock('@/app/components/sections/table-section', () => ({
+  TableSection: ({ children }: any) => <div>{children}</div>,
+}));
+
 jest.mock('@/app/components/carbon/form/input-checkbox', () => ({
   InputCheckbox: ({ id, checked, onChange, children }: any) => (
     <label htmlFor={id}>
@@ -187,7 +227,7 @@ jest.mock('@carbon/react', () => ({
   Tooltip: ({ children }: any) => <span>{children}</span>,
 }));
 
-describe('ConfigureAssistantAuthenticationPage', () => {
+describe('CreateAssistantAuthenticationPage', () => {
   const getSuccessLoadResponse = (
     status = 'inactive',
     failBehavior = 'BLOCK',
@@ -195,6 +235,7 @@ describe('ConfigureAssistantAuthenticationPage', () => {
     getSuccess: () => true,
     getData: () => ({
       getStatus: () => status,
+      getProvider: () => 'http',
       getFailbehavior: () => failBehavior,
       getTimeoutms: () => '5000',
       getOptionsList: () => [],
@@ -225,7 +266,7 @@ describe('ConfigureAssistantAuthenticationPage', () => {
   };
 
   it('keeps save enabled and validates on click', async () => {
-    render(<ConfigureAssistantAuthenticationPage />);
+    render(<CreateAssistantAuthenticationPage />);
     await waitFor(() => expect(GetAssistantAuthentication).toHaveBeenCalled());
     await waitUntilReady();
 
@@ -245,7 +286,7 @@ describe('ConfigureAssistantAuthenticationPage', () => {
   });
 
   it('supports add and edit for authentication parameter mapping', async () => {
-    render(<ConfigureAssistantAuthenticationPage />);
+    render(<CreateAssistantAuthenticationPage />);
     await waitFor(() => expect(GetAssistantAuthentication).toHaveBeenCalled());
     await waitUntilReady();
 
@@ -273,7 +314,7 @@ describe('ConfigureAssistantAuthenticationPage', () => {
     (GetAssistantAuthentication as jest.Mock).mockResolvedValueOnce(
       getSuccessLoadResponse('active'),
     );
-    render(<ConfigureAssistantAuthenticationPage />);
+    render(<CreateAssistantAuthenticationPage />);
     await waitFor(() => expect(GetAssistantAuthentication).toHaveBeenCalled());
     await waitUntilReady();
 
@@ -290,6 +331,7 @@ describe('ConfigureAssistantAuthenticationPage', () => {
     );
     const createRequest = (CreateAssistantAuthentication as jest.Mock).mock
       .calls[0][1] as {
+      provider: string;
       status: string;
       failBehavior: string;
       optionsList: Array<{
@@ -297,6 +339,7 @@ describe('ConfigureAssistantAuthenticationPage', () => {
         getValue: () => string;
       }>;
     };
+    expect(createRequest.provider).toBe('http');
     expect(createRequest.status).toBe('ACTIVE');
     expect(createRequest.failBehavior).toBe('BLOCK');
     const optionMap = new Map(
@@ -309,13 +352,23 @@ describe('ConfigureAssistantAuthenticationPage', () => {
       '{"assistant.id":"assistantId","client.phone":"clientPhone"}',
     );
     expect(optionMap.get('authentication.condition')).toBeDefined();
+    expect(optionMap.get('auth.provider')).toBeUndefined();
+    expect([...optionMap.keys()].sort()).toEqual(
+      [
+        'http_method',
+        'http_url',
+        'http_headers',
+        'http_body',
+        'authentication.condition',
+      ].sort(),
+    );
   });
 
   it('sends DO_NOTHING when on error is set to do nothing', async () => {
     (GetAssistantAuthentication as jest.Mock).mockResolvedValueOnce(
       getSuccessLoadResponse('active'),
     );
-    render(<ConfigureAssistantAuthenticationPage />);
+    render(<CreateAssistantAuthenticationPage />);
     await waitFor(() => expect(GetAssistantAuthentication).toHaveBeenCalled());
     await waitUntilReady();
 
@@ -338,7 +391,7 @@ describe('ConfigureAssistantAuthenticationPage', () => {
   });
 
   it('disables authentication when toggled off and saved', async () => {
-    render(<ConfigureAssistantAuthenticationPage />);
+    render(<CreateAssistantAuthenticationPage />);
     await waitFor(() => expect(GetAssistantAuthentication).toHaveBeenCalled());
     await waitUntilReady();
 
@@ -354,7 +407,7 @@ describe('ConfigureAssistantAuthenticationPage', () => {
       getSuccessLoadResponse('inactive'),
     );
 
-    render(<ConfigureAssistantAuthenticationPage />);
+    render(<CreateAssistantAuthenticationPage />);
     await waitFor(() => expect(GetAssistantAuthentication).toHaveBeenCalled());
     await waitUntilReady();
 
@@ -371,7 +424,7 @@ describe('ConfigureAssistantAuthenticationPage', () => {
       getSuccessLoadResponse('active', 'DO_NOTHING'),
     );
 
-    render(<ConfigureAssistantAuthenticationPage />);
+    render(<CreateAssistantAuthenticationPage />);
     await waitFor(() => expect(GetAssistantAuthentication).toHaveBeenCalled());
     await waitUntilReady();
 
@@ -385,7 +438,7 @@ describe('ConfigureAssistantAuthenticationPage', () => {
       getSuccessLoadResponse('active', 'none'),
     );
 
-    render(<ConfigureAssistantAuthenticationPage />);
+    render(<CreateAssistantAuthenticationPage />);
     await waitFor(() => expect(GetAssistantAuthentication).toHaveBeenCalled());
     await waitUntilReady();
 
@@ -399,7 +452,7 @@ describe('ConfigureAssistantAuthenticationPage', () => {
       getSuccessLoadResponse('active', 'none'),
     );
 
-    render(<ConfigureAssistantAuthenticationPage />);
+    render(<CreateAssistantAuthenticationPage />);
     await waitFor(() => expect(GetAssistantAuthentication).toHaveBeenCalled());
     await waitUntilReady();
 
@@ -426,7 +479,7 @@ describe('ConfigureAssistantAuthenticationPage', () => {
       }),
     });
 
-    render(<ConfigureAssistantAuthenticationPage />);
+    render(<UpdateAssistantAuthenticationPage />);
 
     await waitFor(() =>
       expect(screen.getByText('Failed to load auth')).toBeInTheDocument(),

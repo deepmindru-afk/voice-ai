@@ -502,10 +502,10 @@ export const ConfigureAssistantDeploymentPage = () => {
                           }
                         />
                       </TableCell>
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         <SourceIndicator source={row.source} />
                       </TableCell>
-                      <TableCell className="!font-mono !text-xs">
+                      <TableCell className="font-mono text-[13px]">
                         {row.version !== '—' ? (
                           <span className="inline-flex items-center gap-1">
                             {row.version}
@@ -525,25 +525,25 @@ export const ConfigureAssistantDeploymentPage = () => {
                           row.version
                         )}
                       </TableCell>
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         <CarbonStatusIndicator state={row.status} />
                       </TableCell>
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         <AudioProviderTag
                           provider={row.sttProvider}
                           icon={<Microphone size={14} />}
                         />
                       </TableCell>
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         <AudioProviderTag
                           provider={row.ttsProvider}
                           icon={<VolumeUp size={14} />}
                         />
                       </TableCell>
-                      <TableCell className="!text-xs whitespace-nowrap">
+                      <TableCell className="text-[13px] whitespace-nowrap">
                         {row.updated}
                       </TableCell>
-                      <TableCell className="!text-xs" onClick={e => e.stopPropagation()}>
+                      <TableCell className="text-sm" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-0">
                           <IconOnlyButton
                             kind="ghost"

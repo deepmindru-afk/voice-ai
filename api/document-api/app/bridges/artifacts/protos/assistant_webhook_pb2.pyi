@@ -12,10 +12,11 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class AssistantWebhook(_message.Message):
-    __slots__ = ("id", "assistantEvents", "description", "options", "executionPriority", "assistantId", "status", "createdBy", "createdUser", "updatedBy", "updatedUser", "createdDate", "updatedDate")
+    __slots__ = ("id", "assistantEvents", "description", "provider", "options", "executionPriority", "assistantId", "status", "createdBy", "createdUser", "updatedBy", "updatedUser", "createdDate", "updatedDate")
     ID_FIELD_NUMBER: _ClassVar[int]
     ASSISTANTEVENTS_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
     OPTIONS_FIELD_NUMBER: _ClassVar[int]
     EXECUTIONPRIORITY_FIELD_NUMBER: _ClassVar[int]
     ASSISTANTID_FIELD_NUMBER: _ClassVar[int]
@@ -29,6 +30,7 @@ class AssistantWebhook(_message.Message):
     id: int
     assistantEvents: _containers.RepeatedScalarFieldContainer[str]
     description: str
+    provider: str
     options: _containers.RepeatedCompositeFieldContainer[_common_pb2.Metadata]
     executionPriority: int
     assistantId: int
@@ -39,7 +41,7 @@ class AssistantWebhook(_message.Message):
     updatedUser: _common_pb2.User
     createdDate: _timestamp_pb2.Timestamp
     updatedDate: _timestamp_pb2.Timestamp
-    def __init__(self, id: _Optional[int] = ..., assistantEvents: _Optional[_Iterable[str]] = ..., description: _Optional[str] = ..., options: _Optional[_Iterable[_Union[_common_pb2.Metadata, _Mapping]]] = ..., executionPriority: _Optional[int] = ..., assistantId: _Optional[int] = ..., status: _Optional[str] = ..., createdBy: _Optional[int] = ..., createdUser: _Optional[_Union[_common_pb2.User, _Mapping]] = ..., updatedBy: _Optional[int] = ..., updatedUser: _Optional[_Union[_common_pb2.User, _Mapping]] = ..., createdDate: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., updatedDate: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, id: _Optional[int] = ..., assistantEvents: _Optional[_Iterable[str]] = ..., description: _Optional[str] = ..., provider: _Optional[str] = ..., options: _Optional[_Iterable[_Union[_common_pb2.Metadata, _Mapping]]] = ..., executionPriority: _Optional[int] = ..., assistantId: _Optional[int] = ..., status: _Optional[str] = ..., createdBy: _Optional[int] = ..., createdUser: _Optional[_Union[_common_pb2.User, _Mapping]] = ..., updatedBy: _Optional[int] = ..., updatedUser: _Optional[_Union[_common_pb2.User, _Mapping]] = ..., createdDate: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., updatedDate: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class AssistantHTTPLog(_message.Message):
     __slots__ = ("id", "sourceRefId", "request", "response", "status", "createdDate", "updatedDate", "assistantId", "projectId", "organizationId", "assistantConversationId", "assetPrefix", "sourceEvent", "responseStatus", "timeTaken", "retryCount", "httpMethod", "httpUrl", "source", "contextId", "errorMessage")
@@ -88,34 +90,38 @@ class AssistantHTTPLog(_message.Message):
     def __init__(self, id: _Optional[int] = ..., sourceRefId: _Optional[int] = ..., request: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., response: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., status: _Optional[str] = ..., createdDate: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., updatedDate: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., assistantId: _Optional[int] = ..., projectId: _Optional[int] = ..., organizationId: _Optional[int] = ..., assistantConversationId: _Optional[int] = ..., assetPrefix: _Optional[str] = ..., sourceEvent: _Optional[str] = ..., responseStatus: _Optional[int] = ..., timeTaken: _Optional[int] = ..., retryCount: _Optional[int] = ..., httpMethod: _Optional[str] = ..., httpUrl: _Optional[str] = ..., source: _Optional[str] = ..., contextId: _Optional[str] = ..., errorMessage: _Optional[str] = ...) -> None: ...
 
 class CreateAssistantWebhookRequest(_message.Message):
-    __slots__ = ("assistantEvents", "description", "options", "assistantId", "executionPriority")
+    __slots__ = ("assistantEvents", "description", "provider", "options", "assistantId", "executionPriority")
     ASSISTANTEVENTS_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
     OPTIONS_FIELD_NUMBER: _ClassVar[int]
     ASSISTANTID_FIELD_NUMBER: _ClassVar[int]
     EXECUTIONPRIORITY_FIELD_NUMBER: _ClassVar[int]
     assistantEvents: _containers.RepeatedScalarFieldContainer[str]
     description: str
+    provider: str
     options: _containers.RepeatedCompositeFieldContainer[_common_pb2.Metadata]
     assistantId: int
     executionPriority: int
-    def __init__(self, assistantEvents: _Optional[_Iterable[str]] = ..., description: _Optional[str] = ..., options: _Optional[_Iterable[_Union[_common_pb2.Metadata, _Mapping]]] = ..., assistantId: _Optional[int] = ..., executionPriority: _Optional[int] = ...) -> None: ...
+    def __init__(self, assistantEvents: _Optional[_Iterable[str]] = ..., description: _Optional[str] = ..., provider: _Optional[str] = ..., options: _Optional[_Iterable[_Union[_common_pb2.Metadata, _Mapping]]] = ..., assistantId: _Optional[int] = ..., executionPriority: _Optional[int] = ...) -> None: ...
 
 class UpdateAssistantWebhookRequest(_message.Message):
-    __slots__ = ("id", "assistantEvents", "description", "options", "assistantId", "executionPriority")
+    __slots__ = ("id", "assistantEvents", "description", "provider", "options", "assistantId", "executionPriority")
     ID_FIELD_NUMBER: _ClassVar[int]
     ASSISTANTEVENTS_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
     OPTIONS_FIELD_NUMBER: _ClassVar[int]
     ASSISTANTID_FIELD_NUMBER: _ClassVar[int]
     EXECUTIONPRIORITY_FIELD_NUMBER: _ClassVar[int]
     id: int
     assistantEvents: _containers.RepeatedScalarFieldContainer[str]
     description: str
+    provider: str
     options: _containers.RepeatedCompositeFieldContainer[_common_pb2.Metadata]
     assistantId: int
     executionPriority: int
-    def __init__(self, id: _Optional[int] = ..., assistantEvents: _Optional[_Iterable[str]] = ..., description: _Optional[str] = ..., options: _Optional[_Iterable[_Union[_common_pb2.Metadata, _Mapping]]] = ..., assistantId: _Optional[int] = ..., executionPriority: _Optional[int] = ...) -> None: ...
+    def __init__(self, id: _Optional[int] = ..., assistantEvents: _Optional[_Iterable[str]] = ..., description: _Optional[str] = ..., provider: _Optional[str] = ..., options: _Optional[_Iterable[_Union[_common_pb2.Metadata, _Mapping]]] = ..., assistantId: _Optional[int] = ..., executionPriority: _Optional[int] = ...) -> None: ...
 
 class GetAssistantWebhookRequest(_message.Message):
     __slots__ = ("id", "assistantId")

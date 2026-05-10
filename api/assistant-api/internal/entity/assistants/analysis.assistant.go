@@ -22,6 +22,7 @@ type AssistantAnalysis struct {
 	gorm_model.Organizational
 
 	AssistantId             uint64                     `json:"assistantId" gorm:"type:bigint;not null"`
+	Provider                string                     `json:"provider" gorm:"type:varchar(50);not null;default:endpoint"`
 	Name                    string                     `json:"name" gorm:"type:text"`
 	Description             string                     `json:"description" gorm:"type:text"`
 	ExecutionPriority       uint32                     `json:"executionPriority" gorm:"type:int"`

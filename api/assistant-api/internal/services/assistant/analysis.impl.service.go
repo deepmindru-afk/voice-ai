@@ -56,6 +56,7 @@ func (eService *assistantAnalysisService) Get(ctx context.Context, auth types.Si
 func (eService *assistantAnalysisService) Create(ctx context.Context,
 	auth types.SimplePrinciple,
 	assistantId uint64,
+	provider string,
 	name string,
 	options []*protos.Metadata,
 	executionPriority uint32,
@@ -67,8 +68,10 @@ func (eService *assistantAnalysisService) Create(ctx context.Context,
 	if description != nil {
 		desc = *description
 	}
+	provider = internal_assistant_entity.NormalizeAssistantAnalysisProvider(provider)
 	analysis := &internal_assistant_entity.AssistantAnalysis{
 		AssistantId:       assistantId,
+		Provider:          provider,
 		Description:       desc,
 		Name:              name,
 		ExecutionPriority: executionPriority,
@@ -106,6 +109,7 @@ func (eService *assistantAnalysisService) Update(ctx context.Context,
 	auth types.SimplePrinciple,
 	assistantId uint64,
 	analysisId uint64,
+	provider string,
 	name string,
 	options []*protos.Metadata,
 	executionPriority uint32,
@@ -117,7 +121,9 @@ func (eService *assistantAnalysisService) Update(ctx context.Context,
 	if description != nil {
 		desc = *description
 	}
+	provider = internal_assistant_entity.NormalizeAssistantAnalysisProvider(provider)
 	patch := &internal_assistant_entity.AssistantAnalysis{
+		Provider:          provider,
 		Description:       desc,
 		Name:              name,
 		ExecutionPriority: executionPriority,

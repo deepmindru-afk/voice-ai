@@ -139,6 +139,7 @@ export const CreateAssistantAnalysis: FC<{ assistantId: string }> = ({
 
     const request = new CreateAssistantAnalysisRequest();
     request.setAssistantid(assistantId);
+    request.setProvider('endpoint');
     request.setName(name);
     request.setDescription(description);
     request.setExecutionpriority(priority);

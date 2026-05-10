@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"strconv"
 	"time"
 
@@ -940,38 +939,56 @@ func (h requestorDispatchHandler) HandleInitializeSessionRuntime(ctx context.Con
 			Time: time.Now(),
 		})
 	}
-	analysisExec, err := internal_analysis.NewExecutor(h.r.logger, ctx, h.r, h.r)
-	if err != nil {
-		h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
-			ContextID: p.ContextID,
-			Stage:     internal_type.InitializationStageAnalysis,
-			Error:     err,
-		})
-		return
+	for _, analysis := range h.r.assistant.AssistantAnalyses {
+		if !h.r.isConditionAllowed(analysis.GetOptions(), "analysis.condition") {
+			continue
+		}
+		exec, err := internal_analysis.NewExecutor(h.r.logger, ctx, analysis, h.r, h.r)
+		if err != nil {
+			h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
+				ContextID: p.ContextID,
+				Stage:     internal_type.InitializationStageAnalysis,
+				Error:     err,
+			})
+			return
+		}
+		h.r.assistantAnalyses = append(h.r.assistantAnalyses, exec)
 	}
-	h.r.analysisExecutor = analysisExec
 
-	webhookExec, err := internal_webhook.NewExecutor(h.r.logger, ctx, h.r, h.r)
-	if err != nil {
-		h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
-			ContextID: p.ContextID,
-			Stage:     internal_type.InitializationStageWebhook,
-			Error:     err,
-		})
-		return
+	for _, webhook := range h.r.assistant.AssistantWebhooks {
+		if !h.r.isConditionAllowed(webhook.GetOptions(), "webhook.condition") {
+			continue
+		}
+		exec, err := internal_webhook.NewExecutor(h.r.logger, ctx, webhook, h.r, h.r)
+		if err != nil {
+			h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
+				ContextID: p.ContextID,
+				Stage:     internal_type.InitializationStageWebhook,
+				Error:     err,
+			})
+			return
+		}
+		h.r.assistantWebhooks = append(h.r.assistantWebhooks, exec)
 	}
-	h.r.webhookExecutor = webhookExec
 
-	authExec, err := internal_authentication.NewExecutor(h.r.logger, ctx, h.r, h.r)
-	if err != nil {
-		h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
-			ContextID: p.ContextID,
-			Stage:     internal_type.InitializationStageAuthentication,
-			Error:     err,
-		})
-		return
+	if h.r.assistant.AssistantAuthentication != nil && h.r.isConditionAllowed(h.r.assistant.AssistantAuthentication.GetOptions(), "authentication.condition") {
+		authExec, err := internal_authentication.NewExecutor(
+			h.r.logger,
+			ctx,
+			h.r.assistant.AssistantAuthentication,
+			h.r,
+			h.r,
+		)
+		if err != nil {
+			h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
+				ContextID: p.ContextID,
+				Stage:     internal_type.InitializationStageAuthentication,
+				Error:     err,
+			})
+			return
+		}
+		h.r.authenticationExecutor = authExec
 	}
-	h.r.authenticationExecutor = authExec
 
 	if err := h.r.inputNormalizer.Initialize(ctx, h.r, p.Config); err != nil {
 		h.r.OnPacket(ctx, internal_type.InitializationFailedPacket{
@@ -1014,16 +1031,7 @@ func (h requestorDispatchHandler) HandleInitializeSessionRuntime(ctx context.Con
 	}
 }
 func (h requestorDispatchHandler) HandleInitializeAuthentication(ctx context.Context, p internal_type.InitializeAuthenticationPacket) {
-	if h.r.assistant.AssistantAuthentication == nil {
-		h.r.OnPacket(ctx, internal_type.SessionAuthenticationSucceededPacket{
-			ContextID:      p.ContextID,
-			Authenticated:  false,
-			Initialization: p.Config,
-		})
-		return
-	}
-
-	if !h.r.isConditionAllowed(h.r.assistant.AssistantAuthentication.GetOptions(), "authentication.condition") {
+	if h.r.authenticationExecutor == nil {
 		h.r.OnPacket(ctx, internal_type.SessionAuthenticationSucceededPacket{
 			ContextID:      p.ContextID,
 			Authenticated:  false,
@@ -1035,12 +1043,19 @@ func (h requestorDispatchHandler) HandleInitializeAuthentication(ctx context.Con
 	registry := internal_namespace.NewDefaultRegistry()
 	h.r.OnPacket(ctx, internal_type.ExecuteSessionAuthenticationPacket{
 		ContextID:      p.ContextID,
-		Authentication: h.r.assistant.AssistantAuthentication,
 		Arguments:      registry.Expand(source, variable.ResolveContext{}),
 		Initialization: p.Config,
 	})
 }
 func (h requestorDispatchHandler) HandleExecuteSessionAuthentication(ctx context.Context, p internal_type.ExecuteSessionAuthenticationPacket) {
+	if h.r.authenticationExecutor == nil {
+		h.r.OnPacket(ctx, internal_type.SessionAuthenticationSucceededPacket{
+			ContextID:      p.ContextID,
+			Authenticated:  false,
+			Initialization: p.Initialization,
+		})
+		return
+	}
 	if err := h.r.authenticationExecutor.Execute(ctx, p); err != nil {
 		h.r.logger.Errorf("authentication executor execute failed: %v", err)
 	}
@@ -1819,20 +1834,11 @@ func (h requestorDispatchHandler) HandleFinalizationCompleted(ctx context.Contex
 }
 
 func (h requestorDispatchHandler) HandleAnalysisStart(ctx context.Context, p internal_type.AnalysisStartPacket) {
-	source := variable.NewCommunicationSource(h.r)
-	registry := internal_namespace.NewDefaultRegistry().With("event", &internal_namespace.EventNamespace{})
-	for _, analysis := range h.r.assistant.AssistantAnalyses {
-		if !h.r.isConditionAllowed(analysis.GetOptions(), "analysis.condition") {
-			continue
-		}
-		h.r.OnPacket(ctx, internal_type.ExecuteAnalysisPacket{
-			ContextID:      p.ContextID,
-			Analysis:       analysis,
-			Arguments:      registry.Apply(analysis.GetParameters(), source, variable.ResolveContext{Event: utils.ConversationCompleted.Get()}),
-			ConversationID: h.r.assistantConversation.Id,
-			Auth:           h.r.auth,
-		})
-	}
+	h.r.OnPacket(ctx, internal_type.ExecuteAnalysisPacket{
+		ContextID:      p.ContextID,
+		ConversationID: h.r.assistantConversation.Id,
+		Auth:           h.r.auth,
+	})
 	h.r.OnPacket(ctx, internal_type.AnalysisDonePacket{
 		ContextID: p.ContextID,
 		Event:     utils.ConversationCompleted,
@@ -1841,11 +1847,13 @@ func (h requestorDispatchHandler) HandleAnalysisStart(ctx context.Context, p int
 }
 
 func (h requestorDispatchHandler) HandleExecuteAnalysis(ctx context.Context, p internal_type.ExecuteAnalysisPacket) {
-	if h.r.analysisExecutor == nil {
-		return
-	}
-	if err := h.r.analysisExecutor.Execute(ctx, p); err != nil {
-		h.r.logger.Warnw("analysis execution failed", "name", p.Analysis.GetName(), "error", err)
+	source := variable.NewCommunicationSource(h.r)
+	registry := internal_namespace.NewDefaultRegistry().With("event", &internal_namespace.EventNamespace{})
+	for _, initializedAnalysis := range h.r.assistantAnalyses {
+		p.Arguments = registry.Apply(initializedAnalysis.Options().ToStringMap(), source, variable.ResolveContext{Event: utils.ConversationCompleted.Get()})
+		if err := initializedAnalysis.Execute(ctx, p); err != nil {
+			h.r.logger.Warnw("analysis execution failed", "name", initializedAnalysis.Name(), "error", err)
+		}
 	}
 }
 
@@ -1858,33 +1866,26 @@ func (h requestorDispatchHandler) HandleAnalysisDone(ctx context.Context, p inte
 }
 
 func (h requestorDispatchHandler) HandleWebhookStart(ctx context.Context, p internal_type.WebhookStartPacket) {
-	source := variable.NewCommunicationSource(h.r)
-	registry := internal_namespace.NewDefaultRegistry().With("event", &internal_namespace.EventNamespace{})
-	for _, webhook := range h.r.assistant.AssistantWebhooks {
-		if !slices.Contains(webhook.GetAssistantEvents(), p.Event.Get()) {
-			continue
-		}
-		if !h.r.isConditionAllowed(webhook.GetOptions(), "webhook.condition") {
-			continue
-		}
-		h.r.OnPacket(ctx, internal_type.ExecuteWebhookPacket{
-			ContextID: p.ContextID,
-			Event:     p.Event,
-			Webhook:   webhook,
-			Arguments: registry.Apply(webhook.GetBody(), source, variable.ResolveContext{Event: p.Event.Get()}),
-		})
-	}
+	h.r.OnPacket(ctx, internal_type.ExecuteWebhookPacket{
+		ContextID: p.ContextID,
+		Event:     p.Event,
+	})
 	h.r.OnPacket(ctx, internal_type.WebhookDonePacket{
 		ContextID: p.ContextID,
 		Done:      p.Done,
 	})
 }
 func (h requestorDispatchHandler) HandleExecuteWebhook(ctx context.Context, p internal_type.ExecuteWebhookPacket) {
-	if h.r.webhookExecutor == nil {
+	if len(h.r.assistantWebhooks) == 0 {
 		return
 	}
-	if err := h.r.webhookExecutor.Execute(ctx, p); err != nil {
-		h.r.logger.Warnw("webhook execution failed", "webhookID", p.Webhook.Id, "error", err)
+	source := variable.NewCommunicationSource(h.r)
+	registry := internal_namespace.NewDefaultRegistry().With("event", &internal_namespace.EventNamespace{})
+	for _, initializedWebhook := range h.r.assistantWebhooks {
+		p.Arguments = registry.Apply(initializedWebhook.Options().ToStringMap(), source, variable.ResolveContext{Event: p.Event.Get()})
+		if err := initializedWebhook.Execute(ctx, p); err != nil {
+			h.r.logger.Warnw("webhook execution failed", "webhookID", initializedWebhook.Name(), "error", err)
+		}
 	}
 }
 func (h requestorDispatchHandler) HandleWebhookDone(ctx context.Context, p internal_type.WebhookDonePacket) {

@@ -426,6 +426,7 @@ export const UpdateAssistantWebhook: FC<{ assistantId: string }> = ({
     const request = new UpdateAssistantWebhookRequest();
     request.setAssistantid(assistantId);
     request.setId(webhookId!);
+    request.setProvider('http');
     request.setAssistanteventsList(events);
     request.setExecutionpriority(priority);
     request.setDescription(description);

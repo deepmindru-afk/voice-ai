@@ -6,6 +6,7 @@ package internal_azure_common
 import (
 	"testing"
 
+	"github.com/openai/openai-go/v3/responses"
 	"github.com/rapidaai/pkg/commons"
 	"github.com/rapidaai/protos"
 	"github.com/stretchr/testify/assert"
@@ -56,4 +57,19 @@ func TestNewClient_RejectsInvalidCredential(t *testing.T) {
 	client, err := NewClient(newTestLogger(), nil)
 	require.Error(t, err)
 	assert.Nil(t, client)
+}
+
+func TestResponseUsageMetrics_MapsCachedTokenMetric(t *testing.T) {
+	metrics := ResponseUsageMetrics(responses.ResponseUsage{
+		InputTokens:  120,
+		OutputTokens: 45,
+		TotalTokens:  165,
+		InputTokensDetails: responses.ResponseUsageInputTokensDetails{
+			CachedTokens: 77,
+		},
+	})
+
+	require.Len(t, metrics, 4)
+	assert.Equal(t, "cached_content_token", metrics[3].GetName())
+	assert.Equal(t, "77", metrics[3].GetValue())
 }

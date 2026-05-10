@@ -46,6 +46,7 @@ jest.mock('@rapidaai/react', () => ({
   },
   CreateAssistantWebhookRequest: class {
     assistantId = '';
+    provider = '';
     assistantEventsList: string[] = [];
     description = '';
     executionPriority = 0;
@@ -58,6 +59,12 @@ jest.mock('@rapidaai/react', () => ({
     }
     setAssistanteventsList(value: string[]) {
       this.assistantEventsList = value;
+    }
+    setProvider(value: string) {
+      this.provider = value;
+    }
+    getProvider() {
+      return this.provider;
     }
     getAssistanteventsList() {
       return this.assistantEventsList;
@@ -84,6 +91,7 @@ jest.mock('@rapidaai/react', () => ({
   UpdateAssistantWebhookRequest: class {
     id = '';
     assistantId = '';
+    provider = '';
     assistantEventsList: string[] = [];
     description = '';
     executionPriority = 0;
@@ -102,6 +110,12 @@ jest.mock('@rapidaai/react', () => ({
     }
     setAssistanteventsList(value: string[]) {
       this.assistantEventsList = value;
+    }
+    setProvider(value: string) {
+      this.provider = value;
+    }
+    getProvider() {
+      return this.provider;
     }
     getAssistanteventsList() {
       return this.assistantEventsList;

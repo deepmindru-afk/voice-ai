@@ -335,11 +335,10 @@ func (m Option) GetBool(key string) (bool, error) {
 // keys (rapida.credential_id). Suitable for inclusion in event/metric data.
 func (m Option) ToStringMap() map[string]string {
 	result := make(map[string]string, len(m))
-	for k, v := range m {
-		if k == "rapida.credential_id" {
-			continue
+	for k := range m {
+		if s, err := m.GetString(k); err == nil {
+			result[k] = s
 		}
-		result[k] = fmt.Sprintf("%v", v)
 	}
 	return result
 }

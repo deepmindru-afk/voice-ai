@@ -31,6 +31,13 @@ const (
 )
 
 const (
+	StreamMaxConnsPerHost     = 100
+	StreamMaxIdleConnsPerHost = 20
+	StreamMaxIdleConns        = 100
+	StreamIdleConnTimeout     = 5 * time.Minute
+)
+
+const (
 	ChatRoleAssistant = "assistant"
 	ChatRoleFunction  = "function"
 	ChatRoleSystem    = "system"

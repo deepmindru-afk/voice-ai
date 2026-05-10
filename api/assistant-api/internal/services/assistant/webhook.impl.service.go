@@ -71,6 +71,7 @@ func (s *assistantWebhookService) Create(
 	ctx context.Context,
 	auth types.SimplePrinciple,
 	assistantId uint64,
+	provider string,
 	assistantEvents []string,
 	options []*protos.Metadata,
 	executionPriority uint32,
@@ -83,9 +84,11 @@ func (s *assistantWebhookService) Create(
 	if description != nil {
 		desc = *description
 	}
+	provider = internal_assistant_entity.NormalizeAssistantWebhookProvider(provider)
 
 	webhook := &internal_assistant_entity.AssistantWebhook{
 		AssistantId:       assistantId,
+		Provider:          provider,
 		Description:       desc,
 		ExecutionPriority: executionPriority,
 		AssistantEvents:   gorm_types.StringArray(assistantEvents),
@@ -126,6 +129,7 @@ func (s *assistantWebhookService) Update(
 	auth types.SimplePrinciple,
 	assistantId uint64,
 	webhookId uint64,
+	provider string,
 	assistantEvents []string,
 	options []*protos.Metadata,
 	executionPriority uint32,
@@ -138,8 +142,10 @@ func (s *assistantWebhookService) Update(
 	if description != nil {
 		desc = *description
 	}
+	provider = internal_assistant_entity.NormalizeAssistantWebhookProvider(provider)
 
 	patch := &internal_assistant_entity.AssistantWebhook{
+		Provider:          provider,
 		Description:       desc,
 		ExecutionPriority: executionPriority,
 		AssistantEvents:   gorm_types.StringArray(assistantEvents),

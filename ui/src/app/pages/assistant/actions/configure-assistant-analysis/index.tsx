@@ -267,24 +267,24 @@ const ConfigureAssistantAnalysis: FC<{ assistantId: string }> = ({
                           }
                         />
                       </TableCell>
-                      <TableCell className="!text-xs">{row.getName()}</TableCell>
-                      <TableCell className="!text-xs">
-                        <span className="font-mono text-xs">
+                      <TableCell className="text-sm">{row.getName()}</TableCell>
+                      <TableCell className="text-sm">
+                        <span className="font-mono text-[13px]">
                           {getAnalysisEndpointId(row) || '—'}
                         </span>
                       </TableCell>
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         {getAnalysisEndpointVersion(row)}
                       </TableCell>
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         {row.getExecutionpriority()}
                       </TableCell>
-                      <TableCell className="!text-xs whitespace-nowrap">
+                      <TableCell className="text-[13px] whitespace-nowrap">
                         {row.getCreateddate()
                           ? toHumanReadableDateTime(row.getCreateddate()!)
                           : '—'}
                       </TableCell>
-                      <TableCell className="!text-xs" onClick={e => e.stopPropagation()}>
+                      <TableCell className="text-sm" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-0">
                           <Button
                             hasIconOnly

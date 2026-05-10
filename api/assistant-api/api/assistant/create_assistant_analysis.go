@@ -25,6 +25,7 @@ func (assistantApi *assistantGrpcApi) CreateAssistantAnalysis(ctx context.Contex
 		ctx,
 		iAuth,
 		cawr.GetAssistantId(),
+		cawr.GetProvider(),
 		cawr.GetName(),
 		cawr.GetOptions(),
 		cawr.GetExecutionPriority(),

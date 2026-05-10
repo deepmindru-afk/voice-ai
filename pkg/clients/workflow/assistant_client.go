@@ -75,8 +75,9 @@ type AssistantServiceClient interface {
 	DisableAssistantDebuggerDeployment(c context.Context, auth types.SimplePrinciple, assistantRequest *protos.GetAssistantDeploymentRequest) (*protos.GetAssistantDebuggerDeploymentResponse, error)
 
 	//
-	GetAssistantWebhookLog(ctx context.Context, auth types.SimplePrinciple, req *protos.GetAssistantWebhookLogRequest) (*protos.GetAssistantWebhookLogResponse, error)
-	GetAllAssistantWebhookLog(ctx context.Context, auth types.SimplePrinciple, projectId uint64, criteria []*protos.Criteria, paginate *protos.Paginate, ordering *protos.Ordering) (*protos.Paginated, []*protos.AssistantWebhookLog, error)
+	GetAssistantHTTPLog(ctx context.Context, auth types.SimplePrinciple, req *protos.GetAssistantHTTPLogRequest) (*protos.GetAssistantHTTPLogResponse, error)
+	GetAllAssistantHTTPLog(ctx context.Context, auth types.SimplePrinciple, projectId uint64, criteria []*protos.Criteria, paginate *protos.Paginate, ordering *protos.Ordering) (*protos.Paginated, []*protos.AssistantHTTPLog, error)
+	RetryAssistantHTTPLog(ctx context.Context, auth types.SimplePrinciple, req *protos.RetryAssistantHTTPLogRequest) (*protos.GetAssistantHTTPLogResponse, error)
 
 	//
 	GetAllAssistantWebhook(c context.Context, auth types.SimplePrinciple, assistantId uint64, criteria []*protos.Criteria, paginate *protos.Paginate) (*protos.Paginated, []*protos.AssistantWebhook, error)
@@ -669,18 +670,18 @@ func (client *assistantServiceClient) GetAllAssistantWebhook(ctx context.Context
 	return res.GetPaginated(), res.GetData(), nil
 }
 
-func (client *assistantServiceClient) GetAllAssistantWebhookLog(ctx context.Context, auth types.SimplePrinciple,
+func (client *assistantServiceClient) GetAllAssistantHTTPLog(ctx context.Context, auth types.SimplePrinciple,
 	projectId uint64,
-	criteria []*protos.Criteria, paginate *protos.Paginate, ordering *protos.Ordering) (*protos.Paginated, []*protos.AssistantWebhookLog, error) {
+	criteria []*protos.Criteria, paginate *protos.Paginate, ordering *protos.Ordering) (*protos.Paginated, []*protos.AssistantHTTPLog, error) {
 	start := time.Now()
-	res, err := client.assistantClient.GetAllAssistantWebhookLog(client.WithAuth(ctx, auth), &protos.GetAllAssistantWebhookLogRequest{
+	res, err := client.assistantClient.GetAllAssistantHTTPLog(client.WithAuth(ctx, auth), &protos.GetAllAssistantHTTPLogRequest{
 		ProjectId: projectId,
 		Paginate:  paginate,
 		Criterias: criteria,
 		Order:     ordering,
 	})
 	if err != nil {
-		client.logger.Benchmark("Benchmarking: assistantClient.GetAllAssistantWebhookLog", time.Since(start))
+		client.logger.Benchmark("Benchmarking: assistantClient.GetAllAssistantHTTPLog", time.Since(start))
 		client.logger.Errorf("error while calling to get all assistant %v", err)
 		return nil, nil, err
 	}
@@ -688,22 +689,38 @@ func (client *assistantServiceClient) GetAllAssistantWebhookLog(ctx context.Cont
 		client.logger.Errorf("error while calling to get all assistant %v", err)
 	}
 
-	client.logger.Benchmark("Benchmarking: assistantClient.GetAllAssistantWebhookLog", time.Since(start))
+	client.logger.Benchmark("Benchmarking: assistantClient.GetAllAssistantHTTPLog", time.Since(start))
 	return res.GetPaginated(), res.GetData(), nil
 }
-func (client *assistantServiceClient) GetAssistantWebhookLog(c context.Context,
-	auth types.SimplePrinciple, iRequest *protos.GetAssistantWebhookLogRequest) (*protos.GetAssistantWebhookLogResponse, error) {
+func (client *assistantServiceClient) GetAssistantHTTPLog(c context.Context,
+	auth types.SimplePrinciple, iRequest *protos.GetAssistantHTTPLogRequest) (*protos.GetAssistantHTTPLogResponse, error) {
 	start := time.Now()
-	res, err := client.assistantClient.GetAssistantWebhookLog(client.WithAuth(c, auth), iRequest)
+	res, err := client.assistantClient.GetAssistantHTTPLog(client.WithAuth(c, auth), iRequest)
 	if err != nil {
-		client.logger.Benchmark("Benchmarking: assistantClient.GetAssistantWebhookLog", time.Since(start))
-		client.logger.Errorf("error while calling GetAssistantWebhookLog %v", err)
+		client.logger.Benchmark("Benchmarking: assistantClient.GetAssistantHTTPLog", time.Since(start))
+		client.logger.Errorf("error while calling GetAssistantHTTPLog %v", err)
 		return nil, err
 	}
 	if !res.GetSuccess() {
-		client.logger.Errorf("error while calling to get GetAssistantWebhookLog %v", err)
+		client.logger.Errorf("error while calling to get GetAssistantHTTPLog %v", err)
 	}
-	client.logger.Benchmark("Benchmarking: assistantClient.GetAssistantWebhookLog", time.Since(start))
+	client.logger.Benchmark("Benchmarking: assistantClient.GetAssistantHTTPLog", time.Since(start))
+	return res, nil
+}
+
+func (client *assistantServiceClient) RetryAssistantHTTPLog(c context.Context,
+	auth types.SimplePrinciple, iRequest *protos.RetryAssistantHTTPLogRequest) (*protos.GetAssistantHTTPLogResponse, error) {
+	start := time.Now()
+	res, err := client.assistantClient.RetryAssistantHTTPLog(client.WithAuth(c, auth), iRequest)
+	if err != nil {
+		client.logger.Benchmark("Benchmarking: assistantClient.RetryAssistantHTTPLog", time.Since(start))
+		client.logger.Errorf("error while calling RetryAssistantHTTPLog %v", err)
+		return nil, err
+	}
+	if !res.GetSuccess() {
+		client.logger.Errorf("error while calling to retry RetryAssistantHTTPLog %v", err)
+	}
+	client.logger.Benchmark("Benchmarking: assistantClient.RetryAssistantHTTPLog", time.Since(start))
 	return res, nil
 }
 

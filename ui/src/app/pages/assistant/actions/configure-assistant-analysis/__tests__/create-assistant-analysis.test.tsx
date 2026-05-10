@@ -33,6 +33,7 @@ jest.mock('@rapidaai/react', () => ({
   },
   CreateAssistantAnalysisRequest: class CreateAssistantAnalysisRequest {
     assistantId = '';
+    provider = '';
     name = '';
     description = '';
     executionPriority = 0;
@@ -42,6 +43,9 @@ jest.mock('@rapidaai/react', () => ({
     }
     setName(v: string) {
       this.name = v;
+    }
+    setProvider(v: string) {
+      this.provider = v;
     }
     setDescription(v: string) {
       this.description = v;

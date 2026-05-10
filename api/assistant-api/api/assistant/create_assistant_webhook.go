@@ -25,6 +25,7 @@ func (assistantApi *assistantGrpcApi) CreateAssistantWebhook(ctx context.Context
 		ctx,
 		iAuth,
 		cawr.GetAssistantId(),
+		cawr.GetProvider(),
 		cawr.GetAssistantEvents(),
 		cawr.GetOptions(),
 		cawr.GetExecutionPriority(),

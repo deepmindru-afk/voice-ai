@@ -50,9 +50,16 @@ func TestStream_ConnectAndCloseLifecycle(t *testing.T) {
 
 	err = s.Connect(context.Background(), nil)
 	require.NoError(t, err)
+	require.NotNil(t, s.client)
+	firstClient := s.client
+	require.NotNil(t, s.httpClient)
+
 	err = s.Connect(context.Background(), nil)
 	require.NoError(t, err)
+	assert.Same(t, firstClient, s.client)
 
 	err = s.Close(context.Background())
 	require.NoError(t, err)
+	assert.Nil(t, s.client)
+	assert.Nil(t, s.httpClient)
 }

@@ -77,3 +77,18 @@ func TestResponseUsageMetrics_MapsTokenMetrics(t *testing.T) {
 	assert.Equal(t, "120", metrics[1].GetValue())
 	assert.Equal(t, "165", metrics[2].GetValue())
 }
+
+func TestResponseUsageMetrics_MapsCachedTokenMetric(t *testing.T) {
+	metrics := ResponseUsageMetrics(responses.ResponseUsage{
+		InputTokens:  120,
+		OutputTokens: 45,
+		TotalTokens:  165,
+		InputTokensDetails: responses.ResponseUsageInputTokensDetails{
+			CachedTokens: 90,
+		},
+	})
+
+	require.Len(t, metrics, 4)
+	assert.Equal(t, "cached_content_token", metrics[3].GetName())
+	assert.Equal(t, "90", metrics[3].GetValue())
+}

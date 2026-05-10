@@ -235,6 +235,11 @@ func (s *streamer) hasFunctionCall(items []responses.ResponseOutputItemUnion) bo
 
 func (s *streamer) buildResponseOptions(opts *internal_callers.ChatStreamCompletionOptions) responses.ResponseNewParams {
 	options := responses.ResponseNewParams{Store: openai.Bool(false)}
+	additionalData := map[string]string{}
+	if opts.Request != nil {
+		additionalData = opts.Request.GetAdditionalData()
+	}
+	promptCacheKeySelector := "assistant_id"
 	if len(opts.ToolDefinitions) > 0 {
 		fns := make([]responses.ToolUnionParam, 0, len(opts.ToolDefinitions))
 		for _, tl := range opts.ToolDefinitions {
@@ -273,6 +278,14 @@ func (s *streamer) buildResponseOptions(opts *internal_callers.ChatStreamComplet
 		case "model.service_tier":
 			if st, err := utils.AnyToString(value); err == nil {
 				options.ServiceTier = responses.ResponseNewParamsServiceTier(st)
+			}
+		case "model.prompt_cache_key":
+			if promptCacheKey, err := utils.AnyToString(value); err == nil && promptCacheKey != "" {
+				promptCacheKeySelector = promptCacheKey
+			}
+		case "model.prompt_cache_retention":
+			if retention, err := utils.AnyToString(value); err == nil && retention != "" {
+				options.PromptCacheRetention = responses.ResponseNewParamsPromptCacheRetention(retention)
 			}
 		case "model.top_logprobs":
 			if tl, err := utils.AnyToInt64(value); err == nil {
@@ -340,6 +353,17 @@ func (s *streamer) buildResponseOptions(opts *internal_callers.ChatStreamComplet
 				}
 			}
 		}
+	}
+
+	switch promptCacheKeySelector {
+	case "user_identifier":
+		options.PromptCacheKey = openai.String(additionalData["user_identifier"] + additionalData["assistant_provider_model_id"] + "__" + additionalData["assistant_id"])
+	case "conversation_id":
+		options.PromptCacheKey = openai.String(additionalData["conversation_id"] + additionalData["assistant_provider_model_id"] + "__" + additionalData["assistant_id"])
+	case "assistant_id":
+		options.PromptCacheKey = openai.String(additionalData["assistant_provider_model_id"] + "__" + additionalData["assistant_id"])
+	default:
+		options.PromptCacheKey = openai.String(additionalData["assistant_provider_model_id"] + "__" + additionalData["assistant_id"])
 	}
 	return options
 }

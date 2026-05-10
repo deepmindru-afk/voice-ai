@@ -6,6 +6,7 @@ package internal_custom_llm_openai_responses
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -25,15 +26,15 @@ type streamCaller struct {
 	logger     commons.Logger
 	credential *protos.Credential
 	client     *openai.Client
+	httpClient *http.Client
 }
 
 func NewStream(logger commons.Logger, credential *protos.Credential) (internal_callers.ChatStream, error) {
-	client, err := newClient(logger, credential)
-	if err != nil {
+	if _, err := internal_custom_llm_common.ParseClientConfig(logger, credential); err != nil {
 		logger.Errorf("custom-llm openai_responses: failed to create stream client: %v", err)
 		return nil, err
 	}
-	return &streamCaller{logger: logger, credential: credential, client: client}, nil
+	return &streamCaller{logger: logger, credential: credential}, nil
 }
 
 func (s *streamCaller) GetCredential() *protos.Credential {
@@ -43,11 +44,26 @@ func (s *streamCaller) GetCredential() *protos.Credential {
 func (s *streamCaller) Connect(ctx context.Context, configuration *protos.StreamChatConfiguration) error {
 	_ = ctx
 	_ = configuration
+	if s.client != nil {
+		return nil
+	}
+	client, httpClient, err := newStreamClient(s.logger, s.credential)
+	if err != nil {
+		s.logger.Errorf("custom-llm openai_responses: failed to create stream client: %v", err)
+		return err
+	}
+	s.client = client
+	s.httpClient = httpClient
 	return nil
 }
 
 func (s *streamCaller) Close(ctx context.Context) error {
 	_ = ctx
+	if s.httpClient != nil {
+		s.httpClient.CloseIdleConnections()
+	}
+	s.client = nil
+	s.httpClient = nil
 	return nil
 }
 
@@ -59,6 +75,16 @@ func (s *streamCaller) Chat(
 	onMetrics func(string, *protos.Message, []*protos.Metric) error,
 	onError func(string, error),
 ) error {
+	if err := s.Connect(ctx, nil); err != nil {
+		onError(options.Request.GetRequestId(), err)
+		return err
+	}
+	if s.client == nil {
+		err := fmt.Errorf("stream client not connected")
+		onError(options.Request.GetRequestId(), err)
+		return err
+	}
+
 	requestID := ""
 	if options != nil && options.Request != nil {
 		requestID = options.Request.GetRequestId()

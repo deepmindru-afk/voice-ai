@@ -31,6 +31,7 @@ type AssistantWebhook struct {
 	gorm_model.Organizational
 
 	AssistantId            uint64                    `json:"assistantId" gorm:"type:bigint;not null"`
+	Provider               string                    `json:"provider" gorm:"type:varchar(50);not null;default:http"`
 	Description            string                    `json:"description" gorm:"type:text"`
 	ExecutionPriority      uint32                    `json:"executionPriority" gorm:"type:int"`
 	AssistantEvents        gorm_types.StringArray    `json:"assistantEvents" gorm:"type:text;not null;default:'[]'::text"`

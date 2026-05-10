@@ -13,10 +13,12 @@ import (
 	"strings"
 	"time"
 
+	internal_assistant_entity "github.com/rapidaai/api/assistant-api/internal/entity/assistants"
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 	"github.com/rapidaai/pkg/clients/rest"
 	"github.com/rapidaai/pkg/commons"
 	type_enums "github.com/rapidaai/pkg/types/enums"
+	"github.com/rapidaai/pkg/utils"
 )
 
 const (
@@ -37,21 +39,31 @@ type Result struct {
 }
 
 type runtimeExecutor struct {
-	logger   commons.Logger
-	callback internal_type.Callback
+	logger        commons.Logger
+	callback      internal_type.Callback
+	authenticator *internal_assistant_entity.AssistantAuthentication
 }
 
 // NewExecutor creates a fully wired HTTP authentication executor.
-func NewExecutor(logger commons.Logger, _ context.Context, callback internal_type.Callback, _ internal_type.InternalCaller) (internal_type.AuthenticationExecutor, error) {
+func NewExecutor(logger commons.Logger, _ context.Context, authenticator *internal_assistant_entity.AssistantAuthentication, callback internal_type.Callback, _ internal_type.InternalCaller) (internal_type.AuthenticationExecutor, error) {
 	return &runtimeExecutor{
-		logger:   logger,
-		callback: callback,
+		logger:        logger,
+		callback:      callback,
+		authenticator: authenticator,
 	}, nil
+}
+
+func (e *runtimeExecutor) Name() string {
+	return e.authenticator.Provider
+}
+
+func (e *runtimeExecutor) Options() utils.Option {
+	return e.authenticator.GetOptions()
 }
 
 // Execute runs authentication against the configured endpoint and emits packetized outcome.
 func (e *runtimeExecutor) Execute(ctx context.Context, packet internal_type.ExecuteSessionAuthenticationPacket) error {
-	auth := packet.Authentication
+	auth := e.authenticator
 	url, err := auth.GetOptions().GetString(OptionHTTPURLKey)
 	if err != nil || url == "" {
 		e.callback.OnPacket(ctx, internal_type.SessionAuthenticationFailedPacket{

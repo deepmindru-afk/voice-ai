@@ -280,13 +280,13 @@ const ConfigureAssistantWebhook: FC<{ assistantId: string }> = ({
                           }
                         />
                       </TableCell>
-                      <TableCell className="!text-xs">
-                        <span className="font-mono text-xs">
+                      <TableCell className="text-sm">
+                        <span className="font-mono text-[13px]">
                           {getWebhookMethod(row)}
                         </span>{' '}
                         <span className="truncate">{getWebhookUrl(row)}</span>
                       </TableCell>
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         <div className="flex flex-wrap gap-1">
                           {getWebhookEvents(row).map((event, index) => (
                             <Tag key={index} type="blue" size="sm">
@@ -295,21 +295,21 @@ const ConfigureAssistantWebhook: FC<{ assistantId: string }> = ({
                           ))}
                         </div>
                       </TableCell>
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         {getWebhookRetryCount(row)}
                       </TableCell>
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         {getWebhookTimeoutSecond(row)}
                       </TableCell>
-                      <TableCell className="!text-xs">
+                      <TableCell className="text-sm">
                         {row.getExecutionpriority()}
                       </TableCell>
-                      <TableCell className="!text-xs whitespace-nowrap">
+                      <TableCell className="text-[13px] whitespace-nowrap">
                         {row.getCreateddate()
                           ? toHumanReadableDateTime(row.getCreateddate()!)
                           : '—'}
                       </TableCell>
-                      <TableCell className="!text-xs" onClick={e => e.stopPropagation()}>
+                      <TableCell className="text-sm" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-0">
                           <Button
                             hasIconOnly
