@@ -912,21 +912,21 @@ func (f TTSErrorPacket) IsRecoverable() bool {
 func (f TTSErrorPacket) Err() error         { return f.Error }
 func (f TTSErrorPacket) ErrMessage() string { return fmt.Sprintf("tts: %s", f.Error.Error()) }
 
-// TTSTextPacket carries a sentence-ready text chunk for TTS synthesis.
-type TTSTextPacket struct {
+// TextToSpeechTextPacket carries a sentence-ready text chunk for TTS synthesis.
+type TextToSpeechTextPacket struct {
 	ContextID string
 	Text      string
 }
 
-func (f TTSTextPacket) ContextId() string { return f.ContextID }
+func (f TextToSpeechTextPacket) ContextId() string { return f.ContextID }
 
-// TTSDonePacket signals end of this turn's output. TTS flushes remaining audio.
-type TTSDonePacket struct {
+// TextToSpeechDonePacket signals end of this turn's output. TTS flushes remaining audio.
+type TextToSpeechDonePacket struct {
 	ContextID string
 	Text      string
 }
 
-func (f TTSDonePacket) ContextId() string { return f.ContextID }
+func (f TextToSpeechDonePacket) ContextId() string { return f.ContextID }
 
 // TextToSpeechAudioPacket carries a TTS audio chunk produced by the TTS provider.
 type TextToSpeechAudioPacket struct {

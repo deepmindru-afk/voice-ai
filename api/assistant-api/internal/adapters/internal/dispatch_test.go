@@ -334,8 +334,8 @@ func TestOnPacket_RoutesToCorrectChannel(t *testing.T) {
 		{"LLMResponseDeltaPacket", internal_type.LLMResponseDeltaPacket{ContextID: "c"}, "output"},
 		{"LLMResponseDonePacket", internal_type.LLMResponseDonePacket{ContextID: "c"}, "output"},
 		{"LLMErrorPacket", internal_type.LLMErrorPacket{ContextID: "c"}, "output"},
-		{"TTSTextPacket", internal_type.TTSTextPacket{ContextID: "c"}, "output"},
-		{"TTSTextPacket", internal_type.TTSTextPacket{ContextID: "c"}, "output"},
+		{"TextToSpeechTextPacket", internal_type.TextToSpeechTextPacket{ContextID: "c"}, "output"},
+		{"TextToSpeechTextPacket", internal_type.TextToSpeechTextPacket{ContextID: "c"}, "output"},
 		{"TextToSpeechAudioPacket", internal_type.TextToSpeechAudioPacket{ContextID: "c"}, "output"},
 		{"TextToSpeechEndPacket", internal_type.TextToSpeechEndPacket{ContextID: "c"}, "output"},
 		{"LLMToolCallPacket_Action", internal_type.LLMToolCallPacket{ContextID: "c", Action: protos.ToolCallAction_TOOL_CALL_ACTION_END_CONVERSATION}, "output"},
@@ -667,10 +667,10 @@ func TestHandleUserAudio_NoDenoiser_FansOut(t *testing.T) {
 // }
 
 // =============================================================================
-// 10. LLMResponseDelta -> TTSTextPacket
+// 10. LLMResponseDelta -> TextToSpeechTextPacket
 // =============================================================================
 
-func TestHandleLLMDelta_EmitsTTSTextPacket(t *testing.T) {
+func TestHandleLLMDelta_EmitsTextToSpeechTextPacket(t *testing.T) {
 	t.Parallel()
 	r := newTestRequestor(t, context.Background())
 	// Set state so Transition(LLMGenerating) succeeds.
@@ -681,14 +681,14 @@ func TestHandleLLMDelta_EmitsTTSTextPacket(t *testing.T) {
 		Text:      "Hello",
 	})
 
-	pkt, ok := drainPacket[internal_type.TTSTextPacket](r.channels.EgressChannel(), time.Second)
-	require.True(t, ok, "expected TTSTextPacket in outputCh")
+	pkt, ok := drainPacket[internal_type.TextToSpeechTextPacket](r.channels.EgressChannel(), time.Second)
+	require.True(t, ok, "expected TextToSpeechTextPacket in outputCh")
 	assert.Equal(t, "ctx-1", pkt.ContextID)
 	assert.Equal(t, "Hello", pkt.Text)
 }
 
 // =============================================================================
-// 11. LLMResponseDone -> TTSTextPacket + SaveMessage + Metric
+// 11. LLMResponseDone -> TextToSpeechTextPacket + SaveMessage + Metric
 // =============================================================================
 
 func TestHandleLLMDone_EmitsAggregateAndPersistence(t *testing.T) {
@@ -702,9 +702,9 @@ func TestHandleLLMDone_EmitsAggregateAndPersistence(t *testing.T) {
 		Text:      "Done response",
 	})
 
-	// TTSDonePacket in outputCh
-	agg, ok := drainPacket[internal_type.TTSDonePacket](r.channels.EgressChannel(), time.Second)
-	require.True(t, ok, "expected TTSDonePacket in outputCh")
+	// TextToSpeechDonePacket in outputCh
+	agg, ok := drainPacket[internal_type.TextToSpeechDonePacket](r.channels.EgressChannel(), time.Second)
+	require.True(t, ok, "expected TextToSpeechDonePacket in outputCh")
 	assert.Equal(t, "Done response", agg.Text)
 
 	// MessageCreatePacket in lowCh
@@ -722,7 +722,7 @@ func TestHandleLLMDone_EmitsAggregateAndPersistence(t *testing.T) {
 }
 
 // =============================================================================
-// 12. TTSTextPacket -> aggregator / TTSTextPacket fallback
+// 12. TextToSpeechTextPacket -> aggregator / TextToSpeechTextPacket fallback
 // =============================================================================
 
 // =============================================================================
@@ -746,11 +746,11 @@ func TestHandleLLMDelta_StaleContext_Discarded(t *testing.T) {
 	assert.Equal(t, "llm", evt.Name)
 	assert.Equal(t, "stale_context", evt.Data["reason"])
 
-	// No TTSTextPacket should appear.
+	// No TextToSpeechTextPacket should appear.
 	select {
 	case env := <-r.channels.EgressChannel():
-		if _, isAgg := env.Pkt.(internal_type.TTSTextPacket); isAgg {
-			t.Fatal("TTSTextPacket should not be emitted for stale context")
+		if _, isAgg := env.Pkt.(internal_type.TextToSpeechTextPacket); isAgg {
+			t.Fatal("TextToSpeechTextPacket should not be emitted for stale context")
 		}
 	case <-time.After(200 * time.Millisecond):
 		// Good -- nothing in outputCh.
@@ -1187,9 +1187,9 @@ func waitForPacketType[T internal_type.Packet](collector *collectedPackets, time
 //   → NormalizeInputPacket → handleNormalizeInput → UserInputPacket
 //   → handleUserInput → executor.Execute
 //   → executor emits LLMResponseDelta + LLMResponseDone
-//   → handleLLMDelta → TTSTextPacket{IsFinal:false}
-//   → handleLLMDone  → TTSTextPacket{IsFinal:true} + SaveMessage
-//   → handleAggregateText (no aggregator → fallback TTSTextPacket)
+//   → handleLLMDelta → TextToSpeechTextPacket{IsFinal:false}
+//   → handleLLMDone  → TextToSpeechTextPacket{IsFinal:true} + SaveMessage
+//   → handleAggregateText (no aggregator → fallback TextToSpeechTextPacket)
 // =============================================================================
 
 func TestE2E_TextInput_FullPipeline(t *testing.T) {
@@ -1209,7 +1209,7 @@ func TestE2E_TextInput_FullPipeline(t *testing.T) {
 	}
 
 	// No EOS configured → handleSpeechToText / handleEndOfSpeech fallback path
-	// No aggregator → handleAggregateText fallback to TTSTextPacket
+	// No aggregator → handleAggregateText fallback to TextToSpeechTextPacket
 	// No TTS → handleSpeakText just calls Notify (testStreamer)
 
 	// Start all dispatchers
@@ -1233,11 +1233,11 @@ func TestE2E_TextInput_FullPipeline(t *testing.T) {
 		return false
 	}, 3*time.Second, 20*time.Millisecond, "executor should receive UserInputPacket")
 
-	// === Verify: TTSTextPacket appears (end of output pipeline) ===
-	// The executor emits LLMResponseDelta/Done → TTSTextPacket → TTSTextPacket
+	// === Verify: TextToSpeechTextPacket appears (end of output pipeline) ===
+	// The executor emits LLMResponseDelta/Done → TextToSpeechTextPacket → TextToSpeechTextPacket
 	speakFound := false
 	require.Eventually(t, func() bool {
-		// Drain outputCh looking for TTSTextPacket (dispatchers already consumed
+		// Drain outputCh looking for TextToSpeechTextPacket (dispatchers already consumed
 		// it and called handleSpeakText which calls Notify). Check that the flow
 		// completed by verifying executor got the delta+done (it emitted them).
 		pkts := executor.getPackets()
@@ -1276,9 +1276,9 @@ func TestE2E_TextInput_FullPipeline(t *testing.T) {
 //   → handleNormalizeInput → UserInputPacket
 //   → handleUserInput → executor.Execute
 //   → executor emits LLMResponseDelta + LLMResponseDone
-//   → handleLLMDelta → TTSTextPacket{IsFinal:false}
-//   → handleLLMDone  → TTSTextPacket{IsFinal:true} + SaveMessage
-//   → handleAggregateText (no aggregator → TTSTextPacket)
+//   → handleLLMDelta → TextToSpeechTextPacket{IsFinal:false}
+//   → handleLLMDone  → TextToSpeechTextPacket{IsFinal:true} + SaveMessage
+//   → handleAggregateText (no aggregator → TextToSpeechTextPacket)
 // =============================================================================
 
 func TestE2E_AudioInput_FullPipeline(t *testing.T) {
@@ -1552,12 +1552,12 @@ func (t *ttsStub) Transform(ctx context.Context, pkt internal_type.Packet) error
 	t.mu.Unlock()
 
 	if cb != nil && len(audio) > 0 {
-		if done, ok := pkt.(internal_type.TTSDonePacket); ok {
+		if done, ok := pkt.(internal_type.TextToSpeechDonePacket); ok {
 			cb(ctx,
 				internal_type.TextToSpeechAudioPacket{ContextID: done.ContextID, AudioChunk: audio},
 				internal_type.TextToSpeechEndPacket{ContextID: done.ContextID},
 			)
-		} else if delta, ok := pkt.(internal_type.TTSTextPacket); ok {
+		} else if delta, ok := pkt.(internal_type.TextToSpeechTextPacket); ok {
 			cb(ctx,
 				internal_type.TextToSpeechAudioPacket{ContextID: delta.ContextID, AudioChunk: audio},
 			)
@@ -1574,7 +1574,7 @@ func (t *ttsStub) getPackets() []internal_type.Packet {
 }
 
 // realisticTTSStub simulates real-world TTS provider behavior:
-//   - After completing a speak cycle (TTSDonePacket processed),
+//   - After completing a speak cycle (TextToSpeechDonePacket processed),
 //     the provider enters "completed" state (connection stale).
 //   - A TTSInterruptPacket (legacy: InterruptionDetectedPacket) reinitializes
 //     the connection → "ready" state.
@@ -1620,8 +1620,8 @@ func (t *realisticTTSStub) Transform(ctx context.Context, pkt internal_type.Pack
 	}
 
 	// Only speech packets consume the synthesizer state machine.
-	_, isText := pkt.(internal_type.TTSTextPacket)
-	_, isDone := pkt.(internal_type.TTSDonePacket)
+	_, isText := pkt.(internal_type.TextToSpeechTextPacket)
+	_, isDone := pkt.(internal_type.TextToSpeechDonePacket)
 	if !isText && !isDone {
 		t.mu.Unlock()
 		return nil
@@ -1647,7 +1647,7 @@ func (t *realisticTTSStub) Transform(ctx context.Context, pkt internal_type.Pack
 		t.mu.Lock()
 		t.audioEmitCount++
 		t.mu.Unlock()
-		if done, ok := pkt.(internal_type.TTSDonePacket); ok {
+		if done, ok := pkt.(internal_type.TextToSpeechDonePacket); ok {
 			t.mu.Lock()
 			t.state = "completed"
 			t.mu.Unlock()
@@ -1655,7 +1655,7 @@ func (t *realisticTTSStub) Transform(ctx context.Context, pkt internal_type.Pack
 				internal_type.TextToSpeechAudioPacket{ContextID: done.ContextID, AudioChunk: audio},
 				internal_type.TextToSpeechEndPacket{ContextID: done.ContextID},
 			)
-		} else if delta, ok := pkt.(internal_type.TTSTextPacket); ok {
+		} else if delta, ok := pkt.(internal_type.TextToSpeechTextPacket); ok {
 			cb(ctx,
 				internal_type.TextToSpeechAudioPacket{ContextID: delta.ContextID, AudioChunk: audio},
 			)
@@ -1677,7 +1677,7 @@ func (t *realisticTTSStub) getCounters() (interrupts, speaks, emits, dropped int
 }
 
 // statefulTTSStub models real TTS provider behavior:
-//   - After completing a speak cycle (TTSDonePacket → audio emitted),
+//   - After completing a speak cycle (TextToSpeechDonePacket → audio emitted),
 //     the provider enters "completed" state.
 //   - In "completed" state, new text is silently dropped (connection is stale).
 //   - A TTSInterruptPacket (legacy: InterruptionDetectedPacket) reinitializes
@@ -1728,8 +1728,8 @@ func (t *statefulTTSStub) Transform(ctx context.Context, pkt internal_type.Packe
 	}
 
 	// Only speech packets consume the synthesizer state machine.
-	_, isText := pkt.(internal_type.TTSTextPacket)
-	_, isDone := pkt.(internal_type.TTSDonePacket)
+	_, isText := pkt.(internal_type.TextToSpeechTextPacket)
+	_, isDone := pkt.(internal_type.TextToSpeechDonePacket)
 	if !isText && !isDone {
 		t.mu.Unlock()
 		return nil
@@ -1751,7 +1751,7 @@ func (t *statefulTTSStub) Transform(ctx context.Context, pkt internal_type.Packe
 		t.mu.Lock()
 		t.audioEmitCount++
 		t.mu.Unlock()
-		if done, ok := pkt.(internal_type.TTSDonePacket); ok {
+		if done, ok := pkt.(internal_type.TextToSpeechDonePacket); ok {
 			// Mark as completed after final audio
 			t.mu.Lock()
 			t.state = "completed"
@@ -1760,7 +1760,7 @@ func (t *statefulTTSStub) Transform(ctx context.Context, pkt internal_type.Packe
 				internal_type.TextToSpeechAudioPacket{ContextID: done.ContextID, AudioChunk: audio},
 				internal_type.TextToSpeechEndPacket{ContextID: done.ContextID},
 			)
-		} else if delta, ok := pkt.(internal_type.TTSTextPacket); ok {
+		} else if delta, ok := pkt.(internal_type.TextToSpeechTextPacket); ok {
 			cb(ctx,
 				internal_type.TextToSpeechAudioPacket{ContextID: delta.ContextID, AudioChunk: audio},
 			)
@@ -2603,7 +2603,7 @@ func TestScenario_WelcomeThenIdleTimeoutsUntilDisconnect(t *testing.T) {
 	assert.True(t, disconnectionFound)
 
 	// Count how many idle messages were sent. Each idle message produces 2 text
-	// sends (delta + done via TTSTextPacket), so expect backoff*2 text entries.
+	// sends (delta + done via TextToSpeechTextPacket), so expect backoff*2 text entries.
 	idleTextCount := 0
 	for _, txt := range streamer.getTextMessages() {
 		if txt == "Are you still there?" {

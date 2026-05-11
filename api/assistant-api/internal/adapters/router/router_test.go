@@ -41,7 +41,7 @@ func TestClassify(t *testing.T) {
 		},
 		{
 			name:      "egress",
-			pkt:       internal_type.TTSTextPacket{ContextID: "c", Text: "hi"},
+			pkt:       internal_type.TextToSpeechTextPacket{ContextID: "c", Text: "hi"},
 			wantRoute: RouteEgress,
 			wantOK:    true,
 		},

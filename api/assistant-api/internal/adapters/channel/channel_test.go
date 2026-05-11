@@ -27,7 +27,7 @@ func TestRequestorChannels_OnRoutesToExpectedChannel(t *testing.T) {
 	controlEnv := Envelope{Ctx: ctx, Pkt: internal_type.TurnChangePacket{ContextID: "ctrl"}}
 	bootstrapEnv := Envelope{Ctx: ctx, Pkt: internal_type.InitializeAssistantPacket{ContextID: "boot"}}
 	ingressEnv := Envelope{Ctx: ctx, Pkt: internal_type.UserTextReceivedPacket{ContextID: "in", Text: "hello"}}
-	egressEnv := Envelope{Ctx: ctx, Pkt: internal_type.TTSTextPacket{ContextID: "out", Text: "hi"}}
+	egressEnv := Envelope{Ctx: ctx, Pkt: internal_type.TextToSpeechTextPacket{ContextID: "out", Text: "hi"}}
 	backgroundEnv := Envelope{Ctx: ctx, Pkt: internal_type.ConversationEventPacket{ContextID: "bg"}}
 
 	chs.OnControl(controlEnv)
@@ -86,7 +86,7 @@ func TestRequestorChannels_FlushSpecificChannel(t *testing.T) {
 		chs.OnIngress(Envelope{Ctx: context.Background(), Pkt: internal_type.UserTextReceivedPacket{ContextID: "ingress"}})
 	}
 	for i := 0; i < 2; i++ {
-		chs.OnEgress(Envelope{Ctx: context.Background(), Pkt: internal_type.TTSTextPacket{ContextID: "egress"}})
+		chs.OnEgress(Envelope{Ctx: context.Background(), Pkt: internal_type.TextToSpeechTextPacket{ContextID: "egress"}})
 	}
 
 	droppedIngress := chs.FlushIngress()
@@ -116,7 +116,7 @@ func TestRequestorChannels_FlushAll(t *testing.T) {
 	chs.OnIngress(Envelope{Ctx: context.Background(), Pkt: internal_type.UserTextReceivedPacket{ContextID: "i2"}})
 	chs.OnIngress(Envelope{Ctx: context.Background(), Pkt: internal_type.UserTextReceivedPacket{ContextID: "i3"}})
 
-	chs.OnEgress(Envelope{Ctx: context.Background(), Pkt: internal_type.TTSTextPacket{ContextID: "e1"}})
+	chs.OnEgress(Envelope{Ctx: context.Background(), Pkt: internal_type.TextToSpeechTextPacket{ContextID: "e1"}})
 
 	chs.OnBackground(Envelope{Ctx: context.Background(), Pkt: internal_type.ConversationEventPacket{ContextID: "g1"}})
 	chs.OnBackground(Envelope{Ctx: context.Background(), Pkt: internal_type.ConversationEventPacket{ContextID: "g2"}})
@@ -194,11 +194,11 @@ func TestRequestorChannels_OnEgressWhenFull_BlocksUntilConsumerDrains(t *testing
 		backgroundCh:   make(chan Envelope, 1),
 	}
 
-	chs.OnEgress(Envelope{Ctx: context.Background(), Pkt: internal_type.TTSTextPacket{ContextID: "first"}})
+	chs.OnEgress(Envelope{Ctx: context.Background(), Pkt: internal_type.TextToSpeechTextPacket{ContextID: "first"}})
 
 	done := make(chan struct{})
 	go func() {
-		chs.OnEgress(Envelope{Ctx: context.Background(), Pkt: internal_type.TTSTextPacket{ContextID: "second"}})
+		chs.OnEgress(Envelope{Ctx: context.Background(), Pkt: internal_type.TextToSpeechTextPacket{ContextID: "second"}})
 		close(done)
 	}()
 

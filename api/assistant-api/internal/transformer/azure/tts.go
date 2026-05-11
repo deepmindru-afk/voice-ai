@@ -200,7 +200,7 @@ func (azure *azureTextToSpeech) Transform(ctx context.Context, in internal_type.
 			})
 		}
 		return nil
-	case internal_type.TTSTextPacket:
+	case internal_type.TextToSpeechTextPacket:
 		azure.mu.Lock()
 		if azure.ttsStartedAt.IsZero() {
 			azure.ttsStartedAt = time.Now()
@@ -224,7 +224,7 @@ func (azure *azureTextToSpeech) Transform(ctx context.Context, in internal_type.
 			Time: time.Now(),
 		})
 		return nil
-	case internal_type.TTSDonePacket:
+	case internal_type.TextToSpeechDonePacket:
 		return nil
 	default:
 		return fmt.Errorf("azure-tts: unsupported input type %T", in)

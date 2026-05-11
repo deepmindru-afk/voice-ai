@@ -100,7 +100,7 @@ func (*neuphonicTTS) Name() string {
 // readLoop owns a single WebSocket connection for the duration of one TTS turn.
 // It exits when the connection closes — intentionally (interrupt / done) or
 // unexpectedly (network drop). Neuphonic has no server-side completion ACK so
-// the turn ends when Transform receives TTSDonePacket.
+// the turn ends when Transform receives TextToSpeechDonePacket.
 func (rt *neuphonicTTS) readLoop(conn *websocket.Conn) {
 	for {
 		select {
@@ -190,7 +190,7 @@ func (t *neuphonicTTS) Transform(ctx context.Context, in internal_type.Packet) e
 		}
 		return nil
 
-	case internal_type.TTSTextPacket:
+	case internal_type.TextToSpeechTextPacket:
 		// Fallback reconnect: handles Initialize() failure or an unintentional drop.
 		if connection == nil {
 			if err := t.Initialize(); err != nil {
@@ -235,7 +235,7 @@ func (t *neuphonicTTS) Transform(ctx context.Context, in internal_type.Packet) e
 		})
 		return nil
 
-	case internal_type.TTSDonePacket:
+	case internal_type.TextToSpeechDonePacket:
 		// Interrupted before done arrived — nothing to flush.
 		if connection == nil {
 			return nil

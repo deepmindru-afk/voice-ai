@@ -191,7 +191,7 @@ func (r *genericRequestor) OnConnect(ctx context.Context, auth types.SimplePrinc
 			return
 		}
 		if r.Conversation() != nil {
-			r.OnPacket(ctx,
+			r.OnPacket(r.sessionCtx,
 				internal_type.ConversationEventPacket{
 					ContextID: r.GetID(),
 					Name:      observe.ComponentSession,
@@ -206,7 +206,8 @@ func (r *genericRequestor) OnConnect(ctx context.Context, auth types.SimplePrinc
 						Key:   "disconnect_reason",
 						Value: protos.ConversationDisconnection_DISCONNECTION_TYPE_ERROR.String(),
 					}},
-				})
+				},
+			)
 		}
 		r.Notify(r.sessionCtx,
 			&protos.ConversationError{Message: "initialization timeout"},
@@ -214,7 +215,7 @@ func (r *genericRequestor) OnConnect(ctx context.Context, auth types.SimplePrinc
 		)
 		r.cancelSession()
 	}, func(connectCtx context.Context) {
-		r.OnPacket(connectCtx,
+		r.OnPacket(r.sessionCtx,
 			internal_type.ConversationEventPacket{
 				ContextID: r.GetID(),
 				Name:      observe.ComponentSession,

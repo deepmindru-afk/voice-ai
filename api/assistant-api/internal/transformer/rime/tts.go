@@ -256,7 +256,7 @@ func (rt *rimeTTS) Transform(ctx context.Context, in internal_type.Packet) error
 		}
 		return nil
 
-	case internal_type.TTSTextPacket:
+	case internal_type.TextToSpeechTextPacket:
 		// Fallback reconnect: handles Initialize() failure during interrupt or
 		// an unintentional connection drop between turns.
 		if connection == nil {
@@ -296,7 +296,7 @@ func (rt *rimeTTS) Transform(ctx context.Context, in internal_type.Packet) error
 			Time: time.Now(),
 		})
 
-	case internal_type.TTSDonePacket:
+	case internal_type.TextToSpeechDonePacket:
 		// Interrupted before done arrived — nothing to flush.
 		if connection == nil {
 			return nil

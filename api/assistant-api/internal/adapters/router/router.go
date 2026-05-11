@@ -87,8 +87,8 @@ func Classify(p internal_type.Packet) Route {
 		internal_type.InjectMessagePacket,
 		internal_type.StartIdleTimeoutPacket,
 		internal_type.StopIdleTimeoutPacket,
-		internal_type.TTSTextPacket,
-		internal_type.TTSDonePacket,
+		internal_type.TextToSpeechTextPacket,
+		internal_type.TextToSpeechDonePacket,
 		internal_type.TextToSpeechAudioPacket,
 		internal_type.TextToSpeechEndPacket,
 		internal_type.LLMToolCallPacket:

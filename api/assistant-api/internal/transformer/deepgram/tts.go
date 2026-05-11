@@ -226,7 +226,7 @@ func (t *deepgramTTS) Transform(ctx context.Context, in internal_type.Packet) er
 		}
 		return nil
 
-	case internal_type.TTSTextPacket:
+	case internal_type.TextToSpeechTextPacket:
 		if connection == nil {
 			if err := t.Initialize(); err != nil {
 				t.onPacket(internal_type.TTSErrorPacket{
@@ -272,7 +272,7 @@ func (t *deepgramTTS) Transform(ctx context.Context, in internal_type.Packet) er
 		})
 		return nil
 
-	case internal_type.TTSDonePacket:
+	case internal_type.TextToSpeechDonePacket:
 		// Interrupted before done arrived — nothing to flush.
 		if connection == nil {
 			return nil

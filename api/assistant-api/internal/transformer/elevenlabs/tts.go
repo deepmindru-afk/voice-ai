@@ -211,7 +211,7 @@ func (t *elevenlabsTTS) Transform(ctx context.Context, in internal_type.Packet) 
 		}
 		return nil
 
-	case internal_type.TTSTextPacket:
+	case internal_type.TextToSpeechTextPacket:
 		// Fallback reconnect: handles Initialize() failure or an unintentional drop.
 		if connection == nil {
 			if err := t.Initialize(); err != nil {
@@ -249,7 +249,7 @@ func (t *elevenlabsTTS) Transform(ctx context.Context, in internal_type.Packet) 
 			Time: time.Now(),
 		})
 
-	case internal_type.TTSDonePacket:
+	case internal_type.TextToSpeechDonePacket:
 		// Interrupted before done arrived — nothing to flush.
 		if connection == nil {
 			return nil

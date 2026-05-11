@@ -104,7 +104,6 @@ func (cst *sarvamSpeechToText) readLoop(conn *websocket.Conn) {
 			return
 		default:
 		}
-
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			cst.mu.Lock()
@@ -227,7 +226,6 @@ func (cst *sarvamSpeechToText) Transform(ctx context.Context, in internal_type.P
 		if err != nil {
 			return fmt.Errorf("sarvam-stt: failed to encode audio: %w", err)
 		}
-
 		cst.mu.Lock()
 		connection := cst.connection
 		ctxID := cst.contextId

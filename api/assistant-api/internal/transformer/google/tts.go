@@ -176,7 +176,7 @@ func (google *googleTextToSpeech) Transform(ctx context.Context, in internal_typ
 			google.mu.Unlock()
 		}
 		return nil
-	case internal_type.TTSTextPacket:
+	case internal_type.TextToSpeechTextPacket:
 		google.mu.Lock()
 		if google.ttsStartedAt.IsZero() {
 			google.ttsStartedAt = time.Now()
@@ -207,7 +207,7 @@ func (google *googleTextToSpeech) Transform(ctx context.Context, in internal_typ
 			Time: time.Now(),
 		})
 		return nil
-	case internal_type.TTSDonePacket:
+	case internal_type.TextToSpeechDonePacket:
 		// Signal to the server that no more input will be sent.
 		// This triggers server-side EOF → recvLoop emits TextToSpeechEndPacket.
 		if err := sCli.CloseSend(); err != nil {

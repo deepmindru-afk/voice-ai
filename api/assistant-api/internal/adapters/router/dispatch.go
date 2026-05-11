@@ -35,8 +35,8 @@ type DispatchHandler interface {
 	HandleInjectMessage(context.Context, internal_type.InjectMessagePacket)
 	HandleStartIdleTimeout(context.Context, internal_type.StartIdleTimeoutPacket)
 	HandleStopIdleTimeout(context.Context, internal_type.StopIdleTimeoutPacket)
-	HandleTTSText(context.Context, internal_type.TTSTextPacket)
-	HandleTTSDone(context.Context, internal_type.TTSDonePacket)
+	HandleTextToSpeechText(context.Context, internal_type.TextToSpeechTextPacket)
+	HandleTextToSpeechDone(context.Context, internal_type.TextToSpeechDonePacket)
 	HandleTextToSpeechAudio(context.Context, internal_type.TextToSpeechAudioPacket)
 	HandleTextToSpeechEnd(context.Context, internal_type.TextToSpeechEndPacket)
 	HandleLLMToolCall(context.Context, internal_type.LLMToolCallPacket)
@@ -143,10 +143,10 @@ func DispatchPacket(ctx context.Context, p internal_type.Packet, handler Dispatc
 		handler.HandleStartIdleTimeout(ctx, vl)
 	case internal_type.StopIdleTimeoutPacket:
 		handler.HandleStopIdleTimeout(ctx, vl)
-	case internal_type.TTSTextPacket:
-		handler.HandleTTSText(ctx, vl)
-	case internal_type.TTSDonePacket:
-		handler.HandleTTSDone(ctx, vl)
+	case internal_type.TextToSpeechTextPacket:
+		handler.HandleTextToSpeechText(ctx, vl)
+	case internal_type.TextToSpeechDonePacket:
+		handler.HandleTextToSpeechDone(ctx, vl)
 	case internal_type.TextToSpeechAudioPacket:
 		handler.HandleTextToSpeechAudio(ctx, vl)
 	case internal_type.TextToSpeechEndPacket:

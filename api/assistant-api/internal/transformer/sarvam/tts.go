@@ -273,7 +273,7 @@ func (rt *sarvamTextToSpeech) Transform(ctx context.Context, in internal_type.Pa
 		}
 		return nil
 
-	case internal_type.TTSTextPacket:
+	case internal_type.TextToSpeechTextPacket:
 		// Fallback reconnect: handles Initialize() failure during interrupt or
 		// an unintentional connection drop between turns.
 		if connection == nil {
@@ -316,7 +316,7 @@ func (rt *sarvamTextToSpeech) Transform(ctx context.Context, in internal_type.Pa
 			Time: time.Now(),
 		})
 
-	case internal_type.TTSDonePacket:
+	case internal_type.TextToSpeechDonePacket:
 		// Interrupted before done arrived — nothing to flush.
 		if connection == nil {
 			return nil

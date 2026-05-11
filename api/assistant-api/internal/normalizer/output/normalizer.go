@@ -86,9 +86,9 @@ func (n *outputNormalizer) Close(_ context.Context) error {
 func (n *outputNormalizer) onAggregated(ctx context.Context, pkts ...internal_type.Packet) error {
 	for _, pkt := range pkts {
 		switch sp := pkt.(type) {
-		case internal_type.TTSTextPacket:
+		case internal_type.TextToSpeechTextPacket:
 			n.Run(ctx, ArgumentationPipeline{ContextID: sp.ContextID, Text: sp.Text})
-		case internal_type.TTSDonePacket:
+		case internal_type.TextToSpeechDonePacket:
 			n.Run(ctx, ArgumentationPipeline{ContextID: sp.ContextID, Text: sp.Text, IsFinal: true})
 		}
 	}
@@ -173,9 +173,9 @@ func (n *outputNormalizer) handleOutput(ctx context.Context, v OutputPipeline) {
 		return
 	}
 	if v.IsFinal {
-		n.onPacket(ctx, internal_type.TTSDonePacket{ContextID: v.ContextID, Text: v.Text})
+		n.onPacket(ctx, internal_type.TextToSpeechDonePacket{ContextID: v.ContextID, Text: v.Text})
 	} else {
-		n.onPacket(ctx, internal_type.TTSTextPacket{ContextID: v.ContextID, Text: v.Text})
+		n.onPacket(ctx, internal_type.TextToSpeechTextPacket{ContextID: v.ContextID, Text: v.Text})
 	}
 }
 

@@ -44,8 +44,10 @@ func (s *dispatchHandlerStub) HandleStartIdleTimeout(context.Context, internal_t
 }
 func (s *dispatchHandlerStub) HandleStopIdleTimeout(context.Context, internal_type.StopIdleTimeoutPacket) {
 }
-func (s *dispatchHandlerStub) HandleTTSText(context.Context, internal_type.TTSTextPacket) {}
-func (s *dispatchHandlerStub) HandleTTSDone(context.Context, internal_type.TTSDonePacket) {}
+func (s *dispatchHandlerStub) HandleTextToSpeechText(context.Context, internal_type.TextToSpeechTextPacket) {
+}
+func (s *dispatchHandlerStub) HandleTextToSpeechDone(context.Context, internal_type.TextToSpeechDonePacket) {
+}
 func (s *dispatchHandlerStub) HandleTextToSpeechAudio(context.Context, internal_type.TextToSpeechAudioPacket) {
 }
 func (s *dispatchHandlerStub) HandleTextToSpeechEnd(context.Context, internal_type.TextToSpeechEndPacket) {

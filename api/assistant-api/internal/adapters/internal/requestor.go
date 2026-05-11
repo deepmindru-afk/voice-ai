@@ -153,7 +153,6 @@ func NewGenericRequestor(
 	redis connectors.RedisConnector, storage storages.Storage, streamer internal_type.Streamer,
 ) *genericRequestor {
 	sessionCtx, cancelSession := context.WithCancel(context.Background())
-
 	gr := &genericRequestor{
 		logger:   logger,
 		config:   config,
@@ -340,13 +339,11 @@ func (r *genericRequestor) Transition(newState adapter_lifecycle.MessageState) e
 	if err := r.messageLifecycle.Transition(newState); err != nil {
 		return err
 	}
-
 	if newState == Interrupted {
 		nCtxID := r.GetID()
 		if oldCtxID == nCtxID {
 			return nil
 		}
-
 		utils.Go(context.Background(), func() {
 			r.OnPacket(context.Background(), internal_type.TurnChangePacket{
 				ContextID:         nCtxID,

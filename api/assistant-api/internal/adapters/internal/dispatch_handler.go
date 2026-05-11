@@ -314,7 +314,7 @@ func (h requestorDispatchHandler) HandleLLMResponseDelta(ctx context.Context, p 
 	if h.r.outputNormalizer != nil {
 		h.r.outputNormalizer.Normalize(ctx, p)
 	} else {
-		h.r.OnPacket(ctx, internal_type.TTSTextPacket{ContextID: p.ContextID, Text: p.Text})
+		h.r.OnPacket(ctx, internal_type.TextToSpeechTextPacket{ContextID: p.ContextID, Text: p.Text})
 	}
 }
 func (h requestorDispatchHandler) HandleLLMResponseDone(ctx context.Context, p internal_type.LLMResponseDonePacket) {
@@ -341,7 +341,7 @@ func (h requestorDispatchHandler) HandleLLMResponseDone(ctx context.Context, p i
 	if h.r.outputNormalizer != nil {
 		h.r.outputNormalizer.Normalize(ctx, p)
 	} else {
-		h.r.OnPacket(ctx, internal_type.TTSDonePacket{ContextID: p.ContextID, Text: p.Text})
+		h.r.OnPacket(ctx, internal_type.TextToSpeechDonePacket{ContextID: p.ContextID, Text: p.Text})
 	}
 }
 func (h requestorDispatchHandler) HandleError(ctx context.Context, p internal_type.ErrorPacket) {
@@ -540,7 +540,7 @@ func (h requestorDispatchHandler) HandleStopIdleTimeout(ctx context.Context, p i
 		h.r.idleTimeoutCount = 0
 	}
 }
-func (h requestorDispatchHandler) HandleTTSText(ctx context.Context, p internal_type.TTSTextPacket) {
+func (h requestorDispatchHandler) HandleTextToSpeechText(ctx context.Context, p internal_type.TextToSpeechTextPacket) {
 	if p.ContextID != h.r.GetID() {
 		return
 	}
@@ -554,7 +554,7 @@ func (h requestorDispatchHandler) HandleTTSText(ctx context.Context, p internal_
 		Message: &protos.ConversationAssistantMessage_Text{Text: p.Text},
 	})
 }
-func (h requestorDispatchHandler) HandleTTSDone(ctx context.Context, p internal_type.TTSDonePacket) {
+func (h requestorDispatchHandler) HandleTextToSpeechDone(ctx context.Context, p internal_type.TextToSpeechDonePacket) {
 	if p.ContextID != h.r.GetID() {
 		return
 	}

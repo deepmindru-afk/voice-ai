@@ -291,7 +291,7 @@ func (t *awsTTS) Transform(ctx context.Context, in internal_type.Packet) error {
 			})
 		}
 		return nil
-	case internal_type.TTSTextPacket:
+	case internal_type.TextToSpeechTextPacket:
 		t.mu.Lock()
 		if t.ttsStartedAt.IsZero() {
 			t.ttsStartedAt = time.Now()
@@ -306,7 +306,7 @@ func (t *awsTTS) Transform(ctx context.Context, in internal_type.Packet) error {
 			},
 			Time: time.Now(),
 		})
-	case internal_type.TTSDonePacket:
+	case internal_type.TextToSpeechDonePacket:
 		t.flush()
 		return nil
 	default:
