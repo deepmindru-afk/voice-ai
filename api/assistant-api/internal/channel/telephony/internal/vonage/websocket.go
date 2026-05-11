@@ -110,9 +110,6 @@ func (vng *vonageWebsocketStreamer) runWebSocketReader() {
 					Time: timestamppb.Now(),
 				})
 			case "stop":
-				if msg := vng.Disconnect(protos.ConversationDisconnection_DISCONNECTION_TYPE_USER); msg != nil {
-					vng.Input(msg)
-				}
 				vng.Cancel()
 				return
 			default:
@@ -153,9 +150,6 @@ func (vng *vonageWebsocketStreamer) Send(response internal_type.Stream) error {
 			}
 		}
 	case *protos.ConversationDisconnection:
-		// Server-initiated disconnect: the talker already knows the reason
-		// (it called Notify with it). No need to round-trip back through
-		// CriticalCh — just notify the carrier via Hangup and clean up.
 		if vng.GetConversationUuid() != "" {
 			if cAuth, err := vonageAuth(vng.VaultCredential()); err == nil {
 				vonage.NewVoiceClient(cAuth).Hangup(vng.GetConversationUuid())

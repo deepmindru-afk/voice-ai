@@ -114,10 +114,6 @@ func (tws *twilioWebsocketStreamer) runWebSocketReader() {
 			_ = tws.handleMediaEvent(mediaEvent)
 		case "stop":
 			tws.Logger.Info("Twilio stream stopped")
-			tws.stopAudioProcessing()
-			if msg := tws.Disconnect(protos.ConversationDisconnection_DISCONNECTION_TYPE_USER); msg != nil {
-				tws.Input(msg)
-			}
 			tws.Cancel()
 			return
 		default:

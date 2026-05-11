@@ -37,11 +37,10 @@ type modelAssistantExecutor struct {
 	history            *ConversationHistory
 	stream             grpc.BidiStreamingClient[protos.StreamChatRequest, protos.StreamChatResponse]
 
-	mu            sync.RWMutex
 	currentPacket *internal_type.UserInputPacket
-
-	ctx       context.Context
-	ctxCancel context.CancelFunc
+	mu            sync.RWMutex
+	ctx           context.Context
+	ctxCancel     context.CancelFunc
 }
 
 func NewModelAssistantExecutor(logger commons.Logger) *modelAssistantExecutor {

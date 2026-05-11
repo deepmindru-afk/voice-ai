@@ -47,13 +47,13 @@ import {
   GetAssistantAuthenticationRequest,
   Metadata,
 } from '@rapidaai/react';
-import { Renew, Add, Edit, TrashCan } from '@carbon/icons-react';
+import { Renew, Add, Edit, DisableStep } from '@carbon/icons-react';
 import { EmptyState } from '@/app/components/carbon/empty-state';
 import { IconOnlyButton } from '@/app/components/carbon/button';
 import { SectionLoader } from '@/app/components/loader/section-loader';
 import { TableSection } from '@/app/components/sections/table-section';
-import { CarbonStatusIndicator } from '@/app/components/carbon/status-indicator';
 import { toHumanReadableDateTime } from '@/utils/date';
+import { CarbonShapeIndicator } from '@/app/components/carbon/shape-indicator';
 
 type HttpMethod = 'POST' | 'GET';
 type FailBehavior = 'block' | 'do_nothing';
@@ -289,9 +289,9 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
                 <TableHeader>Provider Type</TableHeader>
                 <TableHeader>Method</TableHeader>
                 <TableHeader>URL</TableHeader>
-                <TableHeader>Actions</TableHeader>
                 <TableHeader>Status</TableHeader>
                 <TableHeader>Date</TableHeader>
+                <TableHeader>Actions</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -302,6 +302,15 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
                 </TableCell>
                 <TableCell className="text-sm max-w-[360px] truncate">
                   {optionMap[AUTH_OPTION_ENDPOINT] || '-'}
+                </TableCell>
+                <TableCell className="text-sm whitespace-nowrap">
+                  <CarbonShapeIndicator
+                    state={authentication.getStatus()}
+                    textSize={14}
+                  />
+                </TableCell>
+                <TableCell className="text-[13px] whitespace-nowrap">
+                  {authentication.getCreateddate() && toHumanReadableDateTime(authentication.getCreateddate()!)}
                 </TableCell>
                 <TableCell
                   className="text-sm whitespace-nowrap"
@@ -322,20 +331,12 @@ const ConfigureAssistantAuthentication: FC<{ assistantId: string }> = ({
                     <IconOnlyButton
                       size="md"
                       kind='ghost'
-                      renderIcon={TrashCan}
+                      renderIcon={DisableStep}
                       iconDescription="Disable authentication"
                       disabled={getStatus(authentication) !== 'active'}
                       onClick={() => showDialog(onDisable)}
                     />
                   </div>
-                </TableCell>
-                <TableCell className="text-sm whitespace-nowrap">
-                  <CarbonStatusIndicator
-                    state={authentication.getStatus() || 'INACTIVE'}
-                  />
-                </TableCell>
-                <TableCell className="text-[13px] whitespace-nowrap">
-                  {authentication.getCreateddate()  && toHumanReadableDateTime(authentication.getCreateddate()!)}
                 </TableCell>
               </TableRow>
             </TableBody>

@@ -490,7 +490,6 @@ func (h requestorDispatchHandler) HandleInjectMessage(ctx context.Context, p int
 	}
 
 	contextID := h.r.GetID()
-
 	if h.r.outputNormalizer != nil {
 		h.r.OnPacket(ctx,
 			internal_type.MessageCreatePacket{ContextID: contextID, MessageRole: "assistant", Text: p.Text},
@@ -1086,27 +1085,24 @@ func (h requestorDispatchHandler) HandleInitializeAuthentication(ctx context.Con
 	}
 	source := variable.NewCommunicationSource(h.r)
 	registry := internal_namespace.NewDefaultRegistry()
-
 	args, err := h.r.authenticationExecutor.Arguments()
 	if err != nil {
 		h.r.logger.Errorf("failed to get authentication arguments: %v", err)
 		return
 	}
-	h.r.OnPacket(ctx, internal_type.ExecuteSessionAuthenticationPacket{
-		ContextID:      p.ContextID,
-		Arguments:      registry.Apply(args, source, variable.ResolveContext{}),
-		Initialization: p.Config,
-	})
+	h.r.OnPacket(ctx,
+		internal_type.ExecuteSessionAuthenticationPacket{
+			ContextID:      p.ContextID,
+			Arguments:      registry.Apply(args, source, variable.ResolveContext{}),
+			Initialization: p.Config,
+		}, internal_type.ConversationEventPacket{
+			ContextID: p.ContextID,
+			Name:      observe.ComponentSession,
+			Data:      map[string]string{"type": "authentication_started"},
+			Time:      time.Now(),
+		})
 }
 func (h requestorDispatchHandler) HandleExecuteSessionAuthentication(ctx context.Context, p internal_type.ExecuteSessionAuthenticationPacket) {
-	if h.r.authenticationExecutor == nil {
-		h.r.OnPacket(ctx, internal_type.SessionAuthenticationSucceededPacket{
-			ContextID:      p.ContextID,
-			Authenticated:  false,
-			Initialization: p.Initialization,
-		})
-		return
-	}
 	if err := h.r.authenticationExecutor.Execute(ctx, p); err != nil {
 		h.r.logger.Errorf("authentication executor execute failed: %v", err)
 	}
