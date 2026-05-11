@@ -188,14 +188,14 @@ type InterruptionDetectedPacket struct {
 
 func (f InterruptionDetectedPacket) ContextId() string { return f.ContextID }
 
-// TTSInterruptPacket signals the TTS transformer to stop current playback.
-type TTSInterruptPacket struct {
+// TextToSpeechInterruptPacket signals the TTS transformer to stop current playback.
+type TextToSpeechInterruptPacket struct {
 	ContextID string
 	StartAt   float64
 	EndAt     float64
 }
 
-func (f TTSInterruptPacket) ContextId() string { return f.ContextID }
+func (f TextToSpeechInterruptPacket) ContextId() string { return f.ContextID }
 
 type STTErrorType int
 
@@ -210,26 +210,26 @@ const (
 )
 
 // When IsRecoverable is true, the conversation should be gracefully terminated.
-type STTErrorPacket struct {
+type SpeechToTextErrorPacket struct {
 	ContextID string
 	Error     error
 	Type      STTErrorType
 }
 
-func (f STTErrorPacket) ContextId() string { return f.ContextID }
-func (f STTErrorPacket) IsRecoverable() bool {
+func (f SpeechToTextErrorPacket) ContextId() string { return f.ContextID }
+func (f SpeechToTextErrorPacket) IsRecoverable() bool {
 	return f.Type == STTRateLimit || f.Type == STTNetworkTimeout
 }
-func (f STTErrorPacket) Err() error         { return f.Error }
-func (f STTErrorPacket) ErrMessage() string { return fmt.Sprintf("stt: %s", f.Error.Error()) }
+func (f SpeechToTextErrorPacket) Err() error         { return f.Error }
+func (f SpeechToTextErrorPacket) ErrMessage() string { return fmt.Sprintf("stt: %s", f.Error.Error()) }
 
-type STTInterruptPacket struct {
+type SpeechToTextInterruptPacket struct {
 	ContextID string
 	StartAt   float64
 	EndAt     float64
 }
 
-func (f STTInterruptPacket) ContextId() string { return f.ContextID }
+func (f SpeechToTextInterruptPacket) ContextId() string { return f.ContextID }
 
 // InterruptLLMPacket signals the LLM executor to cancel current generation.
 type LLMInterruptPacket struct {
@@ -899,18 +899,18 @@ const (
 	TTSSystemPanic
 )
 
-type TTSErrorPacket struct {
+type TextToSpeechErrorPacket struct {
 	ContextID string
 	Error     error
 	Type      TTSErrorType
 }
 
-func (f TTSErrorPacket) ContextId() string { return f.ContextID }
-func (f TTSErrorPacket) IsRecoverable() bool {
+func (f TextToSpeechErrorPacket) ContextId() string { return f.ContextID }
+func (f TextToSpeechErrorPacket) IsRecoverable() bool {
 	return f.Type != TTSAuthentication
 }
-func (f TTSErrorPacket) Err() error         { return f.Error }
-func (f TTSErrorPacket) ErrMessage() string { return fmt.Sprintf("tts: %s", f.Error.Error()) }
+func (f TextToSpeechErrorPacket) Err() error         { return f.Error }
+func (f TextToSpeechErrorPacket) ErrMessage() string { return fmt.Sprintf("tts: %s", f.Error.Error()) }
 
 // TextToSpeechTextPacket carries a sentence-ready text chunk for TTS synthesis.
 type TextToSpeechTextPacket struct {

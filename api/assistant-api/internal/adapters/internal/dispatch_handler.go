@@ -55,10 +55,7 @@ func (h requestorDispatchHandler) HandleUserText(ctx context.Context, vl interna
 	h.r.OnPacket(ctx,
 		internal_type.InterimEndOfSpeechPacket{Speech: vl.Text, ContextID: vl.ContextID},
 		internal_type.ConversationEventPacket{Name: "eos", Data: map[string]string{"type": "interim", "speech": vl.Text}},
-		internal_type.EndOfSpeechPacket{
-			Speech:    vl.Text,
-			ContextID: vl.ContextID,
-		},
+		internal_type.EndOfSpeechPacket{Speech: vl.Text, ContextID: vl.ContextID},
 		internal_type.ConversationEventPacket{
 			Name: "eos",
 			Data: map[string]string{
@@ -188,7 +185,8 @@ func (h requestorDispatchHandler) HandleUserInput(ctx context.Context, p interna
 				Key:   "language_code",
 				Value: p.Language.ISO639_1,
 			}}},
-		internal_type.UserMessageMetricPacket{ContextID: contextID, Metrics: []*protos.Metric{{Name: "user_turn", Value: type_enums.CONVERSATION_COMPLETE.String(), Description: "User turn started"}}})
+		internal_type.UserMessageMetricPacket{ContextID: contextID, Metrics: []*protos.Metric{{Name: "user_turn", Value: type_enums.CONVERSATION_COMPLETE.String(), Description: "User turn started"}}},
+	)
 
 	if h.r.assistantExecutor != nil {
 		utils.Go(ctx, func() {
@@ -213,7 +211,7 @@ func (h requestorDispatchHandler) HandleInterruptionDetected(ctx context.Context
 		}
 		h.r.OnPacket(ctx,
 			internal_type.RecordAssistantAudioPacket{ContextID: p.ContextID, Truncate: true},
-			internal_type.TTSInterruptPacket{ContextID: p.ContextID, StartAt: p.StartAt, EndAt: p.EndAt},
+			internal_type.TextToSpeechInterruptPacket{ContextID: p.ContextID, StartAt: p.StartAt, EndAt: p.EndAt},
 			internal_type.LLMInterruptPacket{ContextID: p.ContextID},
 		)
 		utils.Go(ctx, func() {
@@ -227,13 +225,10 @@ func (h requestorDispatchHandler) HandleInterruptionDetected(ctx context.Context
 		if p.StartAt < 5 {
 			return
 		}
-
-		h.r.OnPacket(ctx, internal_type.STTInterruptPacket{ContextID: p.ContextID})
-
+		h.r.OnPacket(ctx, internal_type.SpeechToTextInterruptPacket{ContextID: p.ContextID})
 		if err := h.callEndOfSpeech(ctx, p); err != nil {
 			h.r.logger.Errorf("end of speech error: %v", err)
 		}
-
 		if err := h.r.Transition(Interrupt); err != nil {
 			return
 		}
@@ -245,7 +240,7 @@ func (h requestorDispatchHandler) HandleInterruptionDetected(ctx context.Context
 		})
 	}
 }
-func (h requestorDispatchHandler) HandleTTSInterrupt(ctx context.Context, p internal_type.TTSInterruptPacket) {
+func (h requestorDispatchHandler) HandleTextToSpeechInterrupt(ctx context.Context, p internal_type.TextToSpeechInterruptPacket) {
 	if h.r.textToSpeechTransformer != nil {
 		if err := h.r.textToSpeechTransformer.Transform(ctx, p); err != nil {
 			h.r.logger.Errorf("tts interrupt: %v", err)
@@ -259,7 +254,7 @@ func (h requestorDispatchHandler) HandleLLMInterrupt(ctx context.Context, p inte
 		}
 	}
 }
-func (h requestorDispatchHandler) HandleSTTInterrupt(ctx context.Context, p internal_type.STTInterruptPacket) {
+func (h requestorDispatchHandler) HandleSpeechToTextInterrupt(ctx context.Context, p internal_type.SpeechToTextInterruptPacket) {
 	if h.r.speechToTextTransformer != nil {
 		if err := h.r.speechToTextTransformer.Transform(ctx, p); err != nil {
 			h.r.logger.Errorf("stt interrupt: %v", err)
@@ -335,7 +330,7 @@ func (h requestorDispatchHandler) HandleLLMResponseDone(ctx context.Context, p i
 		internal_type.MessageCreatePacket{ContextID: p.ContextID, MessageRole: "assistant", Text: p.Text},
 		internal_type.AssistantMessageMetricPacket{
 			ContextID: p.ContextID,
-			Metrics:   []*protos.Metric{{Name: "assistant_turn", Value: type_enums.CONVERSATION_COMPLETE.String(), Description: fmt.Sprintf("LLM response completed")}},
+			Metrics:   []*protos.Metric{{Name: "assistant_turn", Value: type_enums.CONVERSATION_COMPLETE.String(), Description: "LLM response completed"}},
 		},
 	)
 	if h.r.outputNormalizer != nil {
@@ -376,7 +371,7 @@ func (h requestorDispatchHandler) HandleError(ctx context.Context, p internal_ty
 				Time:      time.Now(),
 			})
 		h.r.Transition(LLMGenerated)
-	case internal_type.STTErrorPacket:
+	case internal_type.SpeechToTextErrorPacket:
 		h.r.OnPacket(ctx,
 			internal_type.UserMessageMetricPacket{
 				ContextID: p.ContextId(),
@@ -391,7 +386,7 @@ func (h requestorDispatchHandler) HandleError(ctx context.Context, p internal_ty
 				Data:      map[string]string{"type": "error", "message": p.ErrMessage()},
 				Time:      time.Now(),
 			})
-	case internal_type.TTSErrorPacket:
+	case internal_type.TextToSpeechErrorPacket:
 		h.r.OnPacket(ctx,
 			internal_type.UserMessageMetricPacket{
 				ContextID: p.ContextId(),
@@ -635,7 +630,7 @@ func (h requestorDispatchHandler) HandleLLMToolCall(ctx context.Context, p inter
 
 	if msg, ok := p.Arguments["message"]; ok && msg != "" {
 		h.r.OnPacket(ctx,
-			internal_type.TTSInterruptPacket{ContextID: p.ContextID},
+			internal_type.TextToSpeechInterruptPacket{ContextID: p.ContextID},
 			internal_type.InjectMessagePacket{ContextID: p.ContextID, Text: msg})
 	}
 
@@ -731,7 +726,7 @@ func (h requestorDispatchHandler) HandleLLMToolResult(ctx context.Context, p int
 
 	h.r.OnPacket(
 		ctx,
-		internal_type.TTSInterruptPacket{ContextID: p.ContextID},
+		internal_type.TextToSpeechInterruptPacket{ContextID: p.ContextID},
 		internal_type.StartIdleTimeoutPacket{ContextID: p.ContextID},
 		internal_type.ConversationEventPacket{
 			ContextID: p.ContextID,

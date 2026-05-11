@@ -127,7 +127,7 @@ func (r *genericRequestor) OnError(ctx context.Context) error {
 
 	r.Transition(Interrupted)
 	if err := r.OnPacket(ctx,
-		internal_type.TTSInterruptPacket{ContextID: r.GetID()},
+		internal_type.TextToSpeechInterruptPacket{ContextID: r.GetID()},
 		internal_type.InjectMessagePacket{ContextID: r.GetID(), Text: mistakeContent},
 		internal_type.ConversationEventPacket{
 			Name: "behavior",
@@ -184,7 +184,7 @@ func (r *genericRequestor) onIdleTimeout(ctx context.Context) error {
 	contextID := r.GetID()
 
 	if err := r.OnPacket(ctx,
-		internal_type.TTSInterruptPacket{ContextID: contextID},
+		internal_type.TextToSpeechInterruptPacket{ContextID: contextID},
 		internal_type.InjectMessagePacket{ContextID: contextID, Text: timeoutContent},
 		internal_type.ConversationEventPacket{
 			Name: "behavior",

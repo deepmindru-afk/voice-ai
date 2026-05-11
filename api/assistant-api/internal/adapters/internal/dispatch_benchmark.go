@@ -16,7 +16,7 @@ import (
 	internal_type "github.com/rapidaai/api/assistant-api/internal/type"
 )
 
-const slowDispatchThreshold = 5 * time.Millisecond
+const slowDispatchThreshold = 10 * time.Millisecond
 
 func (r *genericRequestor) benchmarkDispatch(p internal_type.Packet) func() {
 	start := time.Now()

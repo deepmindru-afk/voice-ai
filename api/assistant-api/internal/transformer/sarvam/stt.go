@@ -114,7 +114,7 @@ func (cst *sarvamSpeechToText) readLoop(conn *websocket.Conn) {
 			cst.mu.Unlock()
 			if !intentional {
 				cst.logger.Errorf("sarvam-stt: connection lost: %v", err)
-				cst.onPacket(internal_type.STTErrorPacket{
+				cst.onPacket(internal_type.SpeechToTextErrorPacket{
 					ContextID: cst.contextId,
 					Error:     fmt.Errorf("sarvam-stt: connection lost: %w", err),
 					Type:      internal_type.STTNetworkTimeout,
@@ -200,7 +200,7 @@ func (cst *sarvamSpeechToText) handleServerError(response sarvam_internal.Sarvam
 		return
 	}
 	cst.logger.Errorf("sarvam-stt: server error code=%s message=%s", errorData.Code, errorData.Error)
-	cst.onPacket(internal_type.STTErrorPacket{
+	cst.onPacket(internal_type.SpeechToTextErrorPacket{
 		ContextID: cst.contextId,
 		Error:     fmt.Errorf("sarvam-stt: server error: %s (code=%s)", errorData.Error, errorData.Code),
 		Type:      internal_type.STTNetworkTimeout,
@@ -214,7 +214,7 @@ func (cst *sarvamSpeechToText) Transform(ctx context.Context, in internal_type.P
 		cst.contextId = pkt.ContextID
 		cst.mu.Unlock()
 		return nil
-	case internal_type.STTInterruptPacket:
+	case internal_type.SpeechToTextInterruptPacket:
 		cst.mu.Lock()
 		if cst.startedAt.IsZero() {
 			cst.startedAt = time.Now()
@@ -237,7 +237,7 @@ func (cst *sarvamSpeechToText) Transform(ctx context.Context, in internal_type.P
 		cst.mu.Unlock()
 		if err != nil {
 			cst.logger.Errorf("sarvam-stt: error sending audio: %v", err)
-			cst.onPacket(internal_type.STTErrorPacket{
+			cst.onPacket(internal_type.SpeechToTextErrorPacket{
 				ContextID: ctxID,
 				Error:     fmt.Errorf("sarvam-stt: send failed: %w", err),
 				Type:      internal_type.STTSystemPanic,

@@ -311,7 +311,7 @@ func TestOnPacket_RoutesToCorrectChannel(t *testing.T) {
 	cases := []routeCase{
 		// Critical
 		{"InterruptionDetectedPacket", internal_type.InterruptionDetectedPacket{ContextID: "c"}, "critical"},
-		{"TTSInterruptPacket", internal_type.TTSInterruptPacket{ContextID: "c"}, "critical"},
+		{"TextToSpeechInterruptPacket", internal_type.TextToSpeechInterruptPacket{ContextID: "c"}, "critical"},
 		{"LLMInterruptPacket", internal_type.LLMInterruptPacket{ContextID: "c"}, "critical"},
 		{"TurnChangePacket", internal_type.TurnChangePacket{ContextID: "c", PreviousContextID: "p"}, "critical"},
 		{"InjectMessagePacket", internal_type.InjectMessagePacket{ContextID: "c"}, "output"},
@@ -509,13 +509,13 @@ func TestHandleUserText_UnknownState_SkipsInterruption(t *testing.T) {
 	// Give dispatchers time to process.
 	time.Sleep(200 * time.Millisecond)
 
-	// No TTSInterruptPacket or LLMInterruptPacket should appear since
+	// No TextToSpeechInterruptPacket or LLMInterruptPacket should appear since
 	// Transition(Interrupted) is rejected from Unknown state.
 	select {
 	case env := <-r.channels.ControlChannel():
-		// Only TTSInterruptPacket/LLMInterruptPacket mean a problem.
+		// Only TextToSpeechInterruptPacket/LLMInterruptPacket mean a problem.
 		switch env.Pkt.(type) {
-		case internal_type.TTSInterruptPacket, internal_type.LLMInterruptPacket:
+		case internal_type.TextToSpeechInterruptPacket, internal_type.LLMInterruptPacket:
 			t.Fatal("interruption packets should not be emitted from Unknown state")
 		}
 	default:
@@ -1576,7 +1576,7 @@ func (t *ttsStub) getPackets() []internal_type.Packet {
 // realisticTTSStub simulates real-world TTS provider behavior:
 //   - After completing a speak cycle (TextToSpeechDonePacket processed),
 //     the provider enters "completed" state (connection stale).
-//   - A TTSInterruptPacket (legacy: InterruptionDetectedPacket) reinitializes
+//   - A TextToSpeechInterruptPacket (legacy: InterruptionDetectedPacket) reinitializes
 //     the connection → "ready" state.
 //   - New text in "ready" state is spoken normally.
 //   - New text in "completed" state is silently dropped (stale connection).
@@ -1606,7 +1606,7 @@ func (t *realisticTTSStub) Transform(ctx context.Context, pkt internal_type.Pack
 
 	// Handle interrupt — reinitializes the connection.
 	// Keep legacy InterruptionDetectedPacket support for backward compatibility.
-	if _, ok := pkt.(internal_type.TTSInterruptPacket); ok {
+	if _, ok := pkt.(internal_type.TextToSpeechInterruptPacket); ok {
 		t.state = "ready"
 		t.interruptCount++
 		t.mu.Unlock()
@@ -1680,12 +1680,12 @@ func (t *realisticTTSStub) getCounters() (interrupts, speaks, emits, dropped int
 //   - After completing a speak cycle (TextToSpeechDonePacket → audio emitted),
 //     the provider enters "completed" state.
 //   - In "completed" state, new text is silently dropped (connection is stale).
-//   - A TTSInterruptPacket (legacy: InterruptionDetectedPacket) reinitializes
+//   - A TextToSpeechInterruptPacket (legacy: InterruptionDetectedPacket) reinitializes
 //     the connection, moving the provider back to "ready" state so it can
 //     speak again.
 //
 // This reproduces the production bug where idle message audio is missing
-// because no TTSInterruptPacket is sent to reinitialize the TTS provider.
+// because no TextToSpeechInterruptPacket is sent to reinitialize the TTS provider.
 type statefulTTSStub struct {
 	mu       sync.Mutex
 	packets  []internal_type.Packet
@@ -1714,7 +1714,7 @@ func (t *statefulTTSStub) Transform(ctx context.Context, pkt internal_type.Packe
 
 	// Handle interrupt — reinitializes the connection.
 	// Keep legacy InterruptionDetectedPacket support for backward compatibility.
-	if _, ok := pkt.(internal_type.TTSInterruptPacket); ok {
+	if _, ok := pkt.(internal_type.TextToSpeechInterruptPacket); ok {
 		t.state = "ready"
 		t.initCount++
 		t.mu.Unlock()
@@ -1785,7 +1785,7 @@ func (t *statefulTTSStub) getCounters() (inits, speaks, emits, staleDrops int) {
 // Bug: TTS in "completed" state drops idle message audio
 //
 // After the welcome message completes, the TTS provider enters "completed"
-// state (connection stale). The old code sent TTSInterruptPacket which
+// state (connection stale). The old code sent TextToSpeechInterruptPacket which
 // reinitialized TTS. The new code skips the interrupt, so TTS stays in
 // "completed" state and silently drops idle message text.
 //
@@ -2617,7 +2617,7 @@ func TestScenario_WelcomeThenIdleTimeoutsUntilDisconnect(t *testing.T) {
 }
 
 // =============================================================================
-// Bug: TTS race — TTSInterruptPacket arrives AFTER InjectMessage's output
+// Bug: TTS race — TextToSpeechInterruptPacket arrives AFTER InjectMessage's output
 // reaches TTS, cancelling the idle message audio.
 //
 // Production log pattern:
@@ -2627,7 +2627,7 @@ func TestScenario_WelcomeThenIdleTimeoutsUntilDisconnect(t *testing.T) {
 //
 // Root cause: onIdleTimeout enqueues [InterruptionDetected, InjectMessage] to
 // criticalCh. Critical dispatcher processes InterruptionDetected → handleInterruption
-// → enqueues TTSInterruptPacket BACK to criticalCh. But InjectMessagePacket is
+// → enqueues TextToSpeechInterruptPacket BACK to criticalCh. But InjectMessagePacket is
 // already AHEAD in criticalCh. So:
 //   criticalCh: [InjectMessage, InterruptTTS, InterruptLLM]
 //
@@ -2835,7 +2835,7 @@ func TestBug_TTSRace_MultipleIdleTimeouts_AllShouldProduceAudio(t *testing.T) {
 // Potential deadlock: if the timer goroutine holds RLock and blocks on criticalCh
 // (full), while the critical dispatcher holds Lock and blocks on lowCh (full).
 //
-// Also: handleInterruption enqueues TTSInterruptPacket/LLMInterruptPacket BACK
+// Also: handleInterruption enqueues TextToSpeechInterruptPacket/LLMInterruptPacket BACK
 // to criticalCh — self-deadlock if the channel is near capacity.
 // =============================================================================
 
@@ -2978,7 +2978,7 @@ func TestDeadlock_IdleTimeoutWhileUserSpeaks(t *testing.T) {
 // Deadlock: handleInjectMessagePacket blocks critical dispatcher
 //
 // handleInjectMessagePacket calls assistantExecutor.Execute() synchronously
-// on the critical dispatcher. If the executor is slow, TTSInterruptPacket and
+// on the critical dispatcher. If the executor is slow, TextToSpeechInterruptPacket and
 // LLMInterruptPacket (enqueued by handleInterruption) are stuck behind it.
 //
 // This test verifies that a slow executor does not cause the system to deadlock.
@@ -3038,7 +3038,7 @@ func TestDeadlock_SlowExecutor_DoesNotBlockSystem(t *testing.T) {
 
 	// Now fire idle timeout — the critical dispatcher will be blocked for 100ms
 	// while the executor processes the InjectMessagePacket. During this time,
-	// TTSInterruptPacket and LLMInterruptPacket are queued behind it.
+	// TextToSpeechInterruptPacket and LLMInterruptPacket are queued behind it.
 	done := make(chan struct{})
 	go func() {
 		_ = r.onIdleTimeout(ctx)
@@ -3062,7 +3062,7 @@ func TestDeadlock_SlowExecutor_DoesNotBlockSystem(t *testing.T) {
 // =============================================================================
 // Deadlock: channel backpressure — criticalCh self-enqueue
 //
-// handleInterruption(Word) enqueues TTSInterruptPacket and LLMInterruptPacket
+// handleInterruption(Word) enqueues TextToSpeechInterruptPacket and LLMInterruptPacket
 // back to criticalCh while already running on the critical dispatcher.
 // If criticalCh is nearly full (e.g., from many concurrent idle timeouts),
 // this self-enqueue can block the critical dispatcher forever.

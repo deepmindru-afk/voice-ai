@@ -196,7 +196,7 @@ func (t *resembleaiTTS) Transform(ctx context.Context, in internal_type.Packet) 
 	t.mu.Unlock()
 
 	switch input := in.(type) {
-	case internal_type.TTSInterruptPacket:
+	case internal_type.TextToSpeechInterruptPacket:
 		t.mu.Lock()
 		t.contextId = ""
 		t.ttsStartedAt = time.Time{}
@@ -221,7 +221,7 @@ func (t *resembleaiTTS) Transform(ctx context.Context, in internal_type.Packet) 
 		// Fallback reconnect: handles Initialize() failure or an unintentional drop.
 		if connection == nil {
 			if err := t.Initialize(); err != nil {
-				t.onPacket(internal_type.TTSErrorPacket{
+				t.onPacket(internal_type.TextToSpeechErrorPacket{
 					ContextID: input.ContextID,
 					Error:     fmt.Errorf("resembleai-tts: failed to connect: %w", err),
 					Type:      internal_type.TTSNetworkTimeout,
@@ -250,7 +250,7 @@ func (t *resembleaiTTS) Transform(ctx context.Context, in internal_type.Packet) 
 			"no_audio_header": true,
 		}); err != nil {
 			t.logger.Errorf("resembleai-tts: unable to write json for text to speech: %v", err)
-			t.onPacket(internal_type.TTSErrorPacket{
+			t.onPacket(internal_type.TextToSpeechErrorPacket{
 				ContextID: input.ContextID,
 				Error:     fmt.Errorf("resembleai-tts: failed to write text: %w", err),
 				Type:      internal_type.TTSNetworkTimeout,

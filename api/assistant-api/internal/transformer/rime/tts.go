@@ -231,7 +231,7 @@ func (rt *rimeTTS) Transform(ctx context.Context, in internal_type.Packet) error
 	rt.mu.Unlock()
 
 	switch input := in.(type) {
-	case internal_type.TTSInterruptPacket:
+	case internal_type.TextToSpeechInterruptPacket:
 		// Close the current connection so any in-flight Rime audio is discarded.
 		// The old readLoop goroutine will exit. Reconnect now so the fresh
 		// connection is ready before the next text delta arrives.
@@ -261,7 +261,7 @@ func (rt *rimeTTS) Transform(ctx context.Context, in internal_type.Packet) error
 		// an unintentional connection drop between turns.
 		if connection == nil {
 			if err := rt.Initialize(); err != nil {
-				rt.onPacket(internal_type.TTSErrorPacket{
+				rt.onPacket(internal_type.TextToSpeechErrorPacket{
 					ContextID: input.ContextID,
 					Error:     fmt.Errorf("rime-tts: failed to connect: %w", err),
 					Type:      internal_type.TTSNetworkTimeout,
@@ -283,7 +283,7 @@ func (rt *rimeTTS) Transform(ctx context.Context, in internal_type.Packet) error
 		}
 		if err := connection.WriteJSON(map[string]interface{}{"text": input.Text}); err != nil {
 			rt.logger.Errorf("rime-tts: write failed: %v", err)
-			rt.onPacket(internal_type.TTSErrorPacket{
+			rt.onPacket(internal_type.TextToSpeechErrorPacket{
 				ContextID: input.ContextID,
 				Error:     fmt.Errorf("rime-tts: failed to write text: %w", err),
 				Type:      internal_type.TTSNetworkTimeout,
@@ -303,7 +303,7 @@ func (rt *rimeTTS) Transform(ctx context.Context, in internal_type.Packet) error
 		}
 		if err := connection.WriteJSON(map[string]interface{}{"operation": "eos"}); err != nil {
 			rt.logger.Errorf("rime-tts: flush failed: %v", err)
-			rt.onPacket(internal_type.TTSErrorPacket{
+			rt.onPacket(internal_type.TextToSpeechErrorPacket{
 				ContextID: input.ContextID,
 				Error:     fmt.Errorf("rime-tts: flush failed: %w", err),
 				Type:      internal_type.TTSNetworkTimeout,

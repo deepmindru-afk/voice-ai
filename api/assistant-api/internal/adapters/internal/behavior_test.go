@@ -335,7 +335,7 @@ func TestBehavior_OnError_DefaultMistakeMessage(t *testing.T) {
 	newID := r.GetID()
 	assert.NotEqual(t, "ctx-before-error", newID)
 
-	interrupt, ok := drainPacket[internal_type.TTSInterruptPacket](r.channels.ControlChannel(), time.Second)
+	interrupt, ok := drainPacket[internal_type.TextToSpeechInterruptPacket](r.channels.ControlChannel(), time.Second)
 	require.True(t, ok)
 	assert.Equal(t, newID, interrupt.ContextID)
 
@@ -452,7 +452,7 @@ func TestBehavior_OnIdleTimeout_Configured_EmitsInterruptInjectEventAndRestart(t
 	newID := r.GetID()
 	assert.NotEqual(t, "ctx-before-idle", newID)
 
-	interrupt, ok := drainPacket[internal_type.TTSInterruptPacket](r.channels.ControlChannel(), time.Second)
+	interrupt, ok := drainPacket[internal_type.TextToSpeechInterruptPacket](r.channels.ControlChannel(), time.Second)
 	require.True(t, ok)
 	assert.Equal(t, newID, interrupt.ContextID)
 

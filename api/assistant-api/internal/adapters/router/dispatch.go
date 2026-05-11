@@ -25,9 +25,9 @@ type DispatchHandler interface {
 	HandleEndOfSpeech(context.Context, internal_type.EndOfSpeechPacket)
 	HandleUserInput(context.Context, internal_type.UserInputPacket)
 	HandleInterruptionDetected(context.Context, internal_type.InterruptionDetectedPacket)
-	HandleTTSInterrupt(context.Context, internal_type.TTSInterruptPacket)
+	HandleTextToSpeechInterrupt(context.Context, internal_type.TextToSpeechInterruptPacket)
 	HandleLLMInterrupt(context.Context, internal_type.LLMInterruptPacket)
-	HandleSTTInterrupt(context.Context, internal_type.STTInterruptPacket)
+	HandleSpeechToTextInterrupt(context.Context, internal_type.SpeechToTextInterruptPacket)
 	HandleTurnChange(context.Context, internal_type.TurnChangePacket)
 	HandleLLMResponseDelta(context.Context, internal_type.LLMResponseDeltaPacket)
 	HandleLLMResponseDone(context.Context, internal_type.LLMResponseDonePacket)
@@ -123,12 +123,12 @@ func DispatchPacket(ctx context.Context, p internal_type.Packet, handler Dispatc
 		handler.HandleUserInput(ctx, vl)
 	case internal_type.InterruptionDetectedPacket:
 		handler.HandleInterruptionDetected(ctx, vl)
-	case internal_type.TTSInterruptPacket:
-		handler.HandleTTSInterrupt(ctx, vl)
+	case internal_type.TextToSpeechInterruptPacket:
+		handler.HandleTextToSpeechInterrupt(ctx, vl)
 	case internal_type.LLMInterruptPacket:
 		handler.HandleLLMInterrupt(ctx, vl)
-	case internal_type.STTInterruptPacket:
-		handler.HandleSTTInterrupt(ctx, vl)
+	case internal_type.SpeechToTextInterruptPacket:
+		handler.HandleSpeechToTextInterrupt(ctx, vl)
 	case internal_type.TurnChangePacket:
 		handler.HandleTurnChange(ctx, vl)
 	case internal_type.LLMResponseDeltaPacket:

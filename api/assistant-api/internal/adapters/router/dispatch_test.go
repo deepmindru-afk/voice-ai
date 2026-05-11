@@ -29,10 +29,12 @@ func (s *dispatchHandlerStub) HandleEndOfSpeech(context.Context, internal_type.E
 func (s *dispatchHandlerStub) HandleUserInput(context.Context, internal_type.UserInputPacket)     {}
 func (s *dispatchHandlerStub) HandleInterruptionDetected(context.Context, internal_type.InterruptionDetectedPacket) {
 }
-func (s *dispatchHandlerStub) HandleTTSInterrupt(context.Context, internal_type.TTSInterruptPacket) {}
+func (s *dispatchHandlerStub) HandleTextToSpeechInterrupt(context.Context, internal_type.TextToSpeechInterruptPacket) {
+}
 func (s *dispatchHandlerStub) HandleLLMInterrupt(context.Context, internal_type.LLMInterruptPacket) {}
-func (s *dispatchHandlerStub) HandleSTTInterrupt(context.Context, internal_type.STTInterruptPacket) {}
-func (s *dispatchHandlerStub) HandleTurnChange(context.Context, internal_type.TurnChangePacket)     {}
+func (s *dispatchHandlerStub) HandleSpeechToTextInterrupt(context.Context, internal_type.SpeechToTextInterruptPacket) {
+}
+func (s *dispatchHandlerStub) HandleTurnChange(context.Context, internal_type.TurnChangePacket) {}
 func (s *dispatchHandlerStub) HandleLLMResponseDelta(context.Context, internal_type.LLMResponseDeltaPacket) {
 }
 func (s *dispatchHandlerStub) HandleLLMResponseDone(context.Context, internal_type.LLMResponseDonePacket) {

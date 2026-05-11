@@ -27,9 +27,9 @@ func Classify(p internal_type.Packet) Route {
 	switch p.(type) {
 	// Critical — interrupts, tool lifecycle
 	case internal_type.InterruptionDetectedPacket,
-		internal_type.TTSInterruptPacket,
+		internal_type.TextToSpeechInterruptPacket,
 		internal_type.LLMInterruptPacket,
-		internal_type.STTInterruptPacket,
+		internal_type.SpeechToTextInterruptPacket,
 		internal_type.TurnChangePacket:
 		return RouteControl
 
