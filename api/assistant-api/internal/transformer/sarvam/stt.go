@@ -235,9 +235,6 @@ func (cst *sarvamSpeechToText) Transform(ctx context.Context, in internal_type.P
 			cst.mu.Unlock()
 			return nil
 		}
-
-		// Gorilla websocket connections allow one concurrent writer only.
-		// Serialize writes to avoid "concurrent write to websocket connection" panics.
 		err = connection.WriteMessage(websocket.TextMessage, vl)
 		cst.mu.Unlock()
 		if err != nil {
@@ -245,11 +242,10 @@ func (cst *sarvamSpeechToText) Transform(ctx context.Context, in internal_type.P
 			cst.onPacket(internal_type.STTErrorPacket{
 				ContextID: ctxID,
 				Error:     fmt.Errorf("sarvam-stt: send failed: %w", err),
-				Type:      internal_type.STTNetworkTimeout,
+				Type:      internal_type.STTSystemPanic,
 			})
 			return nil
 		}
-
 		return nil
 	default:
 		return nil

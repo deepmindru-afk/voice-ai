@@ -81,7 +81,10 @@ func (t *genericRequestor) Talk(_ context.Context, auth types.SimplePrinciple) e
 			if t.Conversation() == nil {
 				return nil
 			}
+			// notify the client of disconnection before enqueuing the disconnect chain
+			t.Notify(t.sessionCtx, payload)
 			t.OnStreamDisconnection(totalTime, payload)
+
 		}
 
 	}

@@ -200,7 +200,7 @@ func (vng *vonageWebsocketStreamer) Send(response internal_type.Stream) error {
 			})
 		}
 	default:
-		vng.Logger.Warnw("Vonage Send: unknown message type, skipping", "type", fmt.Sprintf("%T", response))
+		// vng.Logger.Warnw("Vonage Send: unknown message type, skipping", "type", fmt.Sprintf("%T", response))
 	}
 	return nil
 }

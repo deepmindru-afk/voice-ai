@@ -141,7 +141,6 @@ type genericRequestor struct {
 	// the disconnect chain has fully drained. No other call site should invoke it.
 	sessionCtx    context.Context
 	cancelSession context.CancelFunc
-
 	// channel registry with semantic names.
 	channels adapter_channel.RequestorChannelBus
 }
