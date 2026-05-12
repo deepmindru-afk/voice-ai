@@ -35,7 +35,6 @@ func (assistantApi *assistantGrpcApi) GetAssistantAuthentication(
 			"Unable to get assistant authentication for the given assistant id.",
 		)
 	}
-	assistantApi.logger.Debugf("got assistant authentication for assistant id %+v", authConfig)
 	out := &protos.AssistantAuthentication{}
 	if err = utils.Cast(authConfig, out); err != nil {
 		assistantApi.logger.Errorf("unable to cast assistant authentication %v", err)
